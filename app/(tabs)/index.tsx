@@ -9,8 +9,8 @@ import { colors, spacing } from '../../constants/theme';
 export default function LogScreen() {
   const { workouts, isLoading } = useWorkoutStore();
 
-  // Get recent workouts (last 7 days)
-  const recentWorkouts = workouts.slice(0, 10);
+  // Get 5 most recent workouts
+  const recentWorkouts = workouts.slice(0, 5);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -35,7 +35,7 @@ export default function LogScreen() {
               Recent Workouts
             </Text>
             {recentWorkouts.length > 0 ? (
-              <WorkoutList workouts={recentWorkouts} />
+              <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
             ) : (
               <Surface style={styles.emptyState} elevation={0}>
                 <Text variant="bodyMedium" style={styles.emptyText}>

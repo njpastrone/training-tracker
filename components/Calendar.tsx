@@ -1,7 +1,8 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths, isSameMonth, isToday, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths, isSameMonth, isToday, parseISO, isFuture } from 'date-fns';
 import { useState, useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { Workout } from '../types/workout';
 import { colors, spacing } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function Calendar({ workouts, onDateSelect }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const router = useRouter();
 
   const workoutDates = useMemo(() => {
     return new Set(workouts.map((w) => w.date));
@@ -74,6 +76,15 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
           const hasWorkout = workoutDates.has(dateStr);
           const isCurrentDay = isToday(day);
           const isCurrentMonth = isSameMonth(day, currentMonth);
+          const isFutureDay = isFuture(day);
+          
+          const handlePress = () => {
+            if (onDateSelect) {
+              onDateSelect(dateStr);
+            } else {
+              router.push(`/day/${dateStr}`);
+            }
+          };
 
           return (
             <TouchableOpacity
@@ -83,8 +94,8 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
                 hasWorkout && styles.workoutDay,
                 isCurrentDay && styles.today,
               ]}
-              onPress={() => onDateSelect?.(dateStr)}
-              disabled={!hasWorkout}
+              onPress={handlePress}
+              disabled={isFutureDay}
             >
               <Text
                 variant="bodyMedium"
@@ -93,6 +104,7 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
                   hasWorkout && styles.workoutDayText,
                   isCurrentDay && styles.todayText,
                   !isCurrentMonth && styles.otherMonthText,
+                  isFutureDay && styles.futureDay,
                 ]}
               >
                 {format(day, 'd')}
@@ -180,6 +192,9 @@ const styles = StyleSheet.create({
   },
   otherMonthText: {
     color: colors.disabled,
+  },
+  futureDay: {
+    opacity: 0.3,
   },
   legend: {
     flexDirection: 'row',

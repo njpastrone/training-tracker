@@ -53,10 +53,13 @@ export default function HistoryScreen() {
           </View>
         </Surface>
 
-        {/* Calendar */}
+        {/* Calendar - now with clickable days */}
         <Surface style={styles.calendarCard} elevation={1}>
           <Text variant="titleMedium" style={styles.sectionTitle}>
             Workout Calendar
+          </Text>
+          <Text variant="bodySmall" style={styles.calendarHint}>
+            Tap any day to view or add workouts
           </Text>
           <Calendar workouts={workouts} />
         </Surface>
@@ -130,6 +133,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  calendarHint: {
+    color: colors.textSecondary,
     marginBottom: spacing.md,
   },
   longestStreak: {
