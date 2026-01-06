@@ -1,6 +1,7 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text, Surface, Chip } from 'react-native-paper';
 import { format, parseISO } from 'date-fns';
+import { useRouter } from 'expo-router';
 import { Workout } from '../types/workout';
 import { colors, spacing, muscleGroupColors } from '../constants/theme';
 
@@ -10,11 +11,26 @@ interface Props {
 }
 
 export default function WorkoutCard({ workout, onPress }: Props) {
+  const router = useRouter();
   const formattedDate = format(parseISO(workout.date), 'EEEE, MMM d');
   const exerciseCount = workout.exercises.length;
 
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(`/workout/${workout.id}`);
+    }
+  };
+
   return (
-    <Surface style={styles.card} elevation={1} onTouchEnd={onPress}>
+    <Pressable 
+      onPress={handlePress}
+      style={({ pressed }) => [
+        { opacity: pressed ? 0.7 : 1 }
+      ]}
+    >
+      <Surface style={styles.card} elevation={1} pointerEvents="box-only">
       <View style={styles.header}>
         <Text variant="titleMedium" style={styles.date}>
           {formattedDate}
@@ -55,6 +71,7 @@ export default function WorkoutCard({ workout, onPress }: Props) {
         )}
       </View>
     </Surface>
+    </Pressable>
   );
 }
 
@@ -85,10 +102,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   chip: {
-    height: 26,
+    height: 32,
   },
   chipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
   },

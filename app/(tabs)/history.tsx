@@ -6,7 +6,8 @@ import Calendar from '../../components/Calendar';
 import { colors, spacing } from '../../constants/theme';
 
 export default function HistoryScreen() {
-  const { workouts, stats } = useWorkoutStore();
+  const { workouts, getStats } = useWorkoutStore();
+  const stats = getStats();
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

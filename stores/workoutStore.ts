@@ -10,15 +10,13 @@ interface WorkoutState {
   isLoading: boolean;
   error: string | null;
 
-  // Computed
-  stats: WorkoutStats;
-
   // Actions
   addWorkout: (workout: Workout) => void;
   updateWorkout: (id: string, updates: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
   getWorkoutsByDate: (date: string) => Workout[];
   getWorkoutDates: () => Set<string>;
+  getStats: () => WorkoutStats;
   updateSettings: (settings: Partial<UserSettings>) => void;
   clearAllData: () => Promise<void>;
   setLoading: (loading: boolean) => void;
@@ -129,7 +127,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       isLoading: false,
       error: null,
 
-      get stats() {
+      getStats: () => {
         return calculateStats(get().workouts);
       },
 

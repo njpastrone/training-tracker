@@ -81,7 +81,7 @@ export default function WorkoutInput() {
         style={styles.button}
         contentStyle={styles.buttonContent}
       >
-        {isLoading ? 'Logging...' : 'Log Workout'}
+        {isLoading ? 'Processing with AI...' : 'Log Workout'}
       </Button>
     </View>
   );
