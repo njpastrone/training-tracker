@@ -3,8 +3,9 @@ import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-
 import { Text, TextInput, IconButton, FAB, Appbar, Chip, Menu, Button, Divider } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../../stores/workoutStore';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Exercise, MuscleGroup, Workout } from '../../types/workout';
-import { colors, spacing } from '../../constants/theme';
+import { spacing } from '../../constants/theme';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,6 +19,7 @@ export default function WorkoutEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate } = useWorkoutStore();
+  const { colors } = useTheme();
   
   const workout = workouts.find(w => w.id === id);
   const [exercises, setExercises] = useState<Exercise[]>(workout?.exercises || []);
@@ -149,7 +151,7 @@ export default function WorkoutEditScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Edit Workout" />
@@ -161,7 +163,7 @@ export default function WorkoutEditScreen() {
         <View style={styles.content}>
           <Pressable onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
             <View style={styles.dateRow}>
-              <Text variant="titleLarge" style={styles.date}>
+              <Text variant="titleLarge" style={[styles.date, { color: colors.text }]}>
                 {format(workoutDate, 'EEEE, MMMM d')}
               </Text>
               <IconButton icon="calendar" size={24} />
@@ -179,12 +181,12 @@ export default function WorkoutEditScreen() {
           )}
 
           <View style={styles.section}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
               Exercises
             </Text>
             
             {exercises.map((exercise, index) => (
-              <View key={exercise.id} style={styles.exerciseCard}>
+              <View key={exercise.id} style={[styles.exerciseCard, { backgroundColor: colors.surface }]}>
                 <View style={styles.exerciseHeader}>
                   <TextInput
                     mode="flat"
@@ -249,7 +251,7 @@ export default function WorkoutEditScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
               Notes
             </Text>
             <TextInput
@@ -303,7 +305,6 @@ function MuscleGroupSelector({ selected, onSelect }: { selected: MuscleGroup; on
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -320,7 +321,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   date: {
-    color: colors.text,
     flex: 1,
   },
   section: {
@@ -328,10 +328,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: spacing.sm,
-    color: colors.text,
   },
   exerciseCard: {
-    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.sm,

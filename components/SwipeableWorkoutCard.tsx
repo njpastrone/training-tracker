@@ -4,7 +4,8 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Text, IconButton } from 'react-native-paper';
 import WorkoutCard from './WorkoutCard';
 import { Workout } from '../types/workout';
-import { colors, spacing } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { spacing } from '../constants/theme';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,6 +18,7 @@ interface Props {
 export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
   const router = useRouter();
   const { deleteWorkout, addWorkout } = useWorkoutStore();
+  const { colors } = useTheme();
   let swipeableRef: Swipeable | null = null;
 
   const handleDuplicate = () => {
@@ -64,7 +66,7 @@ export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
 
   const renderLeftActions = () => {
     return (
-      <View style={styles.leftAction}>
+      <View style={[styles.leftAction, { backgroundColor: colors.success }]}>
         <IconButton
           icon="content-copy"
           size={24}
@@ -78,7 +80,7 @@ export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
 
   const renderRightActions = () => {
     return (
-      <View style={styles.rightAction}>
+      <View style={[styles.rightAction, { backgroundColor: colors.error }]}>
         <IconButton
           icon="delete"
           size={24}
@@ -108,7 +110,6 @@ export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
 
 const styles = StyleSheet.create({
   leftAction: {
-    backgroundColor: colors.success,
     justifyContent: 'center',
     alignItems: 'center',
     width: 100,
@@ -117,7 +118,6 @@ const styles = StyleSheet.create({
     marginRight: -spacing.xs,
   },
   rightAction: {
-    backgroundColor: colors.error,
     justifyContent: 'center',
     alignItems: 'center',
     width: 100,

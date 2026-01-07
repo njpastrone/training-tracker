@@ -71,8 +71,14 @@ export interface WorkoutStats {
   totalWorkouts: number;
   thisWeek: number;
   thisMonth: number;
+  thisYear: number;
+  averagePerWeek: number;
   streak: WorkoutStreak;
   workoutsByMuscleGroup: Record<MuscleGroup, number>;
+  workoutsByDayOfWeek: Record<string, number>;
+  mostTrainedMuscleGroup: { group: MuscleGroup; count: number } | null;
+  leastTrainedMuscleGroup: { group: MuscleGroup; count: number } | null;
+  favoriteDay: { day: string; count: number } | null;
 }
 
 // Response from Claude API parsing

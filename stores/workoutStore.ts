@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup } from '../types/workout';
-import { format, startOfWeek, startOfMonth, differenceInDays, parseISO, isAfter, subDays } from 'date-fns';
+import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
 
 interface WorkoutState {
   workouts: Workout[];
@@ -88,6 +88,7 @@ function calculateStats(workouts: Workout[]): WorkoutStats {
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const monthStart = startOfMonth(today);
+  const yearStart = startOfYear(today);
 
   const thisWeek = workouts.filter((w) =>
     isAfter(parseISO(w.date), weekStart) || format(parseISO(w.date), 'yyyy-MM-dd') === format(weekStart, 'yyyy-MM-dd')
@@ -97,6 +98,16 @@ function calculateStats(workouts: Workout[]): WorkoutStats {
     isAfter(parseISO(w.date), monthStart) || format(parseISO(w.date), 'yyyy-MM-dd') === format(monthStart, 'yyyy-MM-dd')
   ).length;
 
+  const thisYear = workouts.filter((w) =>
+    isAfter(parseISO(w.date), yearStart) || format(parseISO(w.date), 'yyyy-MM-dd') === format(yearStart, 'yyyy-MM-dd')
+  ).length;
+
+  // Calculate average workouts per week (over last 4 weeks)
+  const fourWeeksAgo = subDays(today, 28);
+  const recentWorkouts = workouts.filter((w) => isAfter(parseISO(w.date), fourWeeksAgo));
+  const averagePerWeek = Math.round((recentWorkouts.length / 4) * 10) / 10;
+
+  // Muscle group analysis
   const workoutsByMuscleGroup = workouts.reduce((acc, workout) => {
     workout.muscleGroups.forEach((group) => {
       acc[group] = (acc[group] || 0) + 1;
@@ -104,18 +115,48 @@ function calculateStats(workouts: Workout[]): WorkoutStats {
     return acc;
   }, {} as Record<MuscleGroup, number>);
 
+  // Find most and least trained muscle groups (only if there are workouts)
+  const muscleGroupEntries = Object.entries(workoutsByMuscleGroup) as [MuscleGroup, number][];
+  const mostTrainedMuscleGroup = muscleGroupEntries.length > 0 
+    ? muscleGroupEntries.reduce((max, curr) => curr[1] > max[1] ? curr : max)
+    : null;
+  const leastTrainedMuscleGroup = muscleGroupEntries.length > 0
+    ? muscleGroupEntries.reduce((min, curr) => curr[1] < min[1] ? curr : min)
+    : null;
+
+  // Day of week analysis
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const workoutsByDayOfWeek = workouts.reduce((acc, workout) => {
+    const dayOfWeek = getDay(parseISO(workout.date));
+    const dayName = dayNames[dayOfWeek];
+    acc[dayName] = (acc[dayName] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Find favorite day
+  const dayEntries = Object.entries(workoutsByDayOfWeek);
+  const favoriteDay = dayEntries.length > 0
+    ? dayEntries.reduce((max, curr) => curr[1] > max[1] ? curr : max)
+    : null;
+
   return {
     totalWorkouts: workouts.length,
     thisWeek,
     thisMonth,
+    thisYear,
+    averagePerWeek,
     streak: calculateStreak(workouts),
     workoutsByMuscleGroup,
+    workoutsByDayOfWeek,
+    mostTrainedMuscleGroup: mostTrainedMuscleGroup ? { group: mostTrainedMuscleGroup[0], count: mostTrainedMuscleGroup[1] } : null,
+    leastTrainedMuscleGroup: leastTrainedMuscleGroup ? { group: leastTrainedMuscleGroup[0], count: leastTrainedMuscleGroup[1] } : null,
+    favoriteDay: favoriteDay ? { day: favoriteDay[0], count: favoriteDay[1] } : null,
   };
 }
 
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
-  theme: 'light',
+  theme: 'system',
   showStreakNotifications: true,
 };
 

@@ -2,40 +2,43 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Surface, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { spacing } from '../../constants/theme';
 
 export default function CoachScreen() {
+  const { colors } = useTheme();
+  
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
       <View style={styles.content}>
-        <Surface style={styles.card} elevation={1}>
-          <View style={styles.iconContainer}>
+        <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
+          <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
             <Ionicons name="fitness" size={64} color={colors.primary} />
           </View>
 
-          <Text variant="headlineMedium" style={styles.title}>
+          <Text variant="headlineMedium" style={[styles.title, { color: colors.text }]}>
             AI Coach
           </Text>
 
-          <View style={styles.comingSoonBadge}>
+          <View style={[styles.comingSoonBadge, { backgroundColor: colors.accent }]}>
             <Text variant="labelLarge" style={styles.comingSoonText}>
               Coming Soon
             </Text>
           </View>
 
-          <Text variant="bodyLarge" style={styles.description}>
+          <Text variant="bodyLarge" style={[styles.description, { color: colors.textSecondary }]}>
             Get personalized workout advice, form tips, and training recommendations powered by AI.
           </Text>
 
           <View style={styles.featureList}>
-            <FeatureItem icon="chatbubble-outline" text="Ask workout questions" />
-            <FeatureItem icon="analytics-outline" text="Get personalized tips" />
-            <FeatureItem icon="bulb-outline" text="Improve your form" />
-            <FeatureItem icon="trending-up-outline" text="Optimize your training" />
+            <FeatureItem icon="chatbubble-outline" text="Ask workout questions" colors={colors} />
+            <FeatureItem icon="analytics-outline" text="Get personalized tips" colors={colors} />
+            <FeatureItem icon="bulb-outline" text="Improve your form" colors={colors} />
+            <FeatureItem icon="trending-up-outline" text="Optimize your training" colors={colors} />
           </View>
         </Surface>
 
-        <Text variant="bodySmall" style={styles.footnote}>
+        <Text variant="bodySmall" style={[styles.footnote, { color: colors.textSecondary }]}>
           We're working hard to bring you the best AI coaching experience. Stay tuned!
         </Text>
       </View>
@@ -43,20 +46,16 @@ export default function CoachScreen() {
   );
 }
 
-function FeatureItem({ icon, text }: { icon: string; text: string }) {
+function FeatureItem({ icon, text, colors }: { icon: string; text: string; colors: any }) {
   return (
     <View style={styles.featureItem}>
       <Ionicons name={icon as any} size={20} color={colors.primary} />
-      <Text variant="bodyMedium" style={styles.featureText}>{text}</Text>
+      <Text variant="bodyMedium" style={[styles.featureText, { color: colors.text }]}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   content: {
     flex: 1,
     padding: spacing.md,
@@ -65,25 +64,21 @@ const styles = StyleSheet.create({
   card: {
     padding: spacing.xl,
     borderRadius: 16,
-    backgroundColor: colors.surface,
     alignItems: 'center',
   },
   iconContainer: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
   title: {
-    color: colors.text,
     fontWeight: '700',
     marginBottom: spacing.sm,
   },
   comingSoonBadge: {
-    backgroundColor: colors.accent,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 20,
@@ -94,7 +89,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   description: {
-    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -109,10 +103,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   featureText: {
-    color: colors.text,
+    // color applied dynamically
   },
   footnote: {
-    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.lg,
   },

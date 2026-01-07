@@ -3,7 +3,8 @@ import { Text, Surface, Chip, IconButton } from 'react-native-paper';
 import { format, parseISO } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Workout, MuscleGroup } from '../types/workout';
-import { colors, spacing, muscleGroupColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { spacing, muscleGroupColors } from '../constants/theme';
 
 interface Props {
   date: string;
@@ -12,6 +13,7 @@ interface Props {
 
 export default function GroupedWorkoutCard({ date, workouts }: Props) {
   const router = useRouter();
+  const { colors } = useTheme();
   const formattedDate = format(parseISO(date), 'EEEE, MMM d');
   
   // Combine all exercises from all workouts
@@ -24,13 +26,13 @@ export default function GroupedWorkoutCard({ date, workouts }: Props) {
   const isMultiSession = workouts.length > 1;
 
   return (
-    <Surface style={styles.card} elevation={1}>
+    <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
       <View style={styles.header}>
         <View>
-          <Text variant="titleMedium" style={styles.date}>
+          <Text variant="titleMedium" style={[styles.date, { color: colors.text }]}>
             {formattedDate}
           </Text>
-          <Text variant="bodySmall" style={styles.count}>
+          <Text variant="bodySmall" style={[styles.count, { color: colors.textSecondary }]}>
             {totalExercises} exercise{totalExercises !== 1 ? 's' : ''}
             {isMultiSession && ` • ${workouts.length} sessions`}
           </Text>
@@ -53,27 +55,27 @@ export default function GroupedWorkoutCard({ date, workouts }: Props) {
         ))}
       </View>
 
-      <View style={styles.sessions}>
+      <View style={[styles.sessions, { borderTopColor: colors.border }]}>
         {workouts.map((workout, index) => (
           <Pressable 
             key={workout.id}
             onPress={() => router.push(`/workout/${workout.id}`)}
             style={({ pressed }) => [
               styles.sessionCard,
-              { opacity: pressed ? 0.7 : 1 }
+              { opacity: pressed ? 0.7 : 1, borderBottomColor: colors.border }
             ]}
           >
             <View style={styles.sessionContent}>
               <View style={styles.exerciseList}>
                 {workout.exercises.slice(0, 2).map((exercise) => (
-                  <Text key={exercise.id} variant="bodySmall" style={styles.exerciseText}>
+                  <Text key={exercise.id} variant="bodySmall" style={[styles.exerciseText, { color: colors.textSecondary }]}>
                     {exercise.name}
                     {exercise.sets && exercise.reps && ` - ${exercise.sets}x${exercise.reps}`}
                     {exercise.weight && ` @ ${exercise.weight}${exercise.unit || 'lbs'}`}
                   </Text>
                 ))}
                 {workout.exercises.length > 2 && (
-                  <Text variant="bodySmall" style={styles.moreText}>
+                  <Text variant="bodySmall" style={[styles.moreText, { color: colors.primary }]}>
                     +{workout.exercises.length - 2} more
                   </Text>
                 )}
@@ -90,7 +92,6 @@ export default function GroupedWorkoutCard({ date, workouts }: Props) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
-    backgroundColor: colors.surface,
     marginBottom: spacing.sm,
     overflow: 'hidden',
   },
@@ -102,11 +103,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   date: {
-    color: colors.text,
     fontWeight: '600',
   },
   count: {
-    color: colors.textSecondary,
     marginTop: 2,
   },
   muscleGroups: {
@@ -126,11 +125,9 @@ const styles = StyleSheet.create({
   },
   sessions: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   sessionCard: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   sessionContent: {
     flexDirection: 'row',
@@ -143,10 +140,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   exerciseText: {
-    color: colors.textSecondary,
+    // color applied dynamically
   },
   moreText: {
-    color: colors.primary,
     fontWeight: '500',
     marginTop: 2,
   },

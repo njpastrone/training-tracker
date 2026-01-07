@@ -3,8 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { TextInput, Button, HelperText } from 'react-native-paper';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { useTheme } from '../contexts/ThemeContext';
 import { parseWorkout } from '../services/claude';
-import { colors, spacing } from '../constants/theme';
+import { spacing } from '../constants/theme';
 import { format } from 'date-fns';
 
 export default function WorkoutInput() {
@@ -12,6 +13,7 @@ export default function WorkoutInput() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { addWorkout } = useWorkoutStore();
+  const { colors } = useTheme();
 
   const handleSubmit = async () => {
     if (!input.trim()) {
@@ -63,7 +65,7 @@ export default function WorkoutInput() {
         }}
         multiline
         numberOfLines={3}
-        style={styles.input}
+        style={[styles.input, { backgroundColor: colors.background }]}
         outlineColor={colors.border}
         activeOutlineColor={colors.primary}
         disabled={isLoading}
@@ -92,7 +94,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   input: {
-    backgroundColor: colors.background,
+    // backgroundColor applied dynamically
   },
   button: {
     marginTop: spacing.xs,

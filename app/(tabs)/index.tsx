@@ -4,16 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import WorkoutInput from '../../components/WorkoutInput';
 import WorkoutList from '../../components/WorkoutList';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { colors, spacing } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { spacing } from '../../constants/theme';
 
 export default function LogScreen() {
   const { workouts, isLoading } = useWorkoutStore();
+  const { colors } = useTheme();
 
   // Get 5 most recent workouts
   const recentWorkouts = workouts.slice(0, 5);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -23,22 +25,22 @@ export default function LogScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Surface style={styles.inputSection} elevation={1}>
-            <Text variant="headlineSmall" style={styles.greeting}>
+          <Surface style={[styles.inputSection, { backgroundColor: colors.surface }]} elevation={1}>
+            <Text variant="headlineSmall" style={[styles.greeting, { color: colors.text }]}>
               What'd you hit today?
             </Text>
             <WorkoutInput />
           </Surface>
 
           <View style={styles.recentSection}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
               Recent Workouts
             </Text>
             {recentWorkouts.length > 0 ? (
               <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
             ) : (
-              <Surface style={styles.emptyState} elevation={0}>
-                <Text variant="bodyMedium" style={styles.emptyText}>
+              <Surface style={[styles.emptyState, { backgroundColor: colors.surface }]} elevation={0}>
+                <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textSecondary }]}>
                   No workouts yet. Log your first workout above!
                 </Text>
               </Surface>
@@ -51,10 +53,6 @@ export default function LogScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   keyboardView: {
     flex: 1,
   },
@@ -67,11 +65,9 @@ const styles = StyleSheet.create({
   inputSection: {
     padding: spacing.lg,
     borderRadius: 16,
-    backgroundColor: colors.surface,
     marginBottom: spacing.lg,
   },
   greeting: {
-    color: colors.text,
     fontWeight: '600',
     marginBottom: spacing.md,
   },
@@ -79,18 +75,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sectionTitle: {
-    color: colors.text,
     fontWeight: '600',
     marginBottom: spacing.md,
   },
   emptyState: {
     padding: spacing.xl,
     borderRadius: 12,
-    backgroundColor: colors.surface,
     alignItems: 'center',
   },
   emptyText: {
-    color: colors.textSecondary,
     textAlign: 'center',
   },
 });

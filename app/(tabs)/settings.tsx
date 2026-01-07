@@ -3,10 +3,12 @@ import { Text, Surface, List, Switch, Divider, Button } from 'react-native-paper
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { colors, spacing } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { spacing, darkColors } from '../../constants/theme';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings } = useWorkoutStore();
+  const { colors, themeMode, setThemeMode } = useTheme();
   const [isClearing, setIsClearing] = useState(false);
 
   const handleClearData = () => {
@@ -35,13 +37,51 @@ export default function SettingsScreen() {
     });
   };
 
+  const toggleTheme = () => {
+    // Smart toggle: if in system mode, switch to opposite of current appearance
+    // Otherwise toggle between light and dark
+    let newMode: 'light' | 'dark';
+    
+    if (themeMode === 'system') {
+      // If system mode, toggle to opposite of current dark mode state
+      newMode = colors === darkColors ? 'light' : 'dark';
+    } else {
+      // Direct toggle between light and dark
+      newMode = themeMode === 'dark' ? 'light' : 'dark';
+    }
+    
+    setThemeMode(newMode);
+  };
+
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
       <View style={styles.content}>
-        <Surface style={styles.section} elevation={1}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
+        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
+          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
             Preferences
           </Text>
+          <List.Item
+            title="Theme"
+            description="Switch between Light and Dark modes"
+            left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
+            right={() => {
+              // Show what the button will switch TO
+              let buttonText;
+              if (themeMode === 'system') {
+                buttonText = colors === darkColors ? 'LIGHT' : 'DARK';
+              } else {
+                buttonText = themeMode === 'dark' ? 'LIGHT' : 'DARK';
+              }
+              
+              return (
+                <Button mode="outlined" onPress={toggleTheme} compact>
+                  {buttonText}
+                </Button>
+              );
+            }}
+          />
+          <Divider />
           <List.Item
             title="Weight Unit"
             description={settings.weightUnit === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}
@@ -69,8 +109,8 @@ export default function SettingsScreen() {
           />
         </Surface>
 
-        <Surface style={styles.section} elevation={1}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
+        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
+          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
             Data
           </Text>
           <List.Item
@@ -83,15 +123,15 @@ export default function SettingsScreen() {
           <List.Item
             title="Clear All Data"
             description="Delete all workouts and settings"
-            titleStyle={styles.dangerText}
+            titleStyle={{ color: colors.error }}
             left={(props) => <List.Icon {...props} icon="delete-outline" color={colors.error} />}
             onPress={handleClearData}
             disabled={isClearing}
           />
         </Surface>
 
-        <Surface style={styles.section} elevation={1}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
+        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
+          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
             About
           </Text>
           <List.Item
@@ -114,7 +154,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -123,16 +162,14 @@ const styles = StyleSheet.create({
   },
   section: {
     borderRadius: 16,
-    backgroundColor: colors.surface,
     overflow: 'hidden',
   },
   sectionTitle: {
-    color: colors.text,
     fontWeight: '600',
     padding: spacing.md,
     paddingBottom: spacing.sm,
   },
   dangerText: {
-    color: colors.error,
+    // Will be applied via theme colors
   },
 });

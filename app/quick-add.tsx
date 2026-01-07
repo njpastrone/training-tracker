@@ -3,8 +3,9 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, TextInput, Button, Appbar, HelperText } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { useTheme } from '../contexts/ThemeContext';
 import { parseWorkout } from '../services/claude';
-import { colors, spacing } from '../constants/theme';
+import { spacing } from '../constants/theme';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ export default function QuickAddScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
   const router = useRouter();
   const { addWorkout } = useWorkoutStore();
+  const { colors } = useTheme();
   
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +62,7 @@ export default function QuickAddScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Add Workout" />
@@ -72,10 +74,10 @@ export default function QuickAddScreen() {
       >
         <View style={styles.content}>
           <View style={styles.dateInfo}>
-            <Text variant="bodyLarge" style={styles.dateLabel}>
+            <Text variant="bodyLarge" style={[styles.dateLabel, { color: colors.textSecondary }]}>
               Adding workout for
             </Text>
-            <Text variant="headlineSmall" style={styles.date}>
+            <Text variant="headlineSmall" style={[styles.date, { color: colors.primary }]}>
               {dateLabel}
             </Text>
           </View>
@@ -90,7 +92,7 @@ export default function QuickAddScreen() {
             }}
             multiline
             numberOfLines={4}
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.surface }]}
             outlineColor={colors.border}
             activeOutlineColor={colors.primary}
             disabled={isLoading}
@@ -131,7 +133,6 @@ export default function QuickAddScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   keyboardView: {
     flex: 1,
@@ -146,15 +147,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   dateLabel: {
-    color: colors.textSecondary,
+    // color applied dynamically
   },
   date: {
-    color: colors.primary,
     fontWeight: '600',
     marginTop: spacing.xs,
   },
   input: {
-    backgroundColor: colors.surface,
     marginBottom: spacing.sm,
   },
   buttons: {
