@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing, darkColors } from '../../constants/theme';
+import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
-  const { clearAllData, settings, updateSettings } = useWorkoutStore();
+  const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
   const { colors, themeMode, setThemeMode } = useTheme();
+  const router = useRouter();
   const [isClearing, setIsClearing] = useState(false);
 
   const handleClearData = () => {
@@ -109,6 +111,18 @@ export default function SettingsScreen() {
                 color={colors.primary}
               />
             )}
+          />
+        </Surface>
+
+        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
+          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
+            Training
+          </Text>
+          <List.Item
+            title="Workout Templates"
+            description={`${templates.length} templates saved`}
+            left={(props) => <List.Icon {...props} icon="clipboard-text-outline" />}
+            onPress={() => router.push('/templates')}
           />
         </Surface>
 

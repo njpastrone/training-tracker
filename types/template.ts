@@ -1,0 +1,34 @@
+import { MuscleGroup } from './workout';
+
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  exercises: TemplateExercise[];
+  muscleGroups: MuscleGroup[];
+  createdAt: string;
+  lastUsed?: string;
+  usageCount: number;
+}
+
+export interface TemplateExercise {
+  name: string;
+  muscleGroup: MuscleGroup;
+  sets: number;
+  reps: number | string; // Allow "8-12" range format
+  weight?: number;
+  weightUnit?: 'lbs' | 'kg';
+  notes?: string;
+  restSeconds?: number;
+}
+
+export interface TemplateSchedule {
+  date: string; // ISO date
+  templateId: string;
+  isRecurring: boolean;
+  recurringPattern?: 'weekly' | 'biweekly' | 'monthly';
+  completed?: boolean;
+}
+
+export type CreateTemplateInput = Omit<WorkoutTemplate, 'id' | 'createdAt' | 'usageCount'>;
+export type UpdateTemplateInput = Partial<Omit<WorkoutTemplate, 'id' | 'createdAt'>>;

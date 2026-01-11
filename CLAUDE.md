@@ -20,13 +20,21 @@ data/             # Static data (exercises list)
 types/            # TypeScript type definitions
 stores/           # Zustand state stores
 constants/        # Theme, colors, config values
+contexts/         # React contexts (Theme)
+FEATURES.md       # Detailed feature implementation plans
 ```
 
 ## Key Features
 1. **Natural Language Input**: Users describe workouts in plain text
 2. **AI Parsing**: Claude API extracts structured workout data
 3. **Workout History**: Calendar view with streaks and frequency
-4. **Local Storage**: Data persists on device
+4. **AI Coach**: Personalized training analysis and recommendations
+5. **Local Storage**: Data persists on device
+
+## Upcoming Features
+See `FEATURES.md` for detailed implementation plans:
+- **Quick-Track**: Workout templates and calendar scheduling for streamlined logging
+- **Intra-Workout Trainer**: Context-aware AI guidance during workouts
 
 ## Coding Conventions
 - Use TypeScript strict mode

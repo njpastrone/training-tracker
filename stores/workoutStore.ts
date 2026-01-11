@@ -2,11 +2,14 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup } from '../types/workout';
+import { WorkoutTemplate } from '../types/template';
+import { templateService } from '../services/templates';
 import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
 
 interface WorkoutState {
   workouts: Workout[];
   settings: UserSettings;
+  templates: WorkoutTemplate[];
   isLoading: boolean;
   error: string | null;
 
@@ -21,6 +24,14 @@ interface WorkoutState {
   clearAllData: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  
+  // Template actions
+  loadTemplates: () => Promise<void>;
+  addTemplate: (template: WorkoutTemplate) => void;
+  updateTemplate: (id: string, updates: Partial<WorkoutTemplate>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  getTemplate: (id: string) => WorkoutTemplate | undefined;
+  markTemplateUsed: (id: string) => Promise<void>;
 }
 
 // Helper to calculate streak
@@ -165,6 +176,7 @@ export const useWorkoutStore = create<WorkoutState>()(
     (set, get) => ({
       workouts: [],
       settings: defaultSettings,
+      templates: [],
       isLoading: false,
       error: null,
 
@@ -220,6 +232,60 @@ export const useWorkoutStore = create<WorkoutState>()(
       setLoading: (loading) => set({ isLoading: loading }),
 
       setError: (error) => set({ error }),
+
+      // Template management
+      loadTemplates: async () => {
+        try {
+          const templates = await templateService.getTemplates();
+          set({ templates });
+        } catch (error) {
+          console.error('Error loading templates:', error);
+          set({ error: 'Failed to load templates' });
+        }
+      },
+
+      addTemplate: (template) => {
+        set((state) => ({
+          templates: [...state.templates, template],
+        }));
+      },
+
+      updateTemplate: async (id, updates) => {
+        try {
+          await templateService.updateTemplate(id, updates);
+          const templates = await templateService.getTemplates();
+          set({ templates });
+        } catch (error) {
+          console.error('Error updating template:', error);
+          set({ error: 'Failed to update template' });
+        }
+      },
+
+      deleteTemplate: async (id) => {
+        try {
+          await templateService.deleteTemplate(id);
+          set((state) => ({
+            templates: state.templates.filter(t => t.id !== id),
+          }));
+        } catch (error) {
+          console.error('Error deleting template:', error);
+          set({ error: 'Failed to delete template' });
+        }
+      },
+
+      getTemplate: (id) => {
+        return get().templates.find(t => t.id === id);
+      },
+
+      markTemplateUsed: async (id) => {
+        try {
+          await templateService.markTemplateUsed(id);
+          const templates = await templateService.getTemplates();
+          set({ templates });
+        } catch (error) {
+          console.error('Error marking template as used:', error);
+        }
+      },
     }),
     {
       name: '@training-tracker/storage',
@@ -227,6 +293,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       partialize: (state) => ({
         workouts: state.workouts,
         settings: state.settings,
+        // Templates are stored separately via templateService
       }),
     }
   )

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ParsedWorkoutResponse, MuscleGroup, Exercise } from '../types/workout';
+import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 
 // Initialize Anthropic client
@@ -286,4 +287,155 @@ function fallbackParse(input: string): ParsedWorkoutResponse | null {
     muscleGroups: Array.from(detectedMuscleGroups),
     confidence: 0.3,
   };
+}
+
+const TEMPLATE_PARSING_PROMPT = `<role>
+You are a fitness template parser that converts natural language workout descriptions into structured exercise templates. Your expertise includes understanding various workout notations and exercise variations.
+</role>
+
+<task>
+Parse workout template descriptions into structured exercise data. Extract exercise names, sets, reps, and optional weights from various notation styles.
+</task>
+
+<exercise_database>
+${getExercisesByCategory()}
+</exercise_database>
+
+<parsing_patterns>
+Common notations to recognize:
+- "5x5" or "5 x 5" = 5 sets of 5 reps
+- "3x8-12" = 3 sets of 8-12 reps (range)
+- "4 sets of 10" = 4 sets of 10 reps
+- "@225" or "225lbs" or "100kg" = weight specification
+- "3x10@135" = 3 sets of 10 reps at 135 lbs
+- Exercise names can be abbreviated (bench = bench press, OHP = overhead press)
+</parsing_patterns>
+
+<output_format>
+Return ONLY a valid JSON array of exercise objects:
+[
+  {
+    "name": "Exercise Name",
+    "muscleGroup": "chest|back|shoulders|biceps|triceps|forearms|core|quads|hamstrings|glutes|calves|cardio|full_body",
+    "sets": 3,
+    "reps": "10", // can be number or range like "8-12"
+    "weight": 135, // optional, in lbs unless kg specified
+    "weightUnit": "lbs", // or "kg"
+    "notes": null // optional notes
+  }
+]
+</output_format>`;
+
+export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
+  try {
+    const client = getClient();
+
+    const response = await client.messages.create({
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 1024,
+      system: TEMPLATE_PARSING_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: `<template_description>
+${input}
+</template_description>
+
+Parse this workout template into structured exercises. Focus on extracting:
+1. Exercise names (match to database when possible)
+2. Sets and reps for each exercise
+3. Weights if specified
+4. Proper muscle group classification
+
+Return ONLY the JSON array of exercises.`,
+        },
+      ],
+    });
+
+    const textContent = response.content.find((c) => c.type === 'text');
+    if (!textContent || textContent.type !== 'text') {
+      throw new Error('No text content in template parsing response');
+    }
+
+    // Clean response and extract JSON
+    let jsonText = textContent.text.trim();
+    
+    // Find the JSON array boundaries
+    const jsonStart = jsonText.indexOf('[');
+    const jsonEnd = jsonText.lastIndexOf(']');
+    
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      jsonText = jsonText.substring(jsonStart, jsonEnd + 1);
+    }
+
+    const exercises: TemplateExercise[] = JSON.parse(jsonText);
+    
+    // Validate and clean the exercises
+    return exercises.map(exercise => ({
+      name: exercise.name,
+      muscleGroup: exercise.muscleGroup,
+      sets: Number(exercise.sets) || 3,
+      reps: exercise.reps || "10",
+      weight: exercise.weight ? Number(exercise.weight) : undefined,
+      weightUnit: exercise.weightUnit || 'lbs',
+      notes: exercise.notes || undefined,
+    }));
+
+  } catch (error) {
+    console.error('Error parsing template from NL:', error);
+    
+    // Fallback to basic parsing
+    return parseTemplateBasic(input);
+  }
+}
+
+// Basic template parsing without AI
+function parseTemplateBasic(input: string): TemplateExercise[] {
+  const exercises: TemplateExercise[] = [];
+  const lines = input.split(/[,\n]+/).map(line => line.trim()).filter(Boolean);
+  
+  for (const line of lines) {
+    // Try to extract sets x reps pattern
+    const setsRepsMatch = line.match(/(\d+)\s*[xX×]\s*(\d+(?:-\d+)?)/);
+    const weightMatch = line.match(/@?\s*(\d+)\s*(lbs?|kg)?/i);
+    
+    // Extract exercise name (everything before the numbers)
+    let exerciseName = line;
+    if (setsRepsMatch) {
+      exerciseName = line.substring(0, line.indexOf(setsRepsMatch[0])).trim();
+    }
+    
+    if (!exerciseName) continue;
+    
+    // Try to determine muscle group
+    const muscleGroup = detectMuscleGroupFromExercise(exerciseName);
+    
+    exercises.push({
+      name: exerciseName,
+      muscleGroup,
+      sets: setsRepsMatch ? parseInt(setsRepsMatch[1]) : 3,
+      reps: setsRepsMatch ? setsRepsMatch[2] : "10",
+      weight: weightMatch ? parseInt(weightMatch[1]) : undefined,
+      weightUnit: weightMatch && weightMatch[2]?.toLowerCase().includes('kg') ? 'kg' : 'lbs',
+    });
+  }
+  
+  return exercises;
+}
+
+function detectMuscleGroupFromExercise(exerciseName: string): MuscleGroup {
+  const lower = exerciseName.toLowerCase();
+  
+  if (lower.includes('bench') || lower.includes('chest') || lower.includes('fly')) return 'chest';
+  if (lower.includes('squat') || lower.includes('quad') || lower.includes('leg press')) return 'quads';
+  if (lower.includes('deadlift') || lower.includes('rdl') || lower.includes('hamstring')) return 'hamstrings';
+  if (lower.includes('row') || lower.includes('pull') || lower.includes('lat')) return 'back';
+  if (lower.includes('press') && !lower.includes('bench') && !lower.includes('leg')) return 'shoulders';
+  if (lower.includes('curl') || lower.includes('bicep')) return 'biceps';
+  if (lower.includes('tricep') || lower.includes('dip') || lower.includes('pushdown')) return 'triceps';
+  if (lower.includes('calf') || lower.includes('raise')) return 'calves';
+  if (lower.includes('ab') || lower.includes('plank') || lower.includes('core')) return 'core';
+  if (lower.includes('glute') || lower.includes('hip thrust')) return 'glutes';
+  
+  return 'full_body';
 }
