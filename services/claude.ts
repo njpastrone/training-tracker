@@ -169,59 +169,10 @@ export async function parseWorkout(input: string): Promise<ParsedWorkoutResponse
   try {
     const client = getClient();
 
-    const workoutSchema = {
-      type: "object",
-      properties: {
-        exercises: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              muscleGroup: { 
-                type: "string",
-                enum: ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "core", "quads", "hamstrings", "glutes", "calves", "cardio", "full_body"]
-              },
-              sets: { type: ["number", "null"] },
-              reps: { type: ["number", "null"] },
-              weight: { type: ["number", "null"] },
-              unit: { type: ["string", "null"], enum: ["lbs", "kg", null] },
-              duration: { type: ["number", "null"] }
-            },
-            required: ["name", "muscleGroup"],
-            additionalProperties: false
-          }
-        },
-        muscleGroups: {
-          type: "array",
-          items: {
-            type: "string",
-            enum: ["chest", "back", "shoulders", "biceps", "triceps", "forearms", "core", "quads", "hamstrings", "glutes", "calves", "cardio", "full_body"]
-          }
-        },
-        notes: { type: ["string", "null"] },
-        confidence: { type: "number", minimum: 0.0, maximum: 1.0 }
-      },
-      required: ["exercises", "muscleGroups", "confidence"],
-      additionalProperties: false
-    };
-
     const response = await client.messages.create({
       model: 'claude-3-5-haiku-20241022',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
-      // @ts-ignore - Beta feature headers
-      extra_headers: {
-        "anthropic-beta": "structured-outputs-2025-11-13"
-      },
-      output_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "workout_parse",
-          strict: true,
-          schema: workoutSchema
-        }
-      },
       messages: [
         {
           role: 'user',
@@ -229,7 +180,25 @@ export async function parseWorkout(input: string): Promise<ParsedWorkoutResponse
 ${input}
 </input_text>
 
-Please analyze the workout description above using your thinking framework. Parse it into the required JSON structure with high accuracy and appropriate confidence scoring.`,
+Please analyze the workout description above using your thinking framework. Parse it into the required JSON structure with high accuracy and appropriate confidence scoring.
+
+Return ONLY a valid JSON object with this structure:
+{
+  "exercises": [
+    {
+      "name": "exercise name",
+      "muscleGroup": "chest|back|shoulders|biceps|triceps|forearms|core|quads|hamstrings|glutes|calves|cardio|full_body",
+      "sets": number or null,
+      "reps": number or null,
+      "weight": number or null,
+      "unit": "lbs"|"kg"|null,
+      "duration": number or null
+    }
+  ],
+  "muscleGroups": ["array of muscle groups worked"],
+  "notes": "string or null",
+  "confidence": 0.0 to 1.0
+}`,
         },
       ],
     });

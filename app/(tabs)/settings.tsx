@@ -1,4 +1,4 @@
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Text, Surface, List, Switch, Divider, Button } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -56,7 +56,10 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <View style={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
           <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
             Preferences
@@ -146,7 +149,7 @@ export default function SettingsScreen() {
             left={(props) => <List.Icon {...props} icon="shield-check-outline" />}
           />
         </Surface>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -154,6 +157,10 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    padding: spacing.md,
+    gap: spacing.md,
   },
   content: {
     flex: 1,
@@ -163,6 +170,7 @@ const styles = StyleSheet.create({
   section: {
     borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontWeight: '600',
