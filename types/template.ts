@@ -23,11 +23,15 @@ export interface TemplateExercise {
 }
 
 export interface TemplateSchedule {
+  id: string;
   date: string; // ISO date
   templateId: string;
   isRecurring: boolean;
   recurringPattern?: 'weekly' | 'biweekly' | 'monthly';
-  completed?: boolean;
+  completed: boolean;
+  skipped?: boolean;
+  skipReason?: string;
+  completedWorkoutId?: string; // Reference to actual logged workout
 }
 
 export type CreateTemplateInput = Omit<WorkoutTemplate, 'id' | 'createdAt' | 'usageCount'>;

@@ -2,14 +2,16 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup } from '../types/workout';
-import { WorkoutTemplate } from '../types/template';
+import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
+import { scheduleService } from '../services/schedule';
 import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
 
 interface WorkoutState {
   workouts: Workout[];
   settings: UserSettings;
   templates: WorkoutTemplate[];
+  schedule: TemplateSchedule[];
   isLoading: boolean;
   error: string | null;
 
@@ -32,6 +34,15 @@ interface WorkoutState {
   deleteTemplate: (id: string) => Promise<void>;
   getTemplate: (id: string) => WorkoutTemplate | undefined;
   markTemplateUsed: (id: string) => Promise<void>;
+  
+  // Schedule actions
+  loadSchedule: () => Promise<void>;
+  scheduleWorkout: (date: string, templateId: string, isRecurring?: boolean, pattern?: 'weekly' | 'biweekly' | 'monthly') => Promise<void>;
+  cancelScheduledWorkout: (date: string) => Promise<void>;
+  markWorkoutCompleted: (date: string, workoutId?: string) => Promise<void>;
+  markWorkoutSkipped: (date: string, reason?: string) => Promise<void>;
+  getTodaysScheduledWorkout: () => TemplateSchedule | null;
+  getWeekSchedule: (weekStart: Date) => Promise<TemplateSchedule[]>;
 }
 
 // Helper to calculate streak
@@ -177,6 +188,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       workouts: [],
       settings: defaultSettings,
       templates: [],
+      schedule: [],
       isLoading: false,
       error: null,
 
@@ -286,6 +298,73 @@ export const useWorkoutStore = create<WorkoutState>()(
           console.error('Error marking template as used:', error);
         }
       },
+
+      // Schedule management
+      loadSchedule: async () => {
+        try {
+          const schedule = await scheduleService.getSchedule();
+          set({ schedule });
+        } catch (error) {
+          console.error('Error loading schedule:', error);
+          set({ error: 'Failed to load schedule' });
+        }
+      },
+
+      scheduleWorkout: async (date, templateId, isRecurring = false, pattern) => {
+        try {
+          const scheduledWorkout = await scheduleService.scheduleWorkout(date, templateId, isRecurring, pattern);
+          const schedule = await scheduleService.getSchedule();
+          set({ schedule });
+        } catch (error) {
+          console.error('Error scheduling workout:', error);
+          set({ error: 'Failed to schedule workout' });
+        }
+      },
+
+      cancelScheduledWorkout: async (date) => {
+        try {
+          await scheduleService.cancelScheduledWorkout(date);
+          const schedule = await scheduleService.getSchedule();
+          set({ schedule });
+        } catch (error) {
+          console.error('Error canceling scheduled workout:', error);
+          set({ error: 'Failed to cancel workout' });
+        }
+      },
+
+      markWorkoutCompleted: async (date, workoutId) => {
+        try {
+          await scheduleService.markWorkoutCompleted(date, workoutId);
+          const schedule = await scheduleService.getSchedule();
+          set({ schedule });
+        } catch (error) {
+          console.error('Error marking workout completed:', error);
+        }
+      },
+
+      markWorkoutSkipped: async (date, reason) => {
+        try {
+          await scheduleService.markWorkoutSkipped(date, reason);
+          const schedule = await scheduleService.getSchedule();
+          set({ schedule });
+        } catch (error) {
+          console.error('Error marking workout skipped:', error);
+        }
+      },
+
+      getTodaysScheduledWorkout: () => {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        return get().schedule.find(s => s.date === today && !s.completed && !s.skipped) || null;
+      },
+
+      getWeekSchedule: async (weekStart) => {
+        try {
+          return await scheduleService.getWeekSchedule(weekStart);
+        } catch (error) {
+          console.error('Error getting week schedule:', error);
+          return [];
+        }
+      },
     }),
     {
       name: '@training-tracker/storage',
@@ -293,7 +372,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       partialize: (state) => ({
         workouts: state.workouts,
         settings: state.settings,
-        // Templates are stored separately via templateService
+        // Templates and Schedule are stored separately via services
       }),
     }
   )

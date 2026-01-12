@@ -4,18 +4,21 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths,
 import { useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { Workout } from '../types/workout';
+import { TemplateSchedule } from '../types/template';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   workouts: Workout[];
+  schedule?: TemplateSchedule[];
+  onDatePress?: (date: string) => void;
   onDateSelect?: (date: string) => void;
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export default function Calendar({ workouts, onDateSelect }: Props) {
+export default function Calendar({ workouts, schedule = [], onDatePress, onDateSelect }: Props) {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const router = useRouter();
@@ -23,6 +26,14 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
   const workoutDates = useMemo(() => {
     return new Set(workouts.map((w) => w.date));
   }, [workouts]);
+
+  const scheduledDates = useMemo(() => {
+    return new Set(
+      schedule
+        .filter(s => !s.completed && !s.skipped)
+        .map(s => s.date)
+    );
+  }, [schedule]);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
@@ -76,12 +87,15 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
 
           const dateStr = format(day, 'yyyy-MM-dd');
           const hasWorkout = workoutDates.has(dateStr);
+          const hasScheduled = scheduledDates.has(dateStr);
           const isCurrentDay = isToday(day);
           const isCurrentMonth = isSameMonth(day, currentMonth);
           const isFutureDay = isFuture(day);
           
           const handlePress = () => {
-            if (onDateSelect) {
+            if (onDatePress) {
+              onDatePress(dateStr);
+            } else if (onDateSelect) {
               onDateSelect(dateStr);
             } else {
               router.push(`/day/${dateStr}`);
@@ -94,10 +108,10 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
               style={[
                 styles.dayCell,
                 hasWorkout && styles.workoutDay,
+                hasScheduled && styles.scheduledDay,
                 isCurrentDay && styles.today,
               ]}
               onPress={handlePress}
-              disabled={isFutureDay}
             >
               <Text
                 variant="bodyMedium"
@@ -105,10 +119,12 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
                   styles.dayText,
                   { color: colors.text }, // Base color: white in dark mode, dark in light mode
                   hasWorkout && !isCurrentDay && [styles.workoutDayText, { backgroundColor: colors.primary + '20', color: colors.primary }], // Workout days (not today): primary color text on subtle primary background
+                  hasScheduled && !hasWorkout && !isCurrentDay && [styles.scheduledDayText, { backgroundColor: colors.secondary + '20', color: colors.secondary }], // Scheduled days: secondary color
                   isCurrentDay && [styles.todayText, { borderColor: colors.text, color: colors.text }], // Today: always show border ring
                   isCurrentDay && hasWorkout && [styles.todayWithWorkoutText, { backgroundColor: colors.primary + '20', color: colors.primary }], // Today with workout: add subtle background
+                  isCurrentDay && hasScheduled && !hasWorkout && [styles.todayWithScheduleText, { backgroundColor: colors.secondary + '20', color: colors.secondary }], // Today with scheduled workout
                   !isCurrentMonth && [styles.otherMonthText, { color: colors.disabled }], // Other month days: disabled color
-                  isFutureDay && [styles.futureDay, { color: colors.disabled }], // Future days: disabled color
+                  isFutureDay && [styles.futureDay, { color: colors.text }], // Future days: enabled for scheduling
                 ]}
               >
                 {format(day, 'd')}
@@ -123,6 +139,10 @@ export default function Calendar({ workouts, onDateSelect }: Props) {
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, styles.workoutDot, { backgroundColor: colors.primary + '20', borderColor: colors.primary, borderWidth: 1 }]} />
           <Text variant="bodySmall" style={[styles.legendText, { color: colors.textSecondary }]}>Workout logged</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, styles.scheduledDot, { backgroundColor: colors.secondary + '20', borderColor: colors.secondary || '#FF6B6B', borderWidth: 1 }]} />
+          <Text variant="bodySmall" style={[styles.legendText, { color: colors.textSecondary }]}>Scheduled</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, styles.todayDot, { borderColor: colors.text }]} />
@@ -182,6 +202,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 32,
   },
+  scheduledDay: {},
+  scheduledDayText: {
+    fontWeight: '600',
+    lineHeight: 32,
+  },
   today: {},
   todayText: {
     borderWidth: 2,
@@ -192,10 +217,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 28,
   },
+  todayWithScheduleText: {
+    fontWeight: '600',
+    lineHeight: 28,
+  },
   otherMonthText: {
   },
   futureDay: {
-    opacity: 0.6,
+    opacity: 1, // Enable future days for scheduling
   },
   legend: {
     flexDirection: 'row',
@@ -216,6 +245,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   workoutDot: {
+  },
+  scheduledDot: {
   },
   todayDot: {
     borderWidth: 2,

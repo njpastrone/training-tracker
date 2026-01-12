@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WorkoutTemplate, TemplateExercise, CreateTemplateInput } from '../types/template';
 import { Workout } from '../types/workout';
-import { v4 as uuidv4 } from 'react-native-uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 const TEMPLATES_STORAGE_KEY = '@training-tracker/templates';
 
