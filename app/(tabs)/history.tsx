@@ -337,8 +337,7 @@ export default function HistoryScreen() {
       <Portal>
         <Dialog visible={scheduleDialogVisible} onDismiss={() => setScheduleDialogVisible(false)}>
           <Dialog.Title>Schedule Workout</Dialog.Title>
-          <Dialog.ScrollArea style={{ maxHeight: 400 }}>
-            <ScrollView>
+          <Dialog.ScrollArea style={{ maxHeight: 600, paddingBottom: 16 }}>
               <Dialog.Content>
             <Text style={{ marginBottom: 16 }}>
               {selectedDate && format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
@@ -462,19 +461,17 @@ export default function HistoryScreen() {
               {/* Enhanced day selection for custom days */}
               {recurringPattern === 'custom' && (
                 <View style={{ marginTop: 16 }}>
-                  <Text variant="bodySmall" style={{ marginBottom: 8 }}>
+                  <Text variant="bodySmall" style={{ marginBottom: 12 }}>
                     Select workout days:
                   </Text>
                   
-                  {/* Quick select presets for common workout patterns */}
-                  <Text variant="bodySmall" style={{ marginBottom: 8, opacity: 0.7 }}>
-                    Common patterns:
-                  </Text>
+                  {/* Quick preset buttons (horizontal) */}
                   <ScrollView 
                     horizontal 
                     showsHorizontalScrollIndicator={false}
-                    style={{ marginBottom: 12 }}
+                    style={{ marginBottom: 16 }}
                     contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+                    nestedScrollEnabled={true}
                   >
                     {dayPresets.map((preset, index) => {
                       const isSelected = arraysEqual(selectedDays, preset.days);
@@ -484,11 +481,8 @@ export default function HistoryScreen() {
                           mode={isSelected ? "contained" : "outlined"}
                           compact
                           onPress={() => setSelectedDays(preset.days)}
-                          style={{ 
-                            borderRadius: 20,
-                            minWidth: 100,
-                          }}
-                          contentStyle={{ paddingHorizontal: 8 }}
+                          style={{ borderRadius: 20 }}
+                          contentStyle={{ paddingHorizontal: 12 }}
                         >
                           {preset.name}
                         </Button>
@@ -498,60 +492,50 @@ export default function HistoryScreen() {
                       mode="outlined"
                       compact
                       onPress={() => setSelectedDays([])}
-                      style={{ 
-                        borderRadius: 20,
-                        minWidth: 80,
-                      }}
-                      contentStyle={{ paddingHorizontal: 8 }}
+                      style={{ borderRadius: 20 }}
+                      contentStyle={{ paddingHorizontal: 12 }}
                     >
-                      Clear All
+                      Clear
                     </Button>
                   </ScrollView>
                   
                   {/* Individual day selection */}
-                  <View style={{ marginTop: 4 }}>
-                    <Text variant="bodySmall" style={{ marginBottom: 8, opacity: 0.7 }}>
-                      Or select individual days:
-                    </Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                        const isSelected = selectedDays.includes(day);
-                        return (
-                          <Chip
-                            key={day}
-                            selected={isSelected}
-                            onPress={() => {
-                              if (isSelected) {
-                                setSelectedDays(selectedDays.filter(d => d !== day));
-                              } else {
-                                setSelectedDays([...selectedDays, day]);
-                              }
-                            }}
-                            mode="outlined"
-                            style={{ 
-                              marginBottom: 4,
-                              backgroundColor: isSelected ? colors.primary + '20' : 'transparent'
-                            }}
-                            textStyle={{
-                              color: isSelected ? colors.primary : colors.text,
-                              fontWeight: isSelected ? '600' : '400'
-                            }}
-                          >
-                            {day.slice(0, 3)}
-                          </Chip>
-                        );
-                      })}
-                    </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 16 }}>
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+                      const isSelected = selectedDays.includes(day);
+                      return (
+                        <Chip
+                          key={day}
+                          selected={isSelected}
+                          onPress={() => {
+                            if (isSelected) {
+                              setSelectedDays(selectedDays.filter(d => d !== day));
+                            } else {
+                              setSelectedDays([...selectedDays, day]);
+                            }
+                          }}
+                          mode="outlined"
+                          style={{ 
+                            backgroundColor: isSelected ? colors.primary + '20' : 'transparent'
+                          }}
+                          textStyle={{
+                            color: isSelected ? colors.primary : colors.text,
+                            fontWeight: isSelected ? '600' : '400'
+                          }}
+                        >
+                          {day.slice(0, 3)}
+                        </Chip>
+                      );
+                    })}
                   </View>
                   
-                  {/* Preview text with enhanced feedback */}
+                  {/* Compact preview text */}
                   {selectedDays.length > 0 && (
                     <View style={{ 
-                      marginTop: 12, 
-                      padding: 12, 
+                      padding: 10, 
                       backgroundColor: colors.primary + '10', 
-                      borderRadius: 8,
-                      borderLeftWidth: 3,
+                      borderRadius: 6,
+                      borderLeftWidth: 2,
                       borderLeftColor: colors.primary
                     }}>
                       <Text variant="bodySmall" style={{ color: colors.primary, fontWeight: '500' }}>
@@ -566,7 +550,6 @@ export default function HistoryScreen() {
               )}
             </View>
           </Dialog.Content>
-            </ScrollView>
           </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setScheduleDialogVisible(false)}>Cancel</Button>
