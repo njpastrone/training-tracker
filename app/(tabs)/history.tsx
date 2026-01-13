@@ -12,6 +12,8 @@ import InsightCards from '../../components/InsightCards';
 import { spacing } from '../../constants/theme';
 import { format, isFuture, parseISO } from 'date-fns';
 import { WorkoutTemplate } from '../../types/template';
+import { scheduleService } from '../../services/schedule';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function HistoryScreen() {
   const { 
@@ -22,7 +24,8 @@ export default function HistoryScreen() {
     loadTemplates,
     loadSchedule,
     scheduleWorkout,
-    cancelScheduledWorkout
+    cancelScheduledWorkout,
+    deleteRecurringSeries
   } = useWorkoutStore();
   const { colors } = useTheme();
   const stats = getStats();
@@ -53,23 +56,43 @@ export default function HistoryScreen() {
     const existingSchedule = schedule.find(s => s.date === date && !s.completed);
     
     if (existingSchedule) {
+      const template = templates.find(t => t.id === existingSchedule.templateId);
+      const isRecurring = existingSchedule.isRecurring;
+      
       // Show options to edit or cancel existing schedule
-      Alert.alert(
-        'Scheduled Workout',
-        'This date already has a scheduled workout. What would you like to do?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Remove Schedule', 
-            style: 'destructive',
-            onPress: () => handleCancelSchedule(date)
-          },
-          { 
-            text: 'Change Template', 
-            onPress: () => openScheduleDialog(date)
-          },
-        ]
-      );
+      const alertButtons = [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove This Date', 
+          style: 'destructive',
+          onPress: () => handleCancelSchedule(date)
+        },
+        { 
+          text: 'Change Template', 
+          onPress: () => openScheduleDialog(date)
+        },
+      ];
+
+      // Add "Delete Series" option for recurring workouts
+      if (isRecurring && existingSchedule.recurringPattern) {
+        alertButtons.splice(2, 0, {
+          text: 'Delete Entire Series',
+          style: 'destructive',
+          onPress: () => handleDeleteSeries(
+            existingSchedule.templateId, 
+            existingSchedule.recurringPattern!, 
+            existingSchedule.recurringDays
+          )
+        });
+      }
+
+      const scheduleDescription = isRecurring
+        ? existingSchedule.recurringPattern === 'custom' && existingSchedule.recurringDays
+          ? `Custom recurring workout (${existingSchedule.recurringDays.map(d => d.slice(0, 3)).join(', ')}): ${template?.name || 'Unknown'}`
+          : `Recurring ${existingSchedule.recurringPattern} workout: ${template?.name || 'Unknown'}`
+        : `Scheduled workout: ${template?.name || 'Unknown'}`;
+
+      Alert.alert('Scheduled Workout', scheduleDescription, alertButtons);
     } else {
       // Open schedule dialog for new scheduling
       openScheduleDialog(date);
@@ -96,9 +119,27 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleDeleteSeries = async (templateId: string, recurringPattern: 'weekly' | 'biweekly' | 'monthly' | 'custom', customDays?: string[]) => {
+    try {
+      const deletedCount = await deleteRecurringSeries(templateId, recurringPattern, customDays);
+      await loadSchedule(); // Reload to update calendar
+      
+      const seriesDescription = recurringPattern === 'custom' && customDays 
+        ? `custom schedule (${customDays.map(d => d.slice(0, 3)).join(', ')})` 
+        : `${recurringPattern} series`;
+      
+      Alert.alert('Success', `Deleted ${deletedCount} scheduled workouts from the ${seriesDescription}.`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete recurring series.');
+    }
+  };
+
   const scheduleCustomDays = async (startDate: string, templateId: string, days: string[]) => {
     const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const startDateObj = parseISO(startDate);
+    
+    // Get current schedule to avoid duplicates and to store custom days metadata
+    const schedule = await scheduleService.getSchedule();
     
     // Schedule for next 12 weeks on selected days
     for (let week = 0; week < 12; week++) {
@@ -111,10 +152,29 @@ export default function HistoryScreen() {
         
         if (targetDate >= startDateObj) {
           const dateStr = format(targetDate, 'yyyy-MM-dd');
-          await scheduleWorkout(dateStr, templateId, false);
+          
+          // Check if date already has a scheduled workout
+          const existingSchedule = schedule.find(s => s.date === dateStr);
+          if (!existingSchedule) {
+            // Create custom recurring schedule with days metadata
+            const newSchedule = {
+              id: uuidv4(),
+              date: dateStr,
+              templateId,
+              isRecurring: true,
+              recurringPattern: 'custom' as const,
+              recurringDays: days, // Store the custom days
+              completed: false,
+            };
+            
+            schedule.push(newSchedule);
+          }
         }
       }
     }
+    
+    // Save the updated schedule
+    await scheduleService.saveSchedule(schedule);
   };
 
   const handleScheduleWorkout = async () => {
@@ -297,71 +357,149 @@ export default function HistoryScreen() {
                 <Text variant="bodyMedium">Schedule Type</Text>
               </View>
               
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+              {/* New flattened schedule type options */}
+              <View style={{ gap: 8 }}>
                 <Chip
-                  selected={!isRecurring}
-                  onPress={() => setIsRecurring(false)}
+                  selected={!isRecurring && recurringPattern !== 'custom'}
+                  onPress={() => {
+                    setIsRecurring(false);
+                    setRecurringPattern('weekly');
+                    setSelectedDays([]);
+                  }}
                   mode="outlined"
-                  style={{ flex: 1 }}
+                  style={{ alignSelf: 'flex-start' }}
+                  icon="calendar-today"
                 >
                   One Time
                 </Chip>
+                
                 <Chip
-                  selected={isRecurring}
-                  onPress={() => setIsRecurring(true)}
+                  selected={isRecurring && recurringPattern === 'weekly'}
+                  onPress={() => {
+                    setIsRecurring(true);
+                    setRecurringPattern('weekly');
+                    setSelectedDays([]);
+                  }}
                   mode="outlined"
-                  style={{ flex: 1 }}
+                  style={{ alignSelf: 'flex-start' }}
+                  icon="repeat"
                 >
-                  Recurring
+                  Weekly Repeat
                 </Chip>
+                
+                <Chip
+                  selected={recurringPattern === 'custom'}
+                  onPress={() => {
+                    setIsRecurring(true);
+                    setRecurringPattern('custom');
+                    if (selectedDays.length === 0) {
+                      // Auto-select current day if none selected
+                      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                      const currentDay = dayNames[new Date().getDay()];
+                      setSelectedDays([currentDay]);
+                    }
+                  }}
+                  mode="outlined"
+                  style={{ alignSelf: 'flex-start' }}
+                  icon="calendar-multiple"
+                >
+                  Custom Days
+                  {recurringPattern === 'custom' && selectedDays.length > 0 && (
+                    <Text style={{ fontSize: 12, opacity: 0.7 }}>
+                      {' '}({selectedDays.map(d => d.slice(0, 3)).join(', ')})
+                    </Text>
+                  )}
+                </Chip>
+
+                {/* Show advanced patterns in expandable section */}
+                {isRecurring && recurringPattern !== 'custom' && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text variant="bodySmall" style={{ marginBottom: 8, opacity: 0.7 }}>
+                      Advanced options:
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                      <Chip
+                        selected={recurringPattern === 'biweekly'}
+                        onPress={() => setRecurringPattern('biweekly')}
+                        mode="outlined"
+                        compact
+                      >
+                        Bi-weekly
+                      </Chip>
+                      <Chip
+                        selected={recurringPattern === 'monthly'}
+                        onPress={() => setRecurringPattern('monthly')}
+                        mode="outlined"
+                        compact
+                      >
+                        Monthly
+                      </Chip>
+                    </View>
+                  </View>
+                )}
               </View>
 
-              {isRecurring && (
-                <View style={{ marginTop: 12 }}>
+              {/* Enhanced day selection for custom days */}
+              {recurringPattern === 'custom' && (
+                <View style={{ marginTop: 16 }}>
                   <Text variant="bodySmall" style={{ marginBottom: 8 }}>
-                    Repeat pattern:
+                    Select workout days:
                   </Text>
-                  {['weekly', 'biweekly', 'monthly', 'custom'].map(pattern => (
-                    <List.Item
-                      key={pattern}
-                      title={pattern === 'custom' ? 'Select Days' : pattern.charAt(0).toUpperCase() + pattern.slice(1)}
-                      left={props => <List.Icon {...props} icon={pattern === 'custom' ? 'calendar-multiple' : 'repeat'} />}
-                      right={() => recurringPattern === pattern ? (
-                        <List.Icon icon="check-circle" color={colors.primary} />
-                      ) : null}
-                      onPress={() => setRecurringPattern(pattern as any)}
-                      style={{
-                        backgroundColor: recurringPattern === pattern ? colors.primary + '20' : 'transparent',
-                        borderRadius: 8,
-                        marginBottom: 4,
-                      }}
-                    />
-                  ))}
                   
-                  {recurringPattern === 'custom' && (
-                    <View style={{ marginTop: 12 }}>
-                      <Text variant="bodySmall" style={{ marginBottom: 8 }}>
-                        Select days:
-                      </Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                          <Chip
-                            key={day}
-                            selected={selectedDays.includes(day)}
-                            onPress={() => {
-                              if (selectedDays.includes(day)) {
-                                setSelectedDays(selectedDays.filter(d => d !== day));
-                              } else {
-                                setSelectedDays([...selectedDays, day]);
-                              }
-                            }}
-                            style={{ marginBottom: 4 }}
-                          >
-                            {day.slice(0, 3)}
-                          </Chip>
-                        ))}
-                      </View>
-                    </View>
+                  {/* Quick select options */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                    <Button
+                      mode="outlined"
+                      compact
+                      onPress={() => setSelectedDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])}
+                      style={{ borderRadius: 20 }}
+                    >
+                      Weekdays
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      compact
+                      onPress={() => setSelectedDays(['Saturday', 'Sunday'])}
+                      style={{ borderRadius: 20 }}
+                    >
+                      Weekends
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      compact
+                      onPress={() => setSelectedDays([])}
+                      style={{ borderRadius: 20 }}
+                    >
+                      Clear All
+                    </Button>
+                  </View>
+                  
+                  {/* Individual day selection */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                      <Chip
+                        key={day}
+                        selected={selectedDays.includes(day)}
+                        onPress={() => {
+                          if (selectedDays.includes(day)) {
+                            setSelectedDays(selectedDays.filter(d => d !== day));
+                          } else {
+                            setSelectedDays([...selectedDays, day]);
+                          }
+                        }}
+                        mode="outlined"
+                        style={{ marginBottom: 4 }}
+                      >
+                        {day.slice(0, 3)}
+                      </Chip>
+                    ))}
+                  </View>
+                  
+                  {/* Preview text */}
+                  {selectedDays.length > 0 && (
+                    <Text variant="bodySmall" style={{ marginTop: 8, color: colors.primary }}>
+                      Will repeat every {selectedDays.join(', ')}
+                    </Text>
                   )}
                 </View>
               )}
@@ -372,18 +510,15 @@ export default function HistoryScreen() {
           <Dialog.Actions>
             <Button onPress={() => setScheduleDialogVisible(false)}>Cancel</Button>
             <Button 
-              onPress={() => {
-                console.log('Schedule button clicked!');
-                handleScheduleWorkout();
-              }}
+              onPress={handleScheduleWorkout}
               disabled={
                 templates.length === 0 || 
                 !selectedTemplate || 
-                (isRecurring && recurringPattern === 'custom' && selectedDays.length === 0)
+                (recurringPattern === 'custom' && selectedDays.length === 0)
               }
               mode="contained"
             >
-              {templates.length === 0 ? 'No Templates' : 'Schedule'}
+              Schedule
             </Button>
           </Dialog.Actions>
         </Dialog>

@@ -7,6 +7,14 @@ const SCHEDULE_STORAGE_KEY = '@training-tracker/schedule';
 
 export type RecurringPattern = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 
+// Helper function to compare arrays
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((val, i) => val === sortedB[i]);
+}
+
 export const scheduleService = {
   // Load all scheduled workouts from storage
   async getSchedule(): Promise<TemplateSchedule[]> {
@@ -156,6 +164,37 @@ export const scheduleService = {
     const schedule = await this.getSchedule();
     const filtered = schedule.filter(s => s.date !== date);
     await this.saveSchedule(filtered);
+  },
+
+  // Delete entire recurring series
+  async deleteRecurringSeries(templateId: string, recurringPattern: RecurringPattern, customDays?: string[]): Promise<number> {
+    const schedule = await this.getSchedule();
+    
+    let toDelete;
+    if (recurringPattern === 'custom' && customDays) {
+      // For custom patterns, match by templateId and custom days
+      toDelete = schedule.filter(s => 
+        s.templateId === templateId && 
+        s.isRecurring && 
+        s.recurringPattern === 'custom' &&
+        s.recurringDays && 
+        arraysEqual(s.recurringDays, customDays) &&
+        !s.completed // Don't delete completed workouts
+      );
+    } else {
+      // For standard patterns, match by templateId and pattern
+      toDelete = schedule.filter(s => 
+        s.templateId === templateId && 
+        s.isRecurring && 
+        s.recurringPattern === recurringPattern &&
+        !s.completed // Don't delete completed workouts
+      );
+    }
+    
+    const filtered = schedule.filter(s => !toDelete.some(td => td.id === s.id));
+    await this.saveSchedule(filtered);
+    
+    return toDelete.length; // Return number of deleted schedules
   },
 
   // Mark workout as completed

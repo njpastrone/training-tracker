@@ -39,6 +39,7 @@ interface WorkoutState {
   loadSchedule: () => Promise<void>;
   scheduleWorkout: (date: string, templateId: string, isRecurring?: boolean, pattern?: 'weekly' | 'biweekly' | 'monthly') => Promise<void>;
   cancelScheduledWorkout: (date: string) => Promise<void>;
+  deleteRecurringSeries: (templateId: string, recurringPattern: 'weekly' | 'biweekly' | 'monthly' | 'custom', customDays?: string[]) => Promise<number>;
   markWorkoutCompleted: (date: string, workoutId?: string) => Promise<void>;
   markWorkoutSkipped: (date: string, reason?: string) => Promise<void>;
   getTodaysScheduledWorkout: () => TemplateSchedule | null;
@@ -330,6 +331,20 @@ export const useWorkoutStore = create<WorkoutState>()(
         } catch (error) {
           console.error('Error canceling scheduled workout:', error);
           set({ error: 'Failed to cancel workout' });
+          throw error;
+        }
+      },
+
+      deleteRecurringSeries: async (templateId, recurringPattern, customDays) => {
+        try {
+          const deletedCount = await scheduleService.deleteRecurringSeries(templateId, recurringPattern, customDays);
+          const schedule = await scheduleService.getSchedule();
+          set({ schedule });
+          return deletedCount;
+        } catch (error) {
+          console.error('Error deleting recurring series:', error);
+          set({ error: 'Failed to delete recurring series' });
+          throw error;
         }
       },
 
