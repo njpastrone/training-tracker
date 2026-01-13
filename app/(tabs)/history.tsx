@@ -15,6 +15,14 @@ import { WorkoutTemplate } from '../../types/template';
 import { scheduleService } from '../../services/schedule';
 import { v4 as uuidv4 } from 'uuid';
 
+// Helper function to compare arrays for preset selection
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((val, i) => val === sortedB[i]);
+}
+
 export default function HistoryScreen() {
   const { 
     workouts, 
@@ -38,6 +46,18 @@ export default function HistoryScreen() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringPattern, setRecurringPattern] = useState<'weekly' | 'biweekly' | 'monthly' | 'custom'>('weekly');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+
+  // Workout day presets for common training patterns
+  const dayPresets = [
+    { name: 'Mon, Wed, Fri', days: ['Monday', 'Wednesday', 'Friday'], category: '3-day' },
+    { name: 'Tue, Thu', days: ['Tuesday', 'Thursday'], category: '2-day' },
+    { name: 'Sat, Sun', days: ['Saturday', 'Sunday'], category: '2-day' },
+    { name: 'Mon, Tue, Thu, Fri', days: ['Monday', 'Tuesday', 'Thursday', 'Friday'], category: '4-day' },
+    { name: 'Tue, Thu, Sat', days: ['Tuesday', 'Thursday', 'Saturday'], category: '3-day' },
+    { name: 'Mon, Fri', days: ['Monday', 'Friday'], category: '2-day' },
+    { name: 'Mon-Fri', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], category: '5-day' },
+    { name: 'Every Day', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], category: '7-day' },
+  ];
 
   useEffect(() => {
     loadTemplates();
@@ -446,60 +466,101 @@ export default function HistoryScreen() {
                     Select workout days:
                   </Text>
                   
-                  {/* Quick select options */}
-                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                    <Button
-                      mode="outlined"
-                      compact
-                      onPress={() => setSelectedDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])}
-                      style={{ borderRadius: 20 }}
-                    >
-                      Weekdays
-                    </Button>
-                    <Button
-                      mode="outlined"
-                      compact
-                      onPress={() => setSelectedDays(['Saturday', 'Sunday'])}
-                      style={{ borderRadius: 20 }}
-                    >
-                      Weekends
-                    </Button>
+                  {/* Quick select presets for common workout patterns */}
+                  <Text variant="bodySmall" style={{ marginBottom: 8, opacity: 0.7 }}>
+                    Common patterns:
+                  </Text>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginBottom: 12 }}
+                    contentContainerStyle={{ gap: 8, paddingRight: 16 }}
+                  >
+                    {dayPresets.map((preset, index) => {
+                      const isSelected = arraysEqual(selectedDays, preset.days);
+                      return (
+                        <Button
+                          key={index}
+                          mode={isSelected ? "contained" : "outlined"}
+                          compact
+                          onPress={() => setSelectedDays(preset.days)}
+                          style={{ 
+                            borderRadius: 20,
+                            minWidth: 100,
+                          }}
+                          contentStyle={{ paddingHorizontal: 8 }}
+                        >
+                          {preset.name}
+                        </Button>
+                      );
+                    })}
                     <Button
                       mode="outlined"
                       compact
                       onPress={() => setSelectedDays([])}
-                      style={{ borderRadius: 20 }}
+                      style={{ 
+                        borderRadius: 20,
+                        minWidth: 80,
+                      }}
+                      contentStyle={{ paddingHorizontal: 8 }}
                     >
                       Clear All
                     </Button>
-                  </View>
+                  </ScrollView>
                   
                   {/* Individual day selection */}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                      <Chip
-                        key={day}
-                        selected={selectedDays.includes(day)}
-                        onPress={() => {
-                          if (selectedDays.includes(day)) {
-                            setSelectedDays(selectedDays.filter(d => d !== day));
-                          } else {
-                            setSelectedDays([...selectedDays, day]);
-                          }
-                        }}
-                        mode="outlined"
-                        style={{ marginBottom: 4 }}
-                      >
-                        {day.slice(0, 3)}
-                      </Chip>
-                    ))}
+                  <View style={{ marginTop: 4 }}>
+                    <Text variant="bodySmall" style={{ marginBottom: 8, opacity: 0.7 }}>
+                      Or select individual days:
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+                        const isSelected = selectedDays.includes(day);
+                        return (
+                          <Chip
+                            key={day}
+                            selected={isSelected}
+                            onPress={() => {
+                              if (isSelected) {
+                                setSelectedDays(selectedDays.filter(d => d !== day));
+                              } else {
+                                setSelectedDays([...selectedDays, day]);
+                              }
+                            }}
+                            mode="outlined"
+                            style={{ 
+                              marginBottom: 4,
+                              backgroundColor: isSelected ? colors.primary + '20' : 'transparent'
+                            }}
+                            textStyle={{
+                              color: isSelected ? colors.primary : colors.text,
+                              fontWeight: isSelected ? '600' : '400'
+                            }}
+                          >
+                            {day.slice(0, 3)}
+                          </Chip>
+                        );
+                      })}
+                    </View>
                   </View>
                   
-                  {/* Preview text */}
+                  {/* Preview text with enhanced feedback */}
                   {selectedDays.length > 0 && (
-                    <Text variant="bodySmall" style={{ marginTop: 8, color: colors.primary }}>
-                      Will repeat every {selectedDays.join(', ')}
-                    </Text>
+                    <View style={{ 
+                      marginTop: 12, 
+                      padding: 12, 
+                      backgroundColor: colors.primary + '10', 
+                      borderRadius: 8,
+                      borderLeftWidth: 3,
+                      borderLeftColor: colors.primary
+                    }}>
+                      <Text variant="bodySmall" style={{ color: colors.primary, fontWeight: '500' }}>
+                        ✓ Will repeat every {selectedDays.join(', ')}
+                      </Text>
+                      <Text variant="bodySmall" style={{ color: colors.textSecondary, marginTop: 2 }}>
+                        {selectedDays.length} workout{selectedDays.length === 1 ? '' : 's'} per week
+                      </Text>
+                    </View>
                   )}
                 </View>
               )}
