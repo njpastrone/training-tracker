@@ -23,6 +23,8 @@ export default function WorkoutInput({ initialValue = '', templateId, onWorkoutL
 
   // Set initial value when component mounts or initialValue changes
   useEffect(() => {
+    console.log('WorkoutInput - initialValue changed:', initialValue);
+    console.log('WorkoutInput - templateId:', templateId);
     setInput(initialValue);
   }, [initialValue]);
 

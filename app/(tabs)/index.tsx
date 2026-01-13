@@ -40,15 +40,28 @@ export default function LogScreen() {
   }, []);
 
   const handleStartScheduledWorkout = async () => {
-    if (!scheduledTemplate) return;
+    console.log('Start Workout button pressed');
+    console.log('scheduledTemplate:', scheduledTemplate);
+    
+    if (!scheduledTemplate) {
+      console.log('No scheduled template found');
+      Alert.alert('Error', 'No scheduled template found');
+      return;
+    }
     
     try {
+      console.log('Converting template to text:', scheduledTemplate.name);
       const workoutText = templateService.templateToNaturalLanguage(scheduledTemplate);
+      console.log('Generated workout text:', workoutText);
+      
       setTemplateWorkoutText(workoutText);
       setActiveTemplateId(scheduledTemplate.id);
-      console.log('Auto-populated workout:', workoutText);
+      
+      console.log('State updated - templateWorkoutText:', workoutText);
+      console.log('State updated - activeTemplateId:', scheduledTemplate.id);
     } catch (error) {
-      Alert.alert('Error', 'Failed to start scheduled workout.');
+      console.error('Error in handleStartScheduledWorkout:', error);
+      Alert.alert('Error', 'Failed to start scheduled workout: ' + error.message);
     }
   };
 
@@ -112,9 +125,16 @@ export default function LogScreen() {
               templateId={activeTemplateId}
               onWorkoutLogged={handleWorkoutLogged}
             />
+            {/* Debug info */}
+            {__DEV__ && (
+              <Text style={{ fontSize: 10, opacity: 0.5 }}>
+                Debug: templateWorkoutText="{templateWorkoutText}" activeTemplateId={activeTemplateId}
+              </Text>
+            )}
           </Surface>
 
           {/* Today's Scheduled Workout Card */}
+          {console.log('Render check - todaysSchedule:', todaysSchedule, 'scheduledTemplate:', scheduledTemplate)}
           {todaysSchedule && scheduledTemplate && (
             <Surface style={[styles.todaysWorkoutCard, { backgroundColor: colors.surface }]} elevation={1}>
               <View style={styles.todaysWorkoutHeader}>
@@ -146,15 +166,24 @@ export default function LogScreen() {
               <View style={styles.todaysWorkoutActions}>
                 <Button
                   mode="contained"
-                  onPress={handleStartScheduledWorkout}
-                  style={styles.startButton}
+                  onPress={() => {
+                    console.log('🔥 START WORKOUT BUTTON PRESSED!');
+                    Alert.alert('Debug', 'Start Workout button was pressed!');
+                    handleStartScheduledWorkout();
+                  }}
+                  style={[styles.startButton, { backgroundColor: colors.primary }]}
                   icon="play-circle"
+                  disabled={false}
                 >
                   Start Workout
                 </Button>
                 <Button
                   mode="outlined"
-                  onPress={handleSkipScheduledWorkout}
+                  onPress={() => {
+                    console.log('🔥 SKIP BUTTON PRESSED!');
+                    Alert.alert('Debug', 'Skip button was pressed!');
+                    handleSkipScheduledWorkout();
+                  }}
                   style={styles.skipButton}
                   textColor={colors.textSecondary}
                 >
