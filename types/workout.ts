@@ -41,6 +41,7 @@ export interface Workout {
   notes?: string;
   createdAt: string; // ISO timestamp
   updatedAt?: string; // ISO timestamp
+  templateId?: string; // Reference to template if workout was created from one
 }
 
 // Exercise from the reference database

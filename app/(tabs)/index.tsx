@@ -1,7 +1,7 @@
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Text, Surface, Button, IconButton, Chip } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import WorkoutInput from '../../components/WorkoutInput';
 import WorkoutList from '../../components/WorkoutList';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -17,6 +17,7 @@ export default function LogScreen() {
     getTodaysScheduledWorkout, 
     getTemplate,
     markWorkoutSkipped,
+    markWorkoutCompleted,
     loadSchedule,
     loadTemplates
   } = useWorkoutStore();
@@ -29,6 +30,10 @@ export default function LogScreen() {
   const todaysSchedule = getTodaysScheduledWorkout();
   const scheduledTemplate = todaysSchedule ? getTemplate(todaysSchedule.templateId) : null;
 
+  // State for template auto-population
+  const [templateWorkoutText, setTemplateWorkoutText] = useState('');
+  const [activeTemplateId, setActiveTemplateId] = useState<string | undefined>();
+
   useEffect(() => {
     loadSchedule();
     loadTemplates();
@@ -39,8 +44,9 @@ export default function LogScreen() {
     
     try {
       const workoutText = templateService.templateToNaturalLanguage(scheduledTemplate);
-      // TODO: Auto-populate workout input with template
-      console.log('Auto-populating workout:', workoutText);
+      setTemplateWorkoutText(workoutText);
+      setActiveTemplateId(scheduledTemplate.id);
+      console.log('Auto-populated workout:', workoutText);
     } catch (error) {
       Alert.alert('Error', 'Failed to start scheduled workout.');
     }
@@ -70,6 +76,22 @@ export default function LogScreen() {
     );
   };
 
+  const handleWorkoutLogged = async () => {
+    // If workout was logged from today's scheduled template, mark schedule as completed
+    if (activeTemplateId && todaysSchedule && todaysSchedule.templateId === activeTemplateId) {
+      try {
+        await markWorkoutCompleted(todaysSchedule.date);
+        console.log('Marked scheduled workout as completed');
+      } catch (error) {
+        console.log('Warning: Could not mark scheduled workout as completed:', error);
+      }
+    }
+    
+    // Clear template data after workout is logged
+    setTemplateWorkoutText('');
+    setActiveTemplateId(undefined);
+  };
+
   return (
     <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
       <KeyboardAvoidingView
@@ -85,7 +107,11 @@ export default function LogScreen() {
             <Text variant="headlineSmall" style={[styles.greeting, { color: colors.text }]}>
               What'd you hit today?
             </Text>
-            <WorkoutInput />
+            <WorkoutInput 
+              initialValue={templateWorkoutText}
+              templateId={activeTemplateId}
+              onWorkoutLogged={handleWorkoutLogged}
+            />
           </Surface>
 
           {/* Today's Scheduled Workout Card */}
