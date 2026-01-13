@@ -318,6 +318,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         } catch (error) {
           console.error('Error scheduling workout:', error);
           set({ error: 'Failed to schedule workout' });
+          throw error; // Re-throw error so calling function can catch it
         }
       },
 

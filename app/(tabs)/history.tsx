@@ -78,6 +78,7 @@ export default function HistoryScreen() {
 
   const openScheduleDialog = (date: string) => {
     setSelectedDate(date);
+    // Reset template selection for fresh dialog state
     setSelectedTemplate(null);
     setIsRecurring(false);
     setRecurringPattern('weekly');
@@ -375,10 +376,14 @@ export default function HistoryScreen() {
                 console.log('Schedule button clicked!');
                 handleScheduleWorkout();
               }}
-              disabled={!selectedTemplate || (isRecurring && recurringPattern === 'custom' && selectedDays.length === 0)}
+              disabled={
+                templates.length === 0 || 
+                !selectedTemplate || 
+                (isRecurring && recurringPattern === 'custom' && selectedDays.length === 0)
+              }
               mode="contained"
             >
-              Schedule
+              {templates.length === 0 ? 'No Templates' : 'Schedule'}
             </Button>
           </Dialog.Actions>
         </Dialog>
