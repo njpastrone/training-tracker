@@ -117,19 +117,30 @@ export default function HistoryScreen() {
   };
 
   const handleScheduleWorkout = async () => {
+    console.log('Schedule button pressed', { selectedDate, selectedTemplate, isRecurring, recurringPattern, selectedDays });
+    
     if (!selectedDate || !selectedTemplate) {
       Alert.alert('Error', 'Please select a template.');
       return;
     }
 
     try {
-      await scheduleWorkout(selectedDate, selectedTemplate, isRecurring, isRecurring ? recurringPattern : undefined);
-      
-      // Handle recurring workouts for specific days
+      // For custom recurring, don't pass the pattern to avoid issues
       if (isRecurring && recurringPattern === 'custom' && selectedDays.length > 0) {
+        console.log('Scheduling custom days:', selectedDays);
+        // Schedule custom days individually
         await scheduleCustomDays(selectedDate, selectedTemplate, selectedDays);
+      } else if (isRecurring && recurringPattern !== 'custom') {
+        console.log('Scheduling recurring:', recurringPattern);
+        // Schedule with standard recurring pattern
+        await scheduleWorkout(selectedDate, selectedTemplate, true, recurringPattern);
+      } else {
+        console.log('Scheduling one-time workout');
+        // One-time schedule
+        await scheduleWorkout(selectedDate, selectedTemplate, false);
       }
       
+      console.log('Reloading schedule...');
       // Reload schedule to update calendar
       await loadSchedule();
       
@@ -141,10 +152,11 @@ export default function HistoryScreen() {
           : `Scheduled recurring ${recurringPattern} workout`
         : 'Scheduled workout';
       
+      console.log('Success:', scheduleText);
       Alert.alert('Success', scheduleText);
     } catch (error) {
-      console.error('Schedule error:', error);
-      Alert.alert('Error', 'Failed to schedule workout.');
+      console.error('Schedule error details:', error);
+      Alert.alert('Error', `Failed to schedule workout: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -359,7 +371,10 @@ export default function HistoryScreen() {
           <Dialog.Actions>
             <Button onPress={() => setScheduleDialogVisible(false)}>Cancel</Button>
             <Button 
-              onPress={handleScheduleWorkout}
+              onPress={() => {
+                console.log('Schedule button clicked!');
+                handleScheduleWorkout();
+              }}
               disabled={!selectedTemplate || (isRecurring && recurringPattern === 'custom' && selectedDays.length === 0)}
               mode="contained"
             >

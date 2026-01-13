@@ -30,13 +30,19 @@ export const scheduleService = {
     }
   },
 
-  // Schedule a single workout
+  // Schedule a single workout or recurring workouts
   async scheduleWorkout(
     date: string, 
     templateId: string, 
     isRecurring: boolean = false,
     recurringPattern?: RecurringPattern
-  ): Promise<TemplateSchedule> {
+  ): Promise<TemplateSchedule | TemplateSchedule[]> {
+    // If recurring and has a pattern, schedule multiple workouts
+    if (isRecurring && recurringPattern && recurringPattern !== 'custom') {
+      return await this.scheduleRecurringWorkouts(date, templateId, recurringPattern);
+    }
+    
+    // Otherwise, schedule a single workout
     const schedule = await this.getSchedule();
     
     // Check if date already has a scheduled workout
@@ -46,8 +52,8 @@ export const scheduleService = {
       id: uuidv4(),
       date,
       templateId,
-      isRecurring,
-      recurringPattern,
+      isRecurring: false, // Single workout is not recurring
+      recurringPattern: undefined,
       completed: false,
     };
 
@@ -104,6 +110,10 @@ export const scheduleService = {
           break;
         case 'monthly':
           currentDate = addDays(currentDate, 30); // Approximate monthly
+          break;
+        case 'custom':
+          // Custom pattern is handled separately, skip here
+          currentDate = addWeeks(currentDate, 1);
           break;
       }
     }
