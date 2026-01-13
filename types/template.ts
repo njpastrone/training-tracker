@@ -27,7 +27,8 @@ export interface TemplateSchedule {
   date: string; // ISO date
   templateId: string;
   isRecurring: boolean;
-  recurringPattern?: 'weekly' | 'biweekly' | 'monthly';
+  recurringPattern?: 'weekly' | 'biweekly' | 'monthly' | 'custom';
+  recurringDays?: string[]; // For custom pattern - ['Monday', 'Wednesday', 'Friday']
   completed: boolean;
   skipped?: boolean;
   skipReason?: string;

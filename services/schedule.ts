@@ -5,7 +5,7 @@ import { format, startOfWeek, endOfWeek, addWeeks, addDays, parseISO, isWithinIn
 
 const SCHEDULE_STORAGE_KEY = '@training-tracker/schedule';
 
-export type RecurringPattern = 'weekly' | 'biweekly' | 'monthly';
+export type RecurringPattern = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 
 export const scheduleService = {
   // Load all scheduled workouts from storage

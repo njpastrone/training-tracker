@@ -33,7 +33,8 @@ export default function HistoryScreen() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringPattern, setRecurringPattern] = useState<'weekly' | 'biweekly' | 'monthly'>('weekly');
+  const [recurringPattern, setRecurringPattern] = useState<'weekly' | 'biweekly' | 'monthly' | 'custom'>('weekly');
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
   useEffect(() => {
     loadTemplates();
@@ -80,15 +81,38 @@ export default function HistoryScreen() {
     setSelectedTemplate(null);
     setIsRecurring(false);
     setRecurringPattern('weekly');
+    setSelectedDays([]);
     setScheduleDialogVisible(true);
   };
 
   const handleCancelSchedule = async (date: string) => {
     try {
       await cancelScheduledWorkout(date);
+      await loadSchedule(); // Reload to update calendar
       Alert.alert('Success', 'Scheduled workout removed.');
     } catch (error) {
       Alert.alert('Error', 'Failed to remove scheduled workout.');
+    }
+  };
+
+  const scheduleCustomDays = async (startDate: string, templateId: string, days: string[]) => {
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const startDateObj = parseISO(startDate);
+    
+    // Schedule for next 12 weeks on selected days
+    for (let week = 0; week < 12; week++) {
+      for (const dayName of days) {
+        const dayIndex = daysOfWeek.indexOf(dayName);
+        if (dayIndex === -1) continue;
+        
+        const targetDate = new Date(startDateObj);
+        targetDate.setDate(startDateObj.getDate() + (week * 7) + dayIndex - startDateObj.getDay());
+        
+        if (targetDate >= startDateObj) {
+          const dateStr = format(targetDate, 'yyyy-MM-dd');
+          await scheduleWorkout(dateStr, templateId, false);
+        }
+      }
     }
   };
 
@@ -100,14 +124,26 @@ export default function HistoryScreen() {
 
     try {
       await scheduleWorkout(selectedDate, selectedTemplate, isRecurring, isRecurring ? recurringPattern : undefined);
+      
+      // Handle recurring workouts for specific days
+      if (isRecurring && recurringPattern === 'custom' && selectedDays.length > 0) {
+        await scheduleCustomDays(selectedDate, selectedTemplate, selectedDays);
+      }
+      
+      // Reload schedule to update calendar
+      await loadSchedule();
+      
       setScheduleDialogVisible(false);
       
       const scheduleText = isRecurring 
-        ? `Scheduled recurring ${recurringPattern} workout`
+        ? recurringPattern === 'custom' 
+          ? `Scheduled on ${selectedDays.join(', ')}s`
+          : `Scheduled recurring ${recurringPattern} workout`
         : 'Scheduled workout';
       
       Alert.alert('Success', scheduleText);
     } catch (error) {
+      console.error('Schedule error:', error);
       Alert.alert('Error', 'Failed to schedule workout.');
     }
   };
@@ -208,7 +244,9 @@ export default function HistoryScreen() {
       <Portal>
         <Dialog visible={scheduleDialogVisible} onDismiss={() => setScheduleDialogVisible(false)}>
           <Dialog.Title>Schedule Workout</Dialog.Title>
-          <Dialog.Content>
+          <Dialog.ScrollArea style={{ maxHeight: 400 }}>
+            <ScrollView>
+              <Dialog.Content>
             <Text style={{ marginBottom: 16 }}>
               {selectedDate && format(parseISO(selectedDate), 'EEEE, MMMM d, yyyy')}
             </Text>
@@ -242,13 +280,27 @@ export default function HistoryScreen() {
             )}
 
             <View style={{ marginTop: 16, marginBottom: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text variant="bodyMedium">Make this recurring</Text>
-                <Switch
-                  value={isRecurring}
-                  onValueChange={setIsRecurring}
-                  color={colors.primary}
-                />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text variant="bodyMedium">Schedule Type</Text>
+              </View>
+              
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                <Chip
+                  selected={!isRecurring}
+                  onPress={() => setIsRecurring(false)}
+                  mode="outlined"
+                  style={{ flex: 1 }}
+                >
+                  One Time
+                </Chip>
+                <Chip
+                  selected={isRecurring}
+                  onPress={() => setIsRecurring(true)}
+                  mode="outlined"
+                  style={{ flex: 1 }}
+                >
+                  Recurring
+                </Chip>
               </View>
 
               {isRecurring && (
@@ -256,11 +308,11 @@ export default function HistoryScreen() {
                   <Text variant="bodySmall" style={{ marginBottom: 8 }}>
                     Repeat pattern:
                   </Text>
-                  {['weekly', 'biweekly', 'monthly'].map(pattern => (
+                  {['weekly', 'biweekly', 'monthly', 'custom'].map(pattern => (
                     <List.Item
                       key={pattern}
-                      title={pattern.charAt(0).toUpperCase() + pattern.slice(1)}
-                      left={props => <List.Icon {...props} icon="repeat" />}
+                      title={pattern === 'custom' ? 'Select Days' : pattern.charAt(0).toUpperCase() + pattern.slice(1)}
+                      left={props => <List.Icon {...props} icon={pattern === 'custom' ? 'calendar-multiple' : 'repeat'} />}
                       right={() => recurringPattern === pattern ? (
                         <List.Icon icon="check-circle" color={colors.primary} />
                       ) : null}
@@ -268,18 +320,47 @@ export default function HistoryScreen() {
                       style={{
                         backgroundColor: recurringPattern === pattern ? colors.primary + '20' : 'transparent',
                         borderRadius: 8,
+                        marginBottom: 4,
                       }}
                     />
                   ))}
+                  
+                  {recurringPattern === 'custom' && (
+                    <View style={{ marginTop: 12 }}>
+                      <Text variant="bodySmall" style={{ marginBottom: 8 }}>
+                        Select days:
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                          <Chip
+                            key={day}
+                            selected={selectedDays.includes(day)}
+                            onPress={() => {
+                              if (selectedDays.includes(day)) {
+                                setSelectedDays(selectedDays.filter(d => d !== day));
+                              } else {
+                                setSelectedDays([...selectedDays, day]);
+                              }
+                            }}
+                            style={{ marginBottom: 4 }}
+                          >
+                            {day.slice(0, 3)}
+                          </Chip>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
           </Dialog.Content>
+            </ScrollView>
+          </Dialog.ScrollArea>
           <Dialog.Actions>
             <Button onPress={() => setScheduleDialogVisible(false)}>Cancel</Button>
             <Button 
               onPress={handleScheduleWorkout}
-              disabled={!selectedTemplate}
+              disabled={!selectedTemplate || (isRecurring && recurringPattern === 'custom' && selectedDays.length === 0)}
               mode="contained"
             >
               Schedule
