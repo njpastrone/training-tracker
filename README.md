@@ -78,7 +78,9 @@ training-tracker/
 ├── stores/                 # Zustand state management
 ├── data/                   # Static data (exercises)
 ├── types/                  # TypeScript definitions
-└── constants/              # Theme & configuration
+├── constants/              # Theme & configuration
+├── DESIGN-SYSTEM.md        # UI standards & component guidelines
+└── FEATURES.md            # Detailed feature implementation plans
 ```
 
 ## Usage
@@ -116,6 +118,13 @@ The History tab shows:
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Guidelines
+
+- Follow the **DESIGN-SYSTEM.md** for UI consistency and component standards
+- Use TypeScript strict mode
+- Follow the established project structure and coding conventions
+- Test on both iOS and Android when possible
 
 ## License
 

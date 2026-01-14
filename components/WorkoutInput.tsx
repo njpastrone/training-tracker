@@ -11,10 +11,11 @@ import { format } from 'date-fns';
 interface WorkoutInputProps {
   initialValue?: string;
   templateId?: string;
+  templateExercises?: any; // Pre-structured exercises from template
   onWorkoutLogged?: () => void;
 }
 
-export default function WorkoutInput({ initialValue = '', templateId, onWorkoutLogged }: WorkoutInputProps) {
+export default function WorkoutInput({ initialValue = '', templateId, templateExercises, onWorkoutLogged }: WorkoutInputProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,8 @@ export default function WorkoutInput({ initialValue = '', templateId, onWorkoutL
   }, [initialValue]);
 
   const handleSubmit = async () => {
-    if (!input.trim()) {
+    // If we have pre-structured template exercises, skip validation on empty input
+    if (!templateExercises && !input.trim()) {
       setError('Please enter your workout');
       return;
     }
@@ -36,19 +38,27 @@ export default function WorkoutInput({ initialValue = '', templateId, onWorkoutL
     setError(null);
 
     try {
-      const parsed = await parseWorkout(input.trim());
+      let parsed;
+      
+      // If we have pre-structured template exercises, use them directly
+      if (templateExercises) {
+        parsed = templateExercises;
+      } else {
+        // Otherwise, parse the natural language input with AI
+        parsed = await parseWorkout(input.trim());
 
-      if (!parsed || parsed.exercises.length === 0) {
-        setError('Could not understand the workout. Try being more specific.');
-        setIsLoading(false);
-        return;
+        if (!parsed || parsed.exercises.length === 0) {
+          setError('Could not understand the workout. Try being more specific.');
+          setIsLoading(false);
+          return;
+        }
       }
 
       const workout = {
         id: uuidv4(),
         date: format(new Date(), 'yyyy-MM-dd'),
-        exercises: parsed.exercises.map((e) => ({ ...e, id: uuidv4() })),
-        rawInput: input.trim(),
+        exercises: parsed.exercises.map((e) => ({ ...e, id: e.id || uuidv4() })),
+        rawInput: input.trim() || 'Started from template',
         muscleGroups: parsed.muscleGroups,
         notes: parsed.notes,
         createdAt: new Date().toISOString(),
@@ -82,29 +92,47 @@ export default function WorkoutInput({ initialValue = '', templateId, onWorkoutL
 
   return (
     <View style={styles.container}>
-      {templateId && initialValue && (
+      {templateId && templateExercises && (
         <View style={[styles.templateIndicator, { backgroundColor: colors.primary + '15', borderColor: colors.primary }]}>
           <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>
-            ✨ Auto-filled from template - edit as needed
+            ✨ Ready to log workout from template
           </Text>
         </View>
       )}
       
-      <TextInput
-        mode="outlined"
-        placeholder="e.g., Just hit chest - bench press 3x10, incline dumbbell press, cable flyes"
-        value={input}
-        onChangeText={(text) => {
-          setInput(text);
-          if (error) setError(null);
-        }}
-        multiline
-        numberOfLines={3}
-        style={[styles.input, { backgroundColor: colors.background }]}
-        outlineColor={colors.border}
-        activeOutlineColor={colors.primary}
-        disabled={isLoading}
-      />
+      {/* Only show input field if we're not using pre-structured template data */}
+      {!templateExercises && (
+        <TextInput
+          mode="outlined"
+          placeholder="e.g., Just hit chest - bench press 3x10, incline dumbbell press, cable flyes"
+          value={input}
+          onChangeText={(text) => {
+            setInput(text);
+            if (error) setError(null);
+          }}
+          multiline
+          numberOfLines={3}
+          style={[styles.input, { backgroundColor: colors.background }]}
+          outlineColor={colors.border}
+          activeOutlineColor={colors.primary}
+          disabled={isLoading}
+        />
+      )}
+      
+      {/* Show template exercises summary if using pre-structured data */}
+      {templateExercises && (
+        <View style={[styles.templateSummary, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={{ color: colors.text, fontWeight: '600', marginBottom: 8 }}>
+            Template Exercises:
+          </Text>
+          {templateExercises.exercises.map((exercise: any, index: number) => (
+            <Text key={index} style={{ color: colors.textSecondary, fontSize: 14 }}>
+              • {exercise.name} - {exercise.sets}x{exercise.reps}
+              {exercise.weight ? ` @ ${exercise.weight}${exercise.unit || 'lbs'}` : ''}
+            </Text>
+          ))}
+        </View>
+      )}
       {error && (
         <HelperText type="error" visible={!!error}>
           {error}
@@ -114,11 +142,11 @@ export default function WorkoutInput({ initialValue = '', templateId, onWorkoutL
         mode="contained"
         onPress={handleSubmit}
         loading={isLoading}
-        disabled={isLoading || !input.trim()}
+        disabled={isLoading || (!templateExercises && !input.trim())}
         style={styles.button}
         contentStyle={styles.buttonContent}
       >
-        {isLoading ? 'Processing with AI...' : 'Log Workout'}
+        {isLoading ? (templateExercises ? 'Logging workout...' : 'Processing with AI...') : 'Log Workout'}
       </Button>
     </View>
   );
@@ -134,6 +162,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     marginBottom: 4,
+  },
+  templateSummary: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   input: {
     // backgroundColor applied dynamically

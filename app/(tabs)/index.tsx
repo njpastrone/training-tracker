@@ -31,7 +31,7 @@ export default function LogScreen() {
   const scheduledTemplate = todaysSchedule ? getTemplate(todaysSchedule.templateId) : null;
 
   // State for template auto-population
-  const [templateWorkoutText, setTemplateWorkoutText] = useState('');
+  const [templateWorkoutData, setTemplateWorkoutData] = useState<any>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string | undefined>();
 
   useEffect(() => {
@@ -46,8 +46,8 @@ export default function LogScreen() {
     }
     
     try {
-      const workoutText = templateService.templateToNaturalLanguage(scheduledTemplate);
-      setTemplateWorkoutText(workoutText);
+      const workoutData = templateService.templateToWorkout(scheduledTemplate);
+      setTemplateWorkoutData(workoutData);
       setActiveTemplateId(scheduledTemplate.id);
     } catch (error) {
       console.error('Error in handleStartScheduledWorkout:', error);
@@ -91,7 +91,7 @@ export default function LogScreen() {
     }
     
     // Clear template data after workout is logged
-    setTemplateWorkoutText('');
+    setTemplateWorkoutData(null);
     setActiveTemplateId(undefined);
   };
 
@@ -111,7 +111,7 @@ export default function LogScreen() {
               What'd you hit today?
             </Text>
             <WorkoutInput 
-              initialValue={templateWorkoutText}
+              templateExercises={templateWorkoutData}
               templateId={activeTemplateId}
               onWorkoutLogged={handleWorkoutLogged}
             />
@@ -155,8 +155,8 @@ export default function LogScreen() {
                       return;
                     }
                     try {
-                      const workoutText = templateService.templateToNaturalLanguage(scheduledTemplate);
-                      setTemplateWorkoutText(workoutText);
+                      const workoutData = templateService.templateToWorkout(scheduledTemplate);
+                      setTemplateWorkoutData(workoutData);
                       setActiveTemplateId(scheduledTemplate.id);
                     } catch (error) {
                       console.error('Error populating workout:', error);

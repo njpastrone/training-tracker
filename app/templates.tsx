@@ -114,7 +114,7 @@ export default function TemplatesScreen() {
                         key={mg} 
                         compact 
                         style={styles.muscleChip}
-                        textStyle={{ fontSize: 11 }}
+                        textStyle={{ fontSize: 11, textTransform: 'capitalize' }}
                       >
                         {mg}
                       </Chip>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   muscleChip: {
-    height: 24,
+    height: 32,
   },
   templateActions: {
     flexDirection: 'row',

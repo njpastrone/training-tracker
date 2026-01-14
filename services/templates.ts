@@ -153,6 +153,26 @@ export const templateService = {
     return exerciseDescriptions.join(', ');
   },
 
+  // Convert template directly to workout format (no AI parsing needed)
+  templateToWorkout(template: WorkoutTemplate): { exercises: any[], muscleGroups: string[], notes?: string } {
+    const exercises = template.exercises.map(templateExercise => ({
+      id: uuidv4(),
+      name: templateExercise.name,
+      muscleGroup: templateExercise.muscleGroup,
+      sets: templateExercise.sets,
+      reps: templateExercise.reps,
+      weight: templateExercise.weight,
+      unit: templateExercise.weightUnit,
+      notes: templateExercise.notes,
+    }));
+
+    return {
+      exercises,
+      muscleGroups: template.muscleGroups,
+      notes: template.description,
+    };
+  },
+
   // Parse natural language into template exercises using Claude
   async parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
     const { parseTemplateFromNL } = await import('./claude');

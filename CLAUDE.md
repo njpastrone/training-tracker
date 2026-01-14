@@ -22,6 +22,7 @@ stores/           # Zustand state stores
 constants/        # Theme, colors, config values
 contexts/         # React contexts (Theme)
 FEATURES.md       # Detailed feature implementation plans
+DESIGN-SYSTEM.md  # UI component standards and design guidelines
 ```
 
 ## Key Features
@@ -42,6 +43,7 @@ See `FEATURES.md` for detailed implementation plans:
 - Use React Native Paper components for UI consistency
 - Keep components small and focused
 - Colocate styles with components using StyleSheet.create()
+- **Follow DESIGN-SYSTEM.md** for UI standards, spacing, typography, and component patterns
 
 ## Environment Variables
 - `EXPO_PUBLIC_ANTHROPIC_API_KEY`: Claude API key (required)
