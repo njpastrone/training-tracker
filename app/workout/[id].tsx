@@ -81,7 +81,12 @@ export default function WorkoutEditScreen() {
       muscleGroups,
       notes: notes.trim() || undefined,
     });
-    router.back();
+    // Use canGoBack to safely navigate
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
   };
   
   const mergeWorkouts = (existingWorkout: Workout, dateString: string, muscleGroups: MuscleGroup[]) => {
@@ -99,7 +104,12 @@ export default function WorkoutEditScreen() {
     
     // Delete the current workout since we merged it
     deleteWorkout(id);
-    router.back();
+    // Use canGoBack to safely navigate
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
   };
 
   const handleDelete = () => {
@@ -113,7 +123,12 @@ export default function WorkoutEditScreen() {
           style: 'destructive',
           onPress: () => {
             deleteWorkout(id);
-            router.back();
+            // Use canGoBack to safely navigate
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace('/');
+            }
           },
         },
       ]

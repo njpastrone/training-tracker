@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TextInput, Button, HelperText } from 'react-native-paper';
+import { TextInput, Button, HelperText, Text } from 'react-native-paper';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
@@ -23,8 +23,6 @@ export default function WorkoutInput({ initialValue = '', templateId, onWorkoutL
 
   // Set initial value when component mounts or initialValue changes
   useEffect(() => {
-    console.log('WorkoutInput - initialValue changed:', initialValue);
-    console.log('WorkoutInput - templateId:', templateId);
     setInput(initialValue);
   }, [initialValue]);
 
