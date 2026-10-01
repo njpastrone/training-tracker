@@ -28,7 +28,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.19.4+
 - npm or yarn
 - iOS Simulator (Mac) or Android Emulator, or Expo Go app on your phone
 - Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
