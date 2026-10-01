@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
 import { Text, Surface, Chip, Portal, Dialog, List, Button, Switch } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -80,7 +80,7 @@ export default function HistoryScreen() {
       const isRecurring = existingSchedule.isRecurring;
       
       // Show options to edit or cancel existing schedule
-      const alertButtons = [
+      const alertButtons: AlertButton[] = [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Remove This Date', 
