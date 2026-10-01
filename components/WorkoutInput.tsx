@@ -57,7 +57,7 @@ export default function WorkoutInput({ initialValue = '', templateId, templateEx
       const workout = {
         id: uuidv4(),
         date: format(new Date(), 'yyyy-MM-dd'),
-        exercises: parsed.exercises.map((e) => ({ ...e, id: e.id || uuidv4() })),
+        exercises: parsed.exercises.map((e: any) => ({ ...e, id: e.id || uuidv4() })),
         rawInput: input.trim() || 'Started from template',
         muscleGroups: parsed.muscleGroups,
         notes: parsed.notes,

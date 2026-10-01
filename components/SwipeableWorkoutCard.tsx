@@ -94,7 +94,7 @@ export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
 
   return (
     <Swipeable
-      ref={(ref) => (swipeableRef = ref)}
+      ref={(ref) => { swipeableRef = ref; }}
       renderLeftActions={renderLeftActions}
       renderRightActions={renderRightActions}
       overshootLeft={false}

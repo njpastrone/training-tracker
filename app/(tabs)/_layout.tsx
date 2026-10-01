@@ -36,7 +36,7 @@ export default function TabLayout() {
           title: 'Log',
           headerTitle: 'Training Tracker',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle-outline" size={size} color={color} />
+            <Ionicons name="add-circle-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -45,7 +45,7 @@ export default function TabLayout() {
         options={{
           title: 'History',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons name="calendar-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -54,7 +54,7 @@ export default function TabLayout() {
         options={{
           title: 'Coach',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="fitness-outline" size={size} color={color} />
+            <Ionicons name="fitness-outline" size={size} color={color as string} />
           ),
         }}
       />
@@ -63,7 +63,7 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+            <Ionicons name="settings-outline" size={size} color={color as string} />
           ),
         }}
       />
