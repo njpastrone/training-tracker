@@ -1,0 +1,15 @@
+{
+  "name": "training-tracker-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "vars": {
+    // Max Claude requests per UTC day across all users. Keep well under 1000:
+    // each request is one KV write and the free plan allows 1000 writes/day.
+    "DAILY_REQUEST_CAP": "200"
+  },
+  "kv_namespaces": [
+    // Replace the id with the one printed by `npx wrangler kv namespace create USAGE`.
+    { "binding": "USAGE", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
+  ]
+  // Secrets (never in this file): ANTHROPIC_API_KEY, APP_PASSWORD via `npx wrangler secret put`.
+}

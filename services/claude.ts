@@ -1,16 +1,33 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { ParsedWorkoutResponse, MuscleGroup, Exercise } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 
-// Initialize Anthropic client
-const getClient = () => {
-  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY is not set');
+// Server refusals the user should see (wrong app password, daily cap reached)
+export class ApiError extends Error {}
+
+// Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model
+export async function callClaude(system: string, content: string, maxTokens: number): Promise<string> {
+  const url = process.env.EXPO_PUBLIC_API_URL;
+  if (!url) {
+    throw new Error('EXPO_PUBLIC_API_URL is not set');
   }
-  return new Anthropic({ apiKey });
-};
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-app-password': process.env.EXPO_PUBLIC_APP_PASSWORD ?? '',
+    },
+    body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 || res.status === 429) {
+    throw new ApiError(data.error ?? 'AI request refused by the server.');
+  }
+  if (!res.ok || typeof data.text !== 'string') {
+    throw new Error(data.error ?? `AI server error (${res.status})`);
+  }
+  return data.text;
+}
 
 const SYSTEM_PROMPT = `<role>
 You are an elite fitness tracking AI that transforms natural language workout descriptions into precise structured data. Your expertise spans exercise science, anatomy, and natural language understanding.
@@ -168,16 +185,7 @@ Return ONLY valid JSON matching this exact structure:
 
 export async function parseWorkout(input: string): Promise<ParsedWorkoutResponse | null> {
   try {
-    const client = getClient();
-
-    const response = await client.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `<input_text>
+    const text = await callClaude(SYSTEM_PROMPT, `<input_text>
 ${input}
 </input_text>
 
@@ -199,20 +207,10 @@ Return ONLY a valid JSON object with this structure:
   "muscleGroups": ["array of muscle groups worked"],
   "notes": "string or null",
   "confidence": 0.0 to 1.0
-}`,
-        },
-      ],
-    });
+}`, 1024);
 
-    // Extract text from response
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      console.error('No text content in response');
-      return null;
-    }
-
-    // Parse JSON response - now guaranteed to be valid by Claude's structured output
-    const parsed = JSON.parse(textContent.text) as ParsedWorkoutResponse;
+    // Parse JSON response, ignoring any prose or code fences around the object
+    const parsed = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)) as ParsedWorkoutResponse;
 
     // Minimal validation since structured output guarantees schema compliance
     if (!parsed.exercises || !Array.isArray(parsed.exercises)) {
@@ -225,6 +223,7 @@ Return ONLY a valid JSON object with this structure:
     return parsed;
   } catch (error) {
     console.error('Error parsing workout:', error);
+    if (error instanceof ApiError) throw error;
 
     // Fallback: try simple parsing without AI
     return fallbackParse(input);
@@ -328,16 +327,7 @@ Return ONLY a valid JSON array of exercise objects:
 
 export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
   try {
-    const client = getClient();
-
-    const response = await client.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 1024,
-      system: TEMPLATE_PARSING_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `<template_description>
+    const text = await callClaude(TEMPLATE_PARSING_PROMPT, `<template_description>
 ${input}
 </template_description>
 
@@ -347,18 +337,10 @@ Parse this workout template into structured exercises. Focus on extracting:
 3. Weights if specified
 4. Proper muscle group classification
 
-Return ONLY the JSON array of exercises.`,
-        },
-      ],
-    });
-
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text content in template parsing response');
-    }
+Return ONLY the JSON array of exercises.`, 1024);
 
     // Clean response and extract JSON
-    let jsonText = textContent.text.trim();
+    let jsonText = text.trim();
     
     // Find the JSON array boundaries
     const jsonStart = jsonText.indexOf('[');
@@ -383,6 +365,7 @@ Return ONLY the JSON array of exercises.`,
 
   } catch (error) {
     console.error('Error parsing template from NL:', error);
+    if (error instanceof ApiError) throw error;
     
     // Fallback to basic parsing
     return parseTemplateBasic(input);

@@ -11,7 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import { TemplateExercise, WorkoutTemplate } from '../types/template';
 import { templateService } from '../services/templates';
-import { parseTemplateFromNL } from '../services/claude';
+import { parseTemplateFromNL, ApiError } from '../services/claude';
 import { MuscleGroup } from '../types/workout';
 
 export default function TemplateEditScreen() {
@@ -59,7 +59,7 @@ export default function TemplateEditScreen() {
       setInputMode('manual');
       Alert.alert('Success', `Parsed ${parsedExercises.length} exercises from your description.`);
     } catch (error) {
-      Alert.alert('Parse Error', 'Failed to parse exercises. Please try a different format.');
+      Alert.alert('Parse Error', error instanceof ApiError ? error.message : 'Failed to parse exercises. Please try a different format.');
     } finally {
       setIsParsing(false);
     }

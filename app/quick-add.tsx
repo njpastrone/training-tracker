@@ -4,7 +4,7 @@ import { Text, TextInput, Button, Appbar, HelperText } from 'react-native-paper'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { parseWorkout } from '../services/claude';
+import { parseWorkout, ApiError } from '../services/claude';
 import { spacing } from '../constants/theme';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -55,7 +55,7 @@ export default function QuickAddScreen() {
       router.back();
     } catch (err) {
       console.error('Error parsing workout:', err);
-      setError('Failed to log workout. Please try again.');
+      setError(err instanceof ApiError ? err.message : 'Failed to log workout. Please try again.');
     } finally {
       setIsLoading(false);
     }

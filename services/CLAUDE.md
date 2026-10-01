@@ -8,7 +8,7 @@ API integrations and data persistence services.
 - `database.ts`: SQLite database for structured workout data
 
 ## Claude API Service
-- Uses `@anthropic-ai/sdk`
+- Calls Claude through the Cloudflare Worker in `server/` (`callClaude`); the Worker holds the key and picks the model
 - System prompt tailored for workout parsing
 - Returns structured Exercise[] from natural language
 - Handles errors gracefully with fallbacks
