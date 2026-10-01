@@ -8,6 +8,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRouter } from 'expo-router';
 import { spacing } from '../../constants/theme';
 import { getCoachingAdvice, analyzeWeeklyVolume, CoachAnalysis, TRAINING_GUIDELINES, askFollowUpQuestion } from '../../services/coach';
+import { ApiError } from '../../services/claude';
 import { startOfWeek, format, addWeeks } from 'date-fns';
 
 export default function CoachScreen() {
@@ -33,7 +34,7 @@ export default function CoachScreen() {
       setAnalysis(result);
       setAnalyzedWeek(result.analyzedWeek || selectedWeek);
     } catch (error) {
-      Alert.alert('Analysis Error', 'Failed to analyze your training. Please try again.');
+      Alert.alert('Analysis Error', error instanceof ApiError ? error.message : 'Failed to analyze your training. Please try again.');
       console.error('Coaching analysis error:', error);
     } finally {
       setIsLoading(false);

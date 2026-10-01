@@ -46,7 +46,8 @@ See `FEATURES.md` for detailed implementation plans:
 - **Follow DESIGN-SYSTEM.md** for UI standards, spacing, typography, and component patterns
 
 ## Environment Variables
-- `EXPO_PUBLIC_ANTHROPIC_API_KEY`: Claude API key (required)
+- `EXPO_PUBLIC_API_URL`: URL of the Cloudflare Worker in `server/` that holds the Claude API key (required)
+- `EXPO_PUBLIC_APP_PASSWORD`: shared app password the Worker checks (required)
 
 ## Commands
 - `npm start`: Start Expo dev server

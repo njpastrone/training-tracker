@@ -22,7 +22,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **UI**: [React Native Paper](https://reactnativepaper.com/) (Material Design)
 - **State Management**: [Zustand](https://zustand-demo.pmnd.rs/)
 - **Storage**: AsyncStorage for persistent local data
-- **AI**: [Claude API](https://www.anthropic.com/) for natural language parsing
+- **AI**: [Claude API](https://www.anthropic.com/) for natural language parsing, called through a small [Cloudflare Worker](https://workers.cloudflare.com/) (`server/`) so the API key never ships in the app
 
 ## Getting Started
 
@@ -32,6 +32,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - npm or yarn
 - iOS Simulator (Mac) or Android Emulator, or Expo Go app on your phone
 - Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
+- A free [Cloudflare](https://dash.cloudflare.com/sign-up) account (hosts the API server)
 
 ### Installation
 
@@ -46,10 +47,10 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
    npm install
    ```
 
-3. Create a `.env` file with your Anthropic API key:
+3. Deploy the API server (see [API server](#api-server) below), then create `.env.local`:
    ```bash
-   cp .env.example .env
-   # Edit .env and add your API key
+   cp .env.example .env.local
+   # Set EXPO_PUBLIC_API_URL and EXPO_PUBLIC_APP_PASSWORD
    ```
 
 4. Start the development server:
@@ -62,10 +63,40 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
    - Press `a` for Android Emulator
    - Scan QR code with Expo Go app on your phone
 
+## API Server
+
+The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (`claude-haiku-4-5-20251001`), caps `max_tokens`, checks a shared app password, and enforces a global daily request cap (`DAILY_REQUEST_CAP` in `server/wrangler.jsonc`, default 200/day UTC).
+
+The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks.
+
+### Deploy (one time)
+
+```bash
+cd server
+npm install
+npx wrangler login                        # opens the browser to your Cloudflare account
+npx wrangler kv namespace create USAGE    # copy the printed id into wrangler.jsonc (kv_namespaces[0].id)
+npx wrangler secret put ANTHROPIC_API_KEY # paste your Anthropic API key
+npx wrangler secret put APP_PASSWORD      # choose a password to share with the app
+npx wrangler deploy                       # prints the Worker URL
+```
+
+Then put the printed URL and the same password in `.env.local` at the repo root:
+
+```bash
+EXPO_PUBLIC_API_URL=https://training-tracker-api.<your-subdomain>.workers.dev
+EXPO_PUBLIC_APP_PASSWORD=<the password you chose>
+```
+
+Restart `npm start` so Expo picks up the new values. To change the daily cap, edit `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep it under 1000: each request is one KV write, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
+
+Server tests (Node 22.18+): `cd server && npm test`
+
 ## Project Structure
 
 ```
 training-tracker/
+├── server/                 # Cloudflare Worker that proxies Claude calls
 ├── app/                    # Expo Router pages
 │   ├── (tabs)/             # Tab navigation screens
 │   │   ├── index.tsx       # Log tab (home)

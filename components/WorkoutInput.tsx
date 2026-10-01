@@ -4,7 +4,7 @@ import { TextInput, Button, HelperText, Text } from 'react-native-paper';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { parseWorkout } from '../services/claude';
+import { parseWorkout, ApiError } from '../services/claude';
 import { spacing } from '../constants/theme';
 import { format } from 'date-fns';
 
@@ -84,7 +84,7 @@ export default function WorkoutInput({ initialValue = '', templateId, templateEx
       }
     } catch (err) {
       console.error('Error parsing workout:', err);
-      setError('Failed to log workout. Please try again.');
+      setError(err instanceof ApiError ? err.message : 'Failed to log workout. Please try again.');
     } finally {
       setIsLoading(false);
     }

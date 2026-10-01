@@ -1,16 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { Workout, MuscleGroup } from '../types/workout';
 import { getExercisesByCategory } from '../data/exercises';
 import { addWeeks, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
-
-// Initialize Anthropic client
-const getClient = () => {
-  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY is not set');
-  }
-  return new Anthropic({ apiKey });
-};
+import { callClaude, ApiError } from './claude';
 
 export interface CoachAnalysis {
   weeklyVolume: Record<MuscleGroup, number>;
@@ -229,8 +220,6 @@ export async function getCoachingAdvice(
   
   try {
     const weeklyData = analyzeWeeklyVolume(workouts, intelligentWeek);
-    const client = getClient();
-
     // Prepare analysis data for Claude
     const analysisData = {
       weeklyVolume: Object.fromEntries(
@@ -245,10 +234,7 @@ export async function getCoachingAdvice(
       guidelines: TRAINING_GUIDELINES
     };
 
-    const response = await client.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 1500,
-      system: `<role>
+    const text = await callClaude(`<role>
 You are an elite strength and hypertrophy coach with 15+ years experience analyzing training programs. Your expertise encompasses exercise science research, program design, and athlete development across all training levels.
 </role>
 
@@ -319,11 +305,7 @@ Respond with ONLY a valid JSON object in this exact format:
   "frequencyIssues": ["specific frequency problem with target"],
   "confidence": 0.85
 }
-</output_format>`,
-      messages: [
-        {
-          role: 'user',
-          content: `<training_data>
+</output_format>`, `<training_data>
 ${JSON.stringify(analysisData, null, 2)}
 </training_data>
 
@@ -339,18 +321,10 @@ Apply your systematic analysis framework to evaluate this training data:
 Focus on actionable insights that will meaningfully improve training outcomes. Be specific with numbers and targets in your recommendations.
 </analysis_instructions>
 
-Return only the JSON object as specified.`
-        }
-      ]
-    });
-
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text content in coaching response');
-    }
+Return only the JSON object as specified.`, 1500);
 
     // Clean the response to extract just the JSON
-    let jsonText = textContent.text.trim();
+    let jsonText = text.trim();
     const jsonStart = jsonText.indexOf('{');
     const jsonEnd = jsonText.lastIndexOf('}');
     
@@ -363,7 +337,7 @@ Return only the JSON object as specified.`
       coachingAdvice = JSON.parse(jsonText);
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError);
-      console.error('Raw response:', textContent.text);
+      console.error('Raw response:', text);
       throw new Error(`Failed to parse coaching response: ${(parseError as Error).message}`);
     }
     
@@ -380,6 +354,7 @@ Return only the JSON object as specified.`
 
   } catch (error) {
     console.error('Error getting coaching advice:', error);
+    if (error instanceof ApiError) throw error;
     
     // If it's a JSON parse error, try without structured output
     if ((error as Error).message?.includes('JSON Parse') || (error as Error).message?.includes('structured-outputs')) {
@@ -400,8 +375,6 @@ async function getCoachingAdviceSimple(
   weekStartDate: Date
 ): Promise<CoachAnalysis> {
   const weeklyData = analyzeWeeklyVolume(workouts, weekStartDate);
-  const client = getClient();
-
   const analysisData = {
     weeklyVolume: Object.fromEntries(
       Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.totalSets])
@@ -413,10 +386,7 @@ async function getCoachingAdviceSimple(
   };
 
   // Simplified but still optimized prompt for fallback
-  const response = await client.messages.create({
-    model: 'claude-3-5-haiku-20241022',
-    max_tokens: 1000,
-    system: `You are an expert strength coach analyzing training data. Apply evidence-based training science principles:
+  const text = await callClaude(`You are an expert strength coach analyzing training data. Apply evidence-based training science principles:
 
 VOLUME GUIDELINES:
 - Large muscles (chest, back, legs): 8-12 sets minimum, 16-22 maximum per week
@@ -435,26 +405,14 @@ Respond with ONLY valid JSON:
   "volumeIssues": ["specific issue with numbers"],
   "frequencyIssues": ["specific issue with target"],
   "confidence": 0.8
-}`,
-    messages: [
-      {
-        role: 'user',
-        content: `<training_data>
+}`, `<training_data>
 ${JSON.stringify(analysisData, null, 2)}
 </training_data>
 
-Analyze volume and frequency against evidence-based standards. Provide specific, actionable recommendations with exact numbers. Focus on the most impactful improvements.`
-      }
-    ]
-  });
-
-  const textContent = response.content.find((c) => c.type === 'text');
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text content in simple coaching response');
-  }
+Analyze volume and frequency against evidence-based standards. Provide specific, actionable recommendations with exact numbers. Focus on the most impactful improvements.`, 1000);
 
   // Clean the response to extract just the JSON
-  let jsonText = textContent.text.trim();
+  let jsonText = text.trim();
   const jsonStart = jsonText.indexOf('{');
   const jsonEnd = jsonText.lastIndexOf('}');
   
@@ -544,18 +502,13 @@ export async function askFollowUpQuestion(
   workouts: Workout[]
 ): Promise<string> {
   try {
-    const client = getClient();
-
     const contextData = {
       analysis,
       recentWorkouts: workouts.slice(-10), // Last 10 workouts for context
       guidelines: TRAINING_GUIDELINES
     };
 
-    const response = await client.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 800,
-      system: `You are an expert strength coach answering follow-up questions about a specific training analysis. 
+    const text = await callClaude(`You are an expert strength coach answering follow-up questions about a specific training analysis. 
 
 <context>
 You have just provided a detailed training analysis for this user. Now they have a follow-up question about their specific report card and training data.
@@ -583,11 +536,7 @@ Be like a knowledgeable personal trainer who:
 - Gives specific next steps
 - Acknowledges their current progress
 - Offers realistic, achievable solutions
-</coaching_style>`,
-      messages: [
-        {
-          role: 'user',
-          content: `<training_analysis>
+</coaching_style>`, `<training_analysis>
 ${JSON.stringify(contextData, null, 2)}
 </training_analysis>
 
@@ -595,19 +544,12 @@ ${JSON.stringify(contextData, null, 2)}
 ${question}
 </user_question>
 
-Answer this follow-up question about my training analysis. Reference my specific data when relevant and provide actionable coaching advice.`
-        }
-      ]
-    });
+Answer this follow-up question about my training analysis. Reference my specific data when relevant and provide actionable coaching advice.`, 800);
 
-    const textContent = response.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text content in follow-up response');
-    }
-
-    return textContent.text.trim();
+    return text.trim();
   } catch (error) {
     console.error('Error with follow-up question:', error);
+    if (error instanceof ApiError) return error.message;
     return "I'm having trouble processing your question right now. Please try rephrasing or ask again in a moment.";
   }
 }
