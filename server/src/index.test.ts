@@ -71,3 +71,14 @@ test('rejects malformed requests before counting', async () => {
   assert.equal((await call(req('pw', { messages: 'x' }), env)).status, 400);
   assert.equal(store.size, 0);
 });
+
+test('fails closed with 503 when the usage counter write fails', async () => {
+  const { env } = makeEnv();
+  env.USAGE.put = async () => {
+    throw new Error('KV PUT failed: 429 Too Many Requests');
+  };
+  const res = await call(req('pw'), env);
+  assert.equal(res.status, 503);
+  assert.match(res.body.error!, /Server busy/);
+  assert.equal(upstream.length, 0);
+});

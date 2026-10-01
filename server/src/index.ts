@@ -44,9 +44,14 @@ export default {
       return json(400, { error: 'Invalid request.' });
     }
 
-    if (!(await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP)))) {
-      return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
+    let allowed: boolean;
+    try {
+      allowed = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP));
+    } catch (err) {
+      console.error('Usage counter error', err);
+      return json(503, { error: 'Server busy, please try again in a moment.' });
     }
+    if (!allowed) return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
