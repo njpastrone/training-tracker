@@ -2,7 +2,7 @@ import { ParsedWorkoutResponse, MuscleGroup, Exercise } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 
-// Server refusals the user should see (wrong app password, daily cap reached)
+// Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
 
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model
@@ -20,7 +20,7 @@ export async function callClaude(system: string, content: string, maxTokens: num
     body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens }),
   });
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 || res.status === 429) {
+  if (res.status === 401 || res.status === 429 || res.status === 503) {
     throw new ApiError(data.error ?? 'AI request refused by the server.');
   }
   if (!res.ok || typeof data.text !== 'string') {
