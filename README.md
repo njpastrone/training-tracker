@@ -106,6 +106,21 @@ The History tab shows:
 - Weekly/monthly workout counts
 - Longest streak record
 
+## Releasing to TestFlight
+
+Config lives in `app.json` (bundle ID `com.njpastrone.trainingtracker`) and `eas.json`. Build numbers are managed remotely by EAS and auto-increment on production builds.
+
+One-time and per-release steps (run by the account owner):
+
+1. `npx eas-cli login`
+2. `npx eas-cli init` (links the project; writes `projectId`/`owner` into `app.json` — commit that)
+3. Set the app's runtime secrets as EAS environment variables for the production environment (expo.dev → project → Environment variables, or `npx eas-cli env:create`): the backend URL (`EXPO_PUBLIC_API_URL`) and the app password variable introduced by the key-server change. `EXPO_PUBLIC_*` values are baked into the build.
+4. `npx eas-cli build --platform ios --profile production` (first run prompts for Apple login and creates certificates)
+5. `npx eas-cli submit --platform ios --latest`
+6. In App Store Connect → TestFlight: create an external testing group, fill in the beta app description and feedback email, then enable the public link and share it.
+
+The `development` profile needs `npx expo install expo-dev-client` first.
+
 ## Roadmap
 
 - [ ] AI Coach tab with personalized advice
