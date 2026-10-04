@@ -212,6 +212,18 @@ export const scheduleService = {
     }
   },
 
+  // A workout logged on a date with an open planned session completes that session and links the workout.
+  // Returns whether a session was linked.
+  async linkLoggedWorkout(date: string, workoutId: string): Promise<boolean> {
+    const schedule = await this.getSchedule();
+    const session = schedule.find(s => s.planId && s.date === date && !s.completed && !s.skipped);
+    if (!session) return false;
+    session.completed = true;
+    session.completedWorkoutId = workoutId;
+    await this.saveSchedule(schedule);
+    return true;
+  },
+
   // Mark workout as skipped
   async markWorkoutSkipped(date: string, reason?: string): Promise<void> {
     const schedule = await this.getSchedule();

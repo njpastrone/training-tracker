@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
-import { Text, Surface, Chip, Portal, Dialog, List, Button, Switch } from 'react-native-paper';
+import { Text, Surface, Chip, Portal, Dialog, List, Button, Switch, Icon, IconButton } from 'react-native-paper';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -13,6 +14,8 @@ import { spacing } from '../../constants/theme';
 import { format, isFuture, parseISO } from 'date-fns';
 import { WorkoutTemplate } from '../../types/template';
 import { scheduleService } from '../../services/schedule';
+import { getPlans, deletePlan } from '../../services/planner';
+import { TrainingPlan } from '../../types/plan';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper function to compare arrays for preset selection
@@ -36,7 +39,14 @@ export default function HistoryScreen() {
     deleteRecurringSeries
   } = useWorkoutStore();
   const { colors } = useTheme();
+  const router = useRouter();
   const stats = getStats();
+
+  // Set by the Plan screen after Plan it, so this tab can offer Undo
+  const { planId } = useLocalSearchParams<{ planId?: string }>();
+  const [plans, setPlans] = useState<TrainingPlan[]>([]);
+  const addedPlan = plans.find(p => p.id === planId && p.status === 'active');
+  const addedCount = schedule.filter(s => s.planId === planId).length;
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Start with current week
   
   // Schedule workout dialog state
@@ -63,6 +73,21 @@ export default function HistoryScreen() {
     loadTemplates();
     loadSchedule();
   }, []);
+
+  useEffect(() => {
+    getPlans().then(setPlans);
+  }, [schedule]);
+
+  const handleUndoPlan = async () => {
+    if (!planId) return;
+    try {
+      await deletePlan(planId);
+      await Promise.all([loadSchedule(), loadTemplates()]);
+      router.setParams({ planId: '' });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to undo the plan.');
+    }
+  };
 
   const handleDatePress = (date: string) => {
     const dateObj = parseISO(date);
@@ -91,6 +116,10 @@ export default function HistoryScreen() {
           text: 'Change Template', 
           onPress: () => openScheduleDialog(date)
         },
+        {
+          text: 'Edit Workout',
+          onPress: () => router.push(`/template-edit?id=${existingSchedule.templateId}`)
+        },
       ];
 
       // Add "Delete Series" option for recurring workouts
@@ -110,7 +139,7 @@ export default function HistoryScreen() {
         ? existingSchedule.recurringPattern === 'custom' && existingSchedule.recurringDays
           ? `Custom recurring workout (${existingSchedule.recurringDays.map(d => d.slice(0, 3)).join(', ')}): ${template?.name || 'Unknown'}`
           : `Recurring ${existingSchedule.recurringPattern} workout: ${template?.name || 'Unknown'}`
-        : `Scheduled workout: ${template?.name || 'Unknown'}`;
+        : `Scheduled workout: ${template?.name || 'Unknown'}${existingSchedule.note ? `\n${existingSchedule.note}` : ''}`;
 
       Alert.alert('Scheduled Workout', scheduleDescription, alertButtons);
     } else {
@@ -247,6 +276,17 @@ export default function HistoryScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
+        {addedPlan && (
+          <Surface style={[styles.planBanner, { backgroundColor: colors.secondary + '20', borderColor: colors.secondary }]} elevation={0}>
+            <Icon source="check-circle" size={20} color={colors.secondary} />
+            <Text variant="bodyMedium" style={[styles.planBannerText, { color: colors.text }]}>
+              {addedPlan.name} added · {addedCount} workout{addedCount === 1 ? '' : 's'}
+            </Text>
+            <Button compact onPress={handleUndoPlan}>Undo</Button>
+            <IconButton icon="close" size={20} onPress={() => router.setParams({ planId: '' })} style={styles.planBannerClose} />
+          </Surface>
+        )}
+
         {/* Simplified Stats */}
         <Surface style={[styles.statsCard, { backgroundColor: colors.surface }]} elevation={1}>
           <View style={styles.statsRow}>
@@ -287,9 +327,14 @@ export default function HistoryScreen() {
 
         {/* Calendar - now with clickable days and schedule indicators */}
         <Surface style={[styles.calendarCard, { backgroundColor: colors.surface }]} elevation={1}>
-          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-            Workout Calendar
-          </Text>
+          <View style={styles.calendarHeader}>
+            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
+              Workout Calendar
+            </Text>
+            <Chip compact icon="creation" onPress={() => router.push('/plan')}>
+              Plan
+            </Chip>
+          </View>
           <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textSecondary }]}>
             Tap any day to view workouts or schedule future ones
           </Text>
@@ -610,6 +655,27 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: '600',
     marginBottom: spacing.xs,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  planBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  planBannerText: {
+    flex: 1,
+    fontWeight: '500',
+  },
+  planBannerClose: {
+    margin: 0,
   },
   calendarHint: {
     marginBottom: spacing.md,

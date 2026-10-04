@@ -107,7 +107,7 @@ function calculateStreak(workouts: Workout[]): WorkoutStreak {
 }
 
 // Helper to calculate stats
-function calculateStats(workouts: Workout[]): WorkoutStats {
+export function calculateStats(workouts: Workout[]): WorkoutStats {
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const monthStart = startOfMonth(today);
@@ -204,6 +204,11 @@ export const useWorkoutStore = create<WorkoutState>()(
           ),
           error: null,
         }));
+        // Logging on a planned day completes that plan session
+        scheduleService
+          .linkLoggedWorkout(workout.date, workout.id)
+          .then(linked => { if (linked) get().loadSchedule(); })
+          .catch(error => console.error('Error linking workout to plan:', error));
       },
 
       updateWorkout: (id, updates) => {
