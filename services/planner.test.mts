@@ -132,6 +132,30 @@ test('Plan it saves templates and sessions; Undo removes them but keeps complete
   assert.equal((await getPlans())[0].status, 'cancelled');
 });
 
+test('deleting a plan later in its life keeps its history and removes what is still ahead', async () => {
+  await scheduleService.saveSchedule([{ id: 'other', date: day(3), templateId: 'old', isRecurring: false, completed: false }]);
+  const plan = await savePlan(draft(), 'plan a re-entry week', 'lbs');
+
+  // A few days in: the first Upper A was done, the second was missed
+  const moved: Record<string, { date: string; completed: boolean; completedWorkoutId?: string }> = {
+    [day(0)]: { date: day(-5), completed: true, completedWorkoutId: 'w1' },
+    [day(4)]: { date: day(-1), completed: false },
+  };
+  await scheduleService.saveSchedule((await scheduleService.getSchedule()).map(s => (moved[s.date] ? { ...s, ...moved[s.date] } : s)));
+
+  await deletePlan(plan.id);
+
+  const schedule = await scheduleService.getSchedule();
+  assert.deepEqual(
+    schedule.filter(s => s.planId === plan.id).map(s => [s.date, s.completed, s.completedWorkoutId]).sort(),
+    [[day(-1), false, undefined], [day(-5), true, 'w1']].sort()
+  );
+  assert.deepEqual(schedule.filter(s => !s.planId).map(s => s.id), ['other']);
+  // Upper A stays for the past sessions; Lower A only had upcoming sessions
+  assert.deepEqual((await templateService.getTemplates()).map(t => t.name), ['Upper A']);
+  assert.equal((await getPlans())[0].status, 'cancelled');
+});
+
 test('logging a workout on a planned day completes that session and links the workout', async () => {
   await scheduleService.saveSchedule([
     { id: 'p', date: day(0), templateId: 't', isRecurring: false, completed: false, planId: 'plan1' },

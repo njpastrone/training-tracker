@@ -78,15 +78,21 @@ export default function HistoryScreen() {
     getPlans().then(setPlans);
   }, [schedule]);
 
-  const handleUndoPlan = async () => {
-    if (!planId) return;
+  const handleDeletePlan = async (id: string) => {
     try {
-      await deletePlan(planId);
+      await deletePlan(id);
       await Promise.all([loadSchedule(), loadTemplates()]);
-      router.setParams({ planId: '' });
+      if (id === planId) router.setParams({ planId: '' });
     } catch (error) {
-      Alert.alert('Error', 'Failed to undo the plan.');
+      Alert.alert('Error', 'Failed to delete the plan.');
     }
+  };
+
+  const confirmDeletePlan = (id: string) => {
+    Alert.alert('Delete plan?', 'Removes its upcoming workouts. Completed workouts stay.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => handleDeletePlan(id) },
+    ]);
   };
 
   const handleDatePress = (date: string) => {
@@ -132,6 +138,15 @@ export default function HistoryScreen() {
             existingSchedule.recurringPattern!, 
             existingSchedule.recurringDays
           )
+        });
+      }
+
+      if (existingSchedule.planId) {
+        const id = existingSchedule.planId;
+        alertButtons.splice(2, 0, {
+          text: 'Delete Plan',
+          style: 'destructive',
+          onPress: () => confirmDeletePlan(id),
         });
       }
 
@@ -282,7 +297,7 @@ export default function HistoryScreen() {
             <Text variant="bodyMedium" style={[styles.planBannerText, { color: colors.text }]}>
               {addedPlan.name} added · {addedCount} workout{addedCount === 1 ? '' : 's'}
             </Text>
-            <Button compact onPress={handleUndoPlan}>Undo</Button>
+            <Button compact onPress={() => planId && handleDeletePlan(planId)}>Undo</Button>
             <IconButton icon="close" size={20} onPress={() => router.setParams({ planId: '' })} style={styles.planBannerClose} />
           </Surface>
         )}

@@ -45,6 +45,7 @@ export default function PlanScreen() {
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<string[]>([]);
+  const [turns, setTurns] = useState(0);
   const [draft, setDraft] = useState<PlannerResponse | null>(null);
   const [previous, setPrevious] = useState<PlannerResponse | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -67,12 +68,13 @@ export default function PlanScreen() {
   const send = async (text: string) => {
     const message = text.trim();
     if (!message || busy) return;
-    if (messages.length >= MAX_TURNS) {
+    if (turns >= MAX_TURNS) {
       setError('Start a new plan to keep going.');
       return;
     }
     setBusy(true);
     setError(null);
+    setTurns(turns + 1);
     try {
       const result = await planWorkouts(message, draft?.plan ?? null, history, messages);
       if (!result) {
@@ -101,6 +103,7 @@ export default function PlanScreen() {
     setDraft(null);
     setPrevious(null);
     setMessages([]);
+    setTurns(0);
     setInput('');
     setError(null);
   };
