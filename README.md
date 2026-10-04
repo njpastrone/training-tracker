@@ -1,4 +1,4 @@
-# Training Tracker
+# LiftText
 
 A mobile workout tracking app built with Expo (React Native) that lets you log workouts using natural language. Powered by Claude AI for intelligent workout parsing.
 
