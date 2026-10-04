@@ -141,7 +141,12 @@ The History tab shows:
 
 Config lives in `app.json` (bundle ID `com.njpastrone.trainingtracker`) and `eas.json`. Build numbers are managed remotely by EAS and auto-increment on production builds.
 
-One-time and per-release steps (run by the account owner):
+**Merges auto-ship.** Every push to `main` (including PR merges) runs the EAS Workflow in `.eas/workflows/testflight.yml`: it builds the production iOS app and submits it to TestFlight, where it reaches the internal `Team (Expo)` group. Requires the GitHub repo to be linked to the Expo project (expo.dev → project → GitHub). Watch runs at expo.dev or with `npx eas-cli workflow:runs`.
+
+- **Skip a build:** put `[eas skip]` (or `[skip eas]` / `[no eas]`) in the commit message — for a squash merge, in the merge commit title or body.
+- **Build limit:** the Expo free plan includes a limited number of iOS builds per month, and every merge spends one. Batch small changes or skip docs-only merges.
+
+Manual one-time and per-release steps (run by the account owner):
 
 1. `npx eas-cli login`
 2. `npx eas-cli init` (links the project; writes `projectId`/`owner` into `app.json` — commit that)
