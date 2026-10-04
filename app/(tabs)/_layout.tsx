@@ -34,7 +34,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Log',
-          headerTitle: 'Training Tracker',
+          headerTitle: 'LiftText',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="add-circle-outline" size={size} color={color as string} />
           ),

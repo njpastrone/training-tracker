@@ -152,7 +152,7 @@ export default function SettingsScreen() {
             About
           </Text>
           <List.Item
-            title="Training Tracker"
+            title="LiftText"
             description="Version 1.0.0"
             left={(props) => <List.Icon {...props} icon="information-outline" />}
           />
