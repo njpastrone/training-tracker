@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SymbolView } from 'expo-symbols';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius } from '../constants/theme';
+import LogoMark from './LogoMark';
 
 // Your message: a sunrise bubble on the right, Messages-style
 export function UserBubble({ text }: { text: string }) {
@@ -23,7 +23,7 @@ export function CoachBubble({ text, muted }: { text: string; muted?: boolean }) 
   return (
     <View style={styles.coachRow}>
       <LinearGradient colors={[colors.sunriseSoft, colors.sunrise]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-        <SymbolView name="text.bubble" size={15} weight="semibold" tintColor={colors.onSunrise} />
+        <LogoMark size={15} color={colors.onSunrise} />
       </LinearGradient>
       <View
         style={[
