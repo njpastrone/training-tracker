@@ -5,7 +5,7 @@ into structured exercises. The prompt lives in `server/src/parse.ts`. The Worker
 sends it to older Workers, and this eval scores it, so the eval always tests the live prompt.
 
 ```bash
-npm run eval:parse                                  # 100 cases, ~1 min, about $0.20
+npm run eval:parse                                  # 101 cases, ~1 min, about $0.20
 npm run eval:parse -- --verbose                     # also print every miss
 npm run eval:parse -- --only multi_day,terse-bench  # categories or case ids
 npm run eval:parse -- --repeat 3                    # average out run-to-run noise
