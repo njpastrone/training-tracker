@@ -17,7 +17,7 @@ LiftText is iOS-26-native: content sits on a soft sky, Liquid Glass is used for 
 - **Done:** distinct days with a logged workout this week, up to today.
 - **Phase:**
   - `day` when done ≥ target;
-  - `dusk` when the days left this week (today included) are fewer than the workouts still needed;
+  - `dusk` when the days left this week (today included unless you already trained today) are fewer than the workouts still needed;
   - otherwise `dawn`, blended toward day by `done / target`.
 - **Gradients (top → middle → bottom):** dawn `#FFD3B8 → #FADCE6 → #E4E8FF`, day `#C9DFFF → #E4EEFF → #F6F8FF`, dusk `#FFC39C → #EFB0C8 → #BDB8F0`, night `#0A0F26 → #141938 → #1F1B44` with a `#2A2766` glow at the top right.
 - The sky is static per visit: it changes when data changes or the app returns on a new day. No ambient animation.
