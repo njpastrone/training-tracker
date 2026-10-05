@@ -33,6 +33,9 @@ export const aliasFor = (words: string, aliases: Record<string, string>) => {
 };
 
 const MAX_YOURS = 80;
+
+// Text the Worker accepts in the candidate list; one bad entry would fail the whole request
+export const fitsPrompt = (w: string) => w.trim().length > 0 && w.length <= 80 && !/[<>\n]/.test(w);
 const MAX_CATALOG = 40;
 
 // --------------------------------------------------------------------------- retrieval
@@ -104,7 +107,11 @@ export function buildCandidates(log: string, yours: Omit<Candidate, 'yours'>[]):
   const words = ` ${logWords(log).join(' ')} `;
   const mentioned = (c: Omit<Candidate, 'yours'>) =>
     [c.name, ...(c.also ?? [])].some((w) => words.includes(` ${normalizeWords(w)} `) || words.includes(` ${singularWords(w)} `));
-  const own = (yours.length > MAX_YOURS ? yours.filter(mentioned) : yours).slice(0, MAX_YOURS);
+  const valid = yours.filter((c) => fitsPrompt(c.name)).map(({ also, ...c }) => {
+    const ok = also?.filter(fitsPrompt);
+    return ok?.length ? { ...c, also: ok } : c;
+  });
+  const own = (valid.length > MAX_YOURS ? valid.filter(mentioned) : valid).slice(0, MAX_YOURS);
   const ownIds = new Set(own.map((c) => c.id));
   const catalog = catalogHits(log)
     .filter((id) => !ownIds.has(id))
@@ -189,9 +196,14 @@ const NOTE_WORDS = /\b(paused?|tempo|deficit|box|wide|narrow|grip|belt(ed)?|stra
 function markersAgree(said: string, pick: Candidate, candidates: Candidate[]) {
   const entry = catalogById.get(pick.id);
   if (namedBy(said, pick)) return true;
-  if (!entry) return true; // the user's own exercise: its name is all we know
-
   const saidMarkers = markersIn(said);
+  if (!entry) {
+    // The user's own exercise: its name is all we know, and words naming another listed exercise mean that one
+    const named = markersIn(pick.name);
+    return [...saidMarkers].every((m) => named.has(m)) && [...named].every((m) => saidMarkers.has(m) || IMPLICIT.has(m)) &&
+      !candidates.some((c) => c.id !== pick.id && namedBy(said, c));
+  }
+
   const fits = exerciseMarkers(entry);
   for (const n of [entry.name, ...entry.aliases]) for (const m of markersIn(n)) fits.add(m);
   if ([...saidMarkers].some((m) => !fits.has(m))) return false;
@@ -245,6 +257,17 @@ export const isAssisted = (id?: string) => (id ? catalogById.get(id)?.metric ===
 // Sessions logged by body part ("leg day"): the only entries whose workout lists extra muscle groups
 export const isBodyPartSession = (id?: string, name = '') =>
   (id ? catalogById.get(id)?.family === 'body-part' : false) || /\b(workout|day)\b/i.test(name);
+
+// A Worker deployed before the candidate list returns names only: an exact catalog name or alias,
+// or a candidate's name, is sure; anything else is left for the store to resolve by name
+export function resolveName(name: string | undefined, { candidates }: IdentityContext): IdentityResult | undefined {
+  const key = name ? exerciseKey(name) : '';
+  const id = key ? candidates.find((c) => exerciseKey(c.name) === key)?.id ?? catalogNameKeys.get(key) : undefined;
+  if (!id) return undefined;
+  const c = candidates.find((x) => x.id === id);
+  const entry = catalogById.get(id);
+  return { exerciseId: id, name: c?.name ?? entry!.name, muscleGroup: entry?.primary ?? c?.muscleGroup, match: 'sure' };
+}
 
 // One parsed exercise's identity, from the model's said/ex/alt/name. Never trusts the model's id.
 export function resolvePick(

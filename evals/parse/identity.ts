@@ -70,6 +70,10 @@ export const cases: Case[] = [
     { library: [{ id: 'dumbbell-curl' }, { id: 'tricep-pushdown' }] }),
   c('i-lib-press', 'library', 'press 3x5 95', [{ name: 'Overhead Press', id: 'overhead-press', status: 'known', muscleGroup: 'shoulders', sets: 3, reps: 5, weight: 95, unit: 'lbs' }],
     { library: [{ id: 'overhead-press' }, { id: 'squat' }] }),
+  c('i-lib-custom-not-hack', 'library', 'hack squat 3x10 180', [{ name: 'Hack Squat', id: 'hack-squat', status: 'new-for-you', muscleGroup: 'quads', sets: 3, reps: 10, weight: 180, unit: 'lbs' }],
+    { library: [{ id: 'custom-pendulum', name: 'Pendulum Squat', muscleGroup: 'quads' }] }),
+  c('i-lib-custom-not-incline', 'library', 'incline DB press 3x10 60s', [{ name: 'Incline Dumbbell Press', id: 'incline-dumbbell-press', status: 'new-for-you', muscleGroup: 'chest', sets: 3, reps: 10, weight: 60, unit: 'lbs' }],
+    { library: [{ id: 'custom-landmine', name: 'Landmine Press', muscleGroup: 'shoulders' }] }),
 
   // ---------------------------------------------------------------- new exercises: never the nearest catalog entry
   c('i-new-landmine', 'new', 'landmine press 3x8 45', [{ name: 'Landmine Press', status: 'new', muscleGroup: 'shoulders', sets: 3, reps: 8, weight: 45, unit: 'lbs' }]),

@@ -91,3 +91,33 @@ test('a log of names only is complete: no numbers, nothing unsure', () => {
   const text = JSON.stringify({ exercises: [{ said: 'squats', ex: e('squat') }, { said: 'bench', ex: e('bench-press') }] });
   assert.deepEqual(finalizeParse(text, 'lbs', { input, candidates })!.exercises.map((x) => x.match), ['sure', 'sure']);
 });
+
+test('library entries the Worker would reject are left out before keys are numbered', () => {
+  const lib = yours(['custom-fly', 'Cable fly -> low to high', 'chest'], ['custom-long', 'x'.repeat(81), 'chest'], ['bench-press', 'Bench Press', 'chest', 'bench-press']);
+  const out = buildCandidates('bench 3x5', [...lib.slice(0, 2), { ...lib[2], also: ['my <bench>', 'flat bench'] }]);
+  assert.deepEqual(out[0], { id: 'bench-press', name: 'Bench Press', muscleGroup: 'chest', family: 'bench-press', also: ['flat bench'], yours: true });
+  assert.ok(out.every((c) => c.id !== 'custom-fly' && c.id !== 'custom-long'));
+});
+
+test('a pick of the user\'s own exercise is sure only when the words fit its name', () => {
+  assert.equal(pick('hack squat 3x10 180', { said: 'hack squat', ex: 'e1' }, yours(['custom-pendulum', 'Pendulum Squat', 'quads'])), 'custom-pendulum unsure');
+  assert.equal(pick('incline DB press 3x10 60s', { said: 'incline DB press', ex: 'e1' }, yours(['custom-landmine', 'Landmine Press', 'shoulders'])), 'custom-landmine unsure');
+  assert.equal(pick('pit shark 3x10 180', { said: 'pit shark', ex: 'e1' }, yours(['custom-pit-shark', 'Pit Shark Squat', 'quads'])), 'custom-pit-shark sure');
+  assert.equal(pick('zorb pulls 3x12', { said: 'zorb pulls', ex: 'e1' }, yours(['custom-zorb', 'Cable Zorb Pull', 'back'])), 'custom-zorb sure');
+});
+
+test('an older Worker that returns names only: exact names are sure, the rest is left to the store', () => {
+  const input = 'bench 3x5 and pit shark 3x10 and landmine press';
+  const candidates = buildCandidates(input, yours(['custom-pit-shark', 'Pit Shark Squat', 'quads']));
+  const text = JSON.stringify({ exercises: [
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 5 },
+    { name: 'Pit Shark Squat', muscleGroup: 'quads', sets: 3, reps: 10 },
+    { name: 'Landmine Press', muscleGroup: 'shoulders' },
+  ] });
+  const out = finalizeParse(text, 'lbs', { input, candidates })!.exercises;
+  assert.deepEqual(out.map((x) => [x.name, x.exerciseId, x.match]), [
+    ['Bench Press', 'bench-press', 'sure'],
+    ['Pit Shark Squat', 'custom-pit-shark', 'sure'],
+    ['Landmine Press', undefined, undefined],
+  ]);
+});

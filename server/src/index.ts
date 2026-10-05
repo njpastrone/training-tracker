@@ -1,3 +1,4 @@
+import { fitsPrompt } from './identity.ts';
 import { buildParseRequest, type ParseOptions } from './parse.ts';
 
 export interface Env {
@@ -13,7 +14,7 @@ const MAX_BODY_CHARS = 100_000;
 const MAX_CANDIDATES = 120;
 const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
 
-const shortText = (v: unknown) => typeof v === 'string' && v.trim().length > 0 && v.length <= 80 && !/[<>\n]/.test(v);
+const shortText = (v: unknown) => typeof v === 'string' && fitsPrompt(v);
 
 // The exercise list the app sends with a log; undefined if any entry is malformed
 function parseCandidates(v: unknown): ParseOptions['exercises'] | undefined {

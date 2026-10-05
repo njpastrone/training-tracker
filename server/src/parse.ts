@@ -3,7 +3,7 @@
 // and evals/parse (which scores it). Change the prompt here and run `npm run eval:parse`.
 
 import type { MuscleGroup, ParsedWorkoutResponse } from '../../types/workout.ts';
-import { formatCandidates, isAssisted, isBodyPartSession, resolvePick, type Candidate, type IdentityContext } from './identity.ts';
+import { formatCandidates, isAssisted, isBodyPartSession, resolveName, resolvePick, type Candidate, type IdentityContext } from './identity.ts';
 
 export const PARSE_MODEL = 'claude-haiku-4-5-20251001';
 
@@ -163,10 +163,11 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
 
   const isGroup = (g: unknown): g is MuscleGroup => MUSCLE_GROUPS.includes(g as MuscleGroup);
   type Parsed = ParsedWorkoutResponse['exercises'][number];
-  const exercises = (raw.exercises as Record<string, unknown>[])
-    .filter((e) => e && (str(e.name) || str(e.said) || str(e.ex)))
+  const listed = (raw.exercises as Record<string, unknown>[]).filter((e) => e && (str(e.name) || str(e.said) || str(e.ex)));
+  const namesOnly = !listed.some((e) => str(e.said));
+  const exercises = listed
     .map((e) => {
-      const id = identity && resolvePick({ said: str(e.said), ex: str(e.ex), alt: str(e.alt), name: str(e.name) }, identity);
+      const id = identity && (namesOnly ? resolveName(str(e.name), identity) : resolvePick({ said: str(e.said), ex: str(e.ex), alt: str(e.alt), name: str(e.name) }, identity));
       // Assistance is never a weight, or the easiest set would be the PR
       const assist = isAssisted(id?.exerciseId) ? num(e.weight) : undefined;
       const weight = assist ? undefined : num(e.weight);
