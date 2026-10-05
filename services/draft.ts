@@ -22,7 +22,7 @@ export function removeFromDraft(draft: Draft, index: number): Draft {
   };
 }
 
-const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w => w.replace(/s$/, ''));
+const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).map(w => w.replace(/s$/, '')).filter(Boolean);
 const UNIT_WORDS = /(kgs?|kilos?|kilograms?|lbs?|pounds?)\b/i;
 const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur|sun)day|\b(mon|tue|wed|thu|fri|sat|sun)\b/i;
 
