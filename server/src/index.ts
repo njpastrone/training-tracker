@@ -1,3 +1,5 @@
+import { buildParseRequest } from './parse.ts';
+
 export interface Env {
   ANTHROPIC_API_KEY: string;
   APP_PASSWORD: string;
@@ -33,15 +35,32 @@ export default {
     const raw = await request.text();
     if (raw.length > MAX_BODY_CHARS) return json(413, { error: 'Request too large.' });
 
-    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown };
+    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown };
     try {
       body = JSON.parse(raw);
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
-    const { system, messages, max_tokens } = body ?? {};
-    if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
-      return json(400, { error: 'Invalid request.' });
+    const { system, messages, max_tokens, parse } = body ?? {};
+    // Parse mode: the app sends only the log and the prompt lives here, so prompt fixes ship with a
+    // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
+    let upstream: Record<string, unknown>;
+    if (parse !== undefined) {
+      const { input, date, unit } = (parse ?? {}) as Record<string, unknown>;
+      if (typeof input !== 'string' || !input.trim() || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg')) {
+        return json(400, { error: 'Invalid request.' });
+      }
+      upstream = buildParseRequest(input, { date, unit });
+    } else {
+      if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
+        return json(400, { error: 'Invalid request.' });
+      }
+      upstream = {
+        model: MODEL,
+        max_tokens: Number.isInteger(max_tokens) && (max_tokens as number) > 0 ? Math.min(max_tokens as number, MAX_TOKENS) : MAX_TOKENS,
+        system,
+        messages,
+      };
     }
 
     let allowed: boolean;
@@ -60,12 +79,7 @@ export default {
         'x-api-key': env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: Number.isInteger(max_tokens) && (max_tokens as number) > 0 ? Math.min(max_tokens as number, MAX_TOKENS) : MAX_TOKENS,
-        system,
-        messages,
-      }),
+      body: JSON.stringify(upstream),
     });
     if (!res.ok) {
       console.error('Anthropic error', res.status, await res.text());

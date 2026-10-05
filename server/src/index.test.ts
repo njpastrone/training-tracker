@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { type Env } from './index.ts';
+import { buildParseRequest } from './parse.ts';
 
 function makeEnv(cap = '2', count?: number) {
   const store = new Map<string, string>();
@@ -81,4 +82,22 @@ test('fails closed with 503 when the usage counter write fails', async () => {
   assert.equal(res.status, 503);
   assert.match(res.body.error!, /Server busy/);
   assert.equal(upstream.length, 0);
+});
+
+test('parse mode sends the server-side parse prompt and ignores the client prompt', async () => {
+  const { env } = makeEnv();
+  const parse = { input: 'bench 3x5 225', date: '2026-10-03', unit: 'lbs' };
+  const res = await call(req('pw', { parse, system: 'client prompt', messages: [{ role: 'user', content: 'x' }] }), env);
+  assert.equal(res.status, 200);
+  const sent = JSON.parse(upstream[0].init.body as string);
+  assert.deepEqual(sent, buildParseRequest(parse.input, { date: parse.date, unit: 'lbs' }));
+  assert.match(sent.messages[0].content, /Saturday 2026-10-03[\s\S]*<log>bench 3x5 225<\/log>/);
+});
+
+test('rejects a malformed parse request before counting', async () => {
+  const { env, store } = makeEnv();
+  for (const parse of [{}, { input: 'x', date: 'today', unit: 'lbs' }, { input: 'x', date: '2026-10-03', unit: 'stone' }, { input: ' ', date: '2026-10-03', unit: 'kg' }]) {
+    assert.equal((await call(req('pw', { parse }), env)).status, 400);
+  }
+  assert.equal(store.size, 0);
 });

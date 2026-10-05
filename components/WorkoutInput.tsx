@@ -4,7 +4,7 @@ import { TextInput, Button, HelperText, Text } from 'react-native-paper';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { parseWorkout, ApiError } from '../services/claude';
+import { parseWorkout, workoutsFromParse, ApiError } from '../services/claude';
 import { spacing } from '../constants/theme';
 import { format } from 'date-fns';
 
@@ -19,7 +19,7 @@ export default function WorkoutInput({ initialValue = '', templateId, templateEx
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { addWorkout, markTemplateUsed } = useWorkoutStore();
+  const { addWorkout, markTemplateUsed, settings } = useWorkoutStore();
   const { colors } = useTheme();
 
   // Set initial value when component mounts or initialValue changes
@@ -38,34 +38,35 @@ export default function WorkoutInput({ initialValue = '', templateId, templateEx
     setError(null);
 
     try {
-      let parsed;
-      
+      const today = format(new Date(), 'yyyy-MM-dd');
+      let workoutId: string;
+
       // If we have pre-structured template exercises, use them directly
       if (templateExercises) {
-        parsed = templateExercises;
+        workoutId = uuidv4();
+        addWorkout({
+          id: workoutId,
+          date: today,
+          exercises: templateExercises.exercises.map((e: any) => ({ ...e, id: e.id || uuidv4() })),
+          rawInput: input.trim() || 'Started from template',
+          muscleGroups: templateExercises.muscleGroups,
+          notes: templateExercises.notes,
+          createdAt: new Date().toISOString(),
+          templateId: templateId, // Add template reference if workout was started from template
+        });
       } else {
         // Otherwise, parse the natural language input with AI
-        parsed = await parseWorkout(input.trim());
+        const parsed = await parseWorkout(input.trim(), { date: today, unit: settings.weightUnit });
 
         if (!parsed || parsed.exercises.length === 0) {
           setError('Could not understand the workout. Try being more specific.');
           setIsLoading(false);
           return;
         }
+        const workouts = workoutsFromParse(parsed, input.trim(), today, templateId);
+        workouts.forEach(addWorkout);
+        workoutId = workouts[workouts.length - 1].id; // latest day, i.e. today's session
       }
-
-      const workout = {
-        id: uuidv4(),
-        date: format(new Date(), 'yyyy-MM-dd'),
-        exercises: parsed.exercises.map((e: any) => ({ ...e, id: e.id || uuidv4() })),
-        rawInput: input.trim() || 'Started from template',
-        muscleGroups: parsed.muscleGroups,
-        notes: parsed.notes,
-        createdAt: new Date().toISOString(),
-        templateId: templateId, // Add template reference if workout was started from template
-      };
-
-      addWorkout(workout);
       
       // Mark template as used if workout was created from template
       if (templateId) {
@@ -80,7 +81,7 @@ export default function WorkoutInput({ initialValue = '', templateId, templateEx
       
       // Call callback if provided (useful for closing dialogs/modals)
       if (onWorkoutLogged) {
-        onWorkoutLogged(workout.id);
+        onWorkoutLogged(workoutId);
       }
     } catch (err) {
       console.error('Error parsing workout:', err);

@@ -93,6 +93,8 @@ Restart `npm start` so Expo picks up the new values. To change the daily cap, ed
 
 Server tests (Node 22.18+): `cd server && npm test`
 
+Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit } }`, and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
+
 ## Project Structure
 
 ```
@@ -126,9 +128,13 @@ Type naturally in the input box:
 
 The AI will parse your input and extract:
 - Exercise names
-- Sets and reps
-- Weight (if mentioned)
+- Sets and reps (sets at different weights become separate entries)
+- Weight (in your default unit unless you say otherwise)
+- Duration and distance for cardio
 - Muscle groups worked
+- Notes for anything else you mention (how it felt, pain, PRs, supersets, RPE)
+
+You can log several days at once ("yesterday squats 5x5 225, today bench 3x8 185"); each day is saved as its own workout.
 
 ### Planning a Week
 
