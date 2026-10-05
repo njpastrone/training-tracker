@@ -98,3 +98,8 @@ test('a misread exercise is flagged even when it shares a generic word with the 
   ];
   for (const [log, exercise] of cases) assert.deepEqual(flagGuesses(parsed([exercise]), log).unsure, [{ exercise: 0, field: 'name' }], log);
 });
+
+test("an apostrophe in a named exercise doesn't break the match", () => {
+  const p = parsed([{ name: 'Farmers Walk', muscleGroup: 'forearms', sets: 3 }]);
+  assert.deepEqual(flagGuesses(p, "farmer's walk 3 sets").unsure, []);
+});
