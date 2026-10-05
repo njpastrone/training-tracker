@@ -1,11 +1,12 @@
-import { View, StyleSheet, Alert, ScrollView } from 'react-native';
-import { Text, Surface, List, Switch, Divider, Button } from 'react-native-paper';
-import { SkyScreen, LargeTitle } from '../../components/Sky';
+import { StyleSheet, Alert, ScrollView, Switch } from 'react-native';
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
+import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { Pill } from '../../components/Glass';
+import Row from '../../components/Row';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
-import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
@@ -41,120 +42,83 @@ export default function SettingsScreen() {
 
   return (
     <SkyScreen>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LargeTitle title="Settings" />
-        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
-          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-            Preferences
-          </Text>
-          <List.Item
-            title="Weight Unit"
-            description={settings.weightUnit === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}
-            left={(props) => <List.Icon {...props} icon="weight" />}
-            right={() => (
-              <Button mode="outlined" onPress={toggleUnit} compact>
-                {settings.weightUnit.toUpperCase()}
-              </Button>
-            )}
+
+        <SectionLabel style={styles.label}>Preferences</SectionLabel>
+        <SkyCard style={styles.card}>
+          <Row
+            first
+            icon="scalemass"
+            title="Weight unit"
+            subtitle={settings.weightUnit === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}
+            right={<Pill variant="glass" size="small" label={settings.weightUnit} onPress={toggleUnit} />}
           />
-          <Divider />
-          <List.Item
-            title="Streak Notifications"
-            description="Get reminders to maintain your streak"
-            left={(props) => <List.Icon {...props} icon="bell-outline" />}
-            right={() => (
+          <Row
+            icon="bell"
+            title="Streak notifications"
+            subtitle="Get reminders to maintain your streak"
+            right={
               <Switch
                 value={settings.showStreakNotifications}
-                onValueChange={(value) =>
-                  updateSettings({ showStreakNotifications: value })
-                }
-                color={colors.primary}
+                onValueChange={(value) => updateSettings({ showStreakNotifications: value })}
+                trackColor={{ true: colors.sunrise }}
               />
-            )}
+            }
           />
-        </Surface>
+        </SkyCard>
 
-        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
-          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-            Training
-          </Text>
-          <List.Item
-            title="Workout Templates"
-            description={`${templates.length} templates saved`}
-            left={(props) => <List.Icon {...props} icon="clipboard-text-outline" />}
+        <SectionLabel style={styles.label}>Training</SectionLabel>
+        <SkyCard style={styles.card}>
+          <Row
+            first
+            icon="list.bullet.rectangle"
+            title="Workout templates"
+            subtitle={`${templates.length} templates saved`}
             onPress={() => router.push('/templates')}
           />
-        </Surface>
+        </SkyCard>
 
-        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
-          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-            Data
-          </Text>
-          <List.Item
-            title="Export Data"
-            description="Download your workout history as JSON"
-            left={(props) => <List.Icon {...props} icon="download" />}
+        <SectionLabel style={styles.label}>Data</SectionLabel>
+        <SkyCard style={styles.card}>
+          <Row
+            first
+            icon="square.and.arrow.up"
+            title="Export data"
+            subtitle="Download your workout history as JSON"
             onPress={() => Alert.alert('Coming Soon', 'Export functionality will be available in a future update.')}
           />
-          <Divider />
-          <List.Item
-            title="Clear All Data"
-            description="Delete all workouts and settings"
-            titleStyle={{ color: colors.error }}
-            left={(props) => <List.Icon {...props} icon="delete-outline" color={colors.error} />}
+          <Row
+            icon="trash"
+            title="Clear all data"
+            subtitle="Delete all workouts and settings"
+            destructive
             onPress={handleClearData}
             disabled={isClearing}
           />
-        </Surface>
+        </SkyCard>
 
-        <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
-          <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-            About
-          </Text>
-          <List.Item
-            title="LiftText"
-            description="Version 1.0.0"
-            left={(props) => <List.Icon {...props} icon="information-outline" />}
-          />
-          <Divider />
-          <List.Item
-            title="Privacy Policy"
-            description="Your data stays on your device"
-            left={(props) => <List.Icon {...props} icon="shield-check-outline" />}
-          />
-        </Surface>
+        <SectionLabel style={styles.label}>About</SectionLabel>
+        <SkyCard style={styles.card}>
+          <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
+          <Row icon="lock.shield" title="Privacy" subtitle="Your data stays on your device" />
+        </SkyCard>
       </ScrollView>
     </SkyScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.md,
-    gap: spacing.md,
-  },
   content: {
-    flex: 1,
-    padding: spacing.md,
-    gap: spacing.md,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.lg,
   },
-  section: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
+  label: {
+    marginLeft: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  sectionTitle: {
-    fontWeight: '600',
-    padding: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  dangerText: {
-    // Will be applied via theme colors
+  card: {
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.lg,
   },
 });

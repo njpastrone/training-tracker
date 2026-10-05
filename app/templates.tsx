@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Surface, FAB, List, IconButton, Searchbar, Chip, Portal, Dialog, Button, TextInput } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { View, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
+import { Text } from 'react-native-paper';
+import { Stack, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing } from '../constants/theme';
+import { muscleGroupColors, spacing } from '../constants/theme';
 import { WorkoutTemplate } from '../types/template';
 import { format } from 'date-fns';
+import { SkyScreen, SkyCard, LargeTitle } from '../components/Sky';
+import { HeaderButton, Pill } from '../components/Glass';
 
 export default function TemplatesScreen() {
   const { colors } = useTheme();
@@ -15,32 +17,24 @@ export default function TemplatesScreen() {
   const { templates, loadTemplates, deleteTemplate } = useWorkoutStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredTemplates, setFilteredTemplates] = useState<WorkoutTemplate[]>([]);
-  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     loadTemplates();
   }, []);
 
   useEffect(() => {
-    const filtered = templates.filter(template => 
+    const filtered = templates.filter(template =>
       template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       template.muscleGroups.some(mg => mg.toLowerCase().includes(searchQuery.toLowerCase()))
     );
     setFilteredTemplates(filtered);
   }, [templates, searchQuery]);
 
-  const handleDeleteTemplate = (id: string, name: string) => {
-    setTemplateToDelete(id);
-    setDeleteDialogVisible(true);
-  };
-
-  const confirmDelete = async () => {
-    if (templateToDelete) {
-      await deleteTemplate(templateToDelete);
-      setDeleteDialogVisible(false);
-      setTemplateToDelete(null);
-    }
+  const handleDeleteTemplate = (id: string) => {
+    Alert.alert('Delete Template', 'Are you sure you want to delete this template? This action cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(id) },
+    ]);
   };
 
   const handleCreateTemplate = () => {
@@ -59,219 +53,167 @@ export default function TemplatesScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <IconButton
-            icon="arrow-left"
-            size={24}
-            onPress={() => router.back()}
-            style={styles.backButton}
-          />
-          <Text variant="headlineSmall" style={[styles.title, { color: colors.text }]}>
-            Workout Templates
-          </Text>
-        </View>
-        <Searchbar
-          placeholder="Search templates..."
-          onChangeText={setSearchQuery}
-          value={searchQuery}
-          style={[styles.searchBar, { backgroundColor: colors.surface }]}
-          iconColor={colors.text}
-          inputStyle={{ color: colors.text }}
-        />
-      </View>
+    <SkyScreen edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: '',
+          headerRight: () => <HeaderButton icon="plus" label="New template" onPress={handleCreateTemplate} />,
+          headerSearchBarOptions: {
+            placeholder: 'Search templates',
+            hideWhenScrolling: false,
+            onChangeText: (e) => setSearchQuery(e.nativeEvent.text),
+          },
+        }}
+      />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <LargeTitle title="Templates" />
         {filteredTemplates.length === 0 ? (
-          <Surface style={[styles.emptyState, { backgroundColor: colors.surface }]} elevation={1}>
-            <Text variant="bodyLarge" style={{ color: colors.text, textAlign: 'center' }}>
-              {templates.length === 0 
-                ? "No templates created yet.\nTap the + button to create your first template!"
-                : "No templates match your search."}
+          <SkyCard style={styles.empty}>
+            <SymbolView name="list.bullet.rectangle" size={30} tintColor={colors.sunrise} />
+            <Text variant="bodyLarge" style={[styles.center, { color: colors.textSecondary }]}>
+              {templates.length === 0
+                ? 'No templates yet. Tap + to create your first one.'
+                : 'No templates match your search.'}
             </Text>
-          </Surface>
+          </SkyCard>
         ) : (
           filteredTemplates.map(template => (
-            <Surface 
-              key={template.id} 
-              style={[styles.templateCard, { backgroundColor: colors.surface }]} 
-              elevation={1}
-            >
+            <SkyCard key={template.id}>
               <View style={styles.templateHeader}>
                 <View style={styles.templateInfo}>
-                  <Text variant="titleMedium" style={{ color: colors.text, fontWeight: '600' }}>
+                  <Text variant="titleLarge" style={{ color: colors.text }}>
                     {template.name}
                   </Text>
-                  {template.description && (
-                    <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7 }}>
+                  {template.description ? (
+                    <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
                       {template.description}
                     </Text>
-                  )}
-                  <View style={styles.muscleChips}>
-                    {template.muscleGroups.slice(0, 3).map(mg => (
-                      <Chip 
-                        key={mg} 
-                        compact 
-                        style={styles.muscleChip}
-                        textStyle={{ fontSize: 11, textTransform: 'capitalize' }}
-                      >
-                        {mg}
-                      </Chip>
-                    ))}
-                    {template.muscleGroups.length > 3 && (
-                      <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5 }}>
-                        +{template.muscleGroups.length - 3}
-                      </Text>
-                    )}
-                  </View>
+                  ) : null}
                 </View>
-                <View style={styles.templateActions}>
-                  <IconButton
-                    icon="play-circle-outline"
-                    size={24}
-                    onPress={() => handleUseTemplate(template.id)}
-                    iconColor={colors.primary}
-                  />
-                  <IconButton
-                    icon="pencil-outline"
-                    size={20}
-                    onPress={() => handleEditTemplate(template.id)}
-                  />
-                  <IconButton
-                    icon="delete-outline"
-                    size={20}
-                    onPress={() => handleDeleteTemplate(template.id, template.name)}
-                    iconColor={colors.error}
-                  />
-                </View>
+                <Pressable onPress={() => handleEditTemplate(template.id)} accessibilityRole="button" accessibilityLabel={`Edit ${template.name}`} hitSlop={6} style={styles.iconButton}>
+                  <SymbolView name="pencil" size={18} tintColor={colors.textSecondary} />
+                </Pressable>
+                <Pressable onPress={() => handleDeleteTemplate(template.id)} accessibilityRole="button" accessibilityLabel={`Delete ${template.name}`} hitSlop={6} style={styles.iconButton}>
+                  <SymbolView name="trash" size={18} tintColor={colors.error} />
+                </Pressable>
               </View>
 
-              <View style={styles.templateExercises}>
-                <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.7, marginBottom: 4 }}>
-                  {template.exercises.length} exercises
-                </Text>
+              <View style={styles.muscles}>
+                {template.muscleGroups.map(mg => (
+                  <View key={mg} style={styles.muscle}>
+                    <View style={[styles.dot, { backgroundColor: muscleGroupColors[mg] }]} />
+                    <Text variant="labelMedium" style={[styles.muscleText, { color: colors.textSecondary }]}>
+                      {mg.replace('_', ' ')}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.exercises}>
                 {template.exercises.slice(0, 3).map((exercise, index) => (
-                  <Text key={index} variant="bodySmall" style={{ color: colors.text }}>
-                    • {exercise.name} - {exercise.sets}x{exercise.reps}
-                    {exercise.weight && ` @ ${exercise.weight}${exercise.weightUnit}`}
-                  </Text>
+                  <View key={index} style={[styles.exerciseRow, { borderTopColor: colors.dim }]}>
+                    <Text variant="bodyLarge" style={[styles.exerciseName, { color: colors.text }]} numberOfLines={1}>
+                      {exercise.name}
+                    </Text>
+                    <Text variant="labelLarge" style={[styles.numbers, { color: colors.textSecondary }]}>
+                      {exercise.sets} × {exercise.reps}
+                      {exercise.weight ? ` · ${exercise.weight} ${exercise.weightUnit}` : ''}
+                    </Text>
+                  </View>
                 ))}
                 {template.exercises.length > 3 && (
-                  <Text variant="bodySmall" style={{ color: colors.text, opacity: 0.5 }}>
-                    ...and {template.exercises.length - 3} more
+                  <Text variant="bodySmall" style={{ color: colors.textTertiary }}>
+                    and {template.exercises.length - 3} more
                   </Text>
                 )}
               </View>
 
-              {template.lastUsed && (
-                <Text variant="bodySmall" style={[styles.lastUsed, { color: colors.text, opacity: 0.5 }]}>
-                  Last used: {format(new Date(template.lastUsed), 'MMM d, yyyy')} • Used {template.usageCount}x
+              <View style={styles.footer}>
+                <Text variant="bodySmall" style={[styles.footerText, { color: colors.textTertiary }]}>
+                  {template.exercises.length} exercises
+                  {template.lastUsed ? ` · Last used ${format(new Date(template.lastUsed), 'MMM d, yyyy')} · Used ${template.usageCount}×` : ''}
                 </Text>
-              )}
-            </Surface>
+                <Pill icon="play.fill" size="small" label="Use" onPress={() => handleUseTemplate(template.id)} />
+              </View>
+            </SkyCard>
           ))
         )}
       </ScrollView>
-
-      <FAB
-        icon="plus"
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={handleCreateTemplate}
-        color={colors.surface}
-      />
-
-      <Portal>
-        <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
-          <Dialog.Title>Delete Template</Dialog.Title>
-          <Dialog.Content>
-            <Text>Are you sure you want to delete this template? This action cannot be undone.</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
-            <Button onPress={confirmDelete} textColor={colors.error}>Delete</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  backButton: {
-    marginLeft: -8,
-    marginRight: spacing.xs,
-  },
-  title: {
-    fontWeight: '600',
-  },
-  searchBar: {
-    borderRadius: 12,
-    elevation: 0,
-  },
   content: {
-    flex: 1,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.xl,
   },
-  scrollContent: {
-    padding: spacing.md,
-    paddingBottom: 100,
+  empty: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
   },
-  emptyState: {
-    padding: spacing.xl,
-    borderRadius: 16,
-  },
-  templateCard: {
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+  center: {
+    textAlign: 'center',
   },
   templateHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   templateInfo: {
     flex: 1,
   },
-  muscleChips: {
-    flexDirection: 'row',
+  iconButton: {
+    width: 36,
+    height: 36,
     alignItems: 'center',
-    marginTop: spacing.xs,
-    gap: spacing.xs,
+    justifyContent: 'center',
   },
-  muscleChip: {
-    height: 32,
-  },
-  templateActions: {
+  muscles: {
     flexDirection: 'row',
-    marginRight: -8,
-  },
-  templateExercises: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  lastUsed: {
+    flexWrap: 'wrap',
+    gap: spacing.gap,
     marginTop: spacing.sm,
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  muscle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  muscleText: {
+    textTransform: 'capitalize',
+  },
+  exercises: {
+    marginTop: spacing.sm,
+  },
+  exerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+  },
+  exerciseName: {
+    flex: 1,
+  },
+  numbers: {
+    fontVariant: ['tabular-nums'],
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  footerText: {
+    flex: 1,
   },
 });

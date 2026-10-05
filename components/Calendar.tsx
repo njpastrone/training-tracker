@@ -1,13 +1,13 @@
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths, isSameMonth, isToday, parseISO, isFuture } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths, isToday, isPast } from 'date-fns';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Workout } from '../types/workout';
 import { TemplateSchedule } from '../types/template';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing } from '../constants/theme';
-import { Ionicons } from '@expo/vector-icons';
+import { fonts, spacing } from '../constants/theme';
 
 interface Props {
   workouts: Workout[];
@@ -16,8 +16,10 @@ interface Props {
   onDateSelect?: (date: string) => void;
 }
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// Month grid: logged = sunrise disc, planned = cobalt ring, today = a ring around the date
 export default function Calendar({ workouts, schedule = [], onDatePress, onDateSelect }: Props) {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -40,12 +42,9 @@ export default function Calendar({ workouts, schedule = [], onDatePress, onDateS
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-    // Get the day of the week for the first day (0 = Sunday, 1 = Monday, etc.)
-    // Adjust for Monday start
+    // Monday-first padding before the 1st
     let startDay = getDay(monthStart);
     startDay = startDay === 0 ? 6 : startDay - 1;
-
-    // Add empty cells for days before the month starts
     const paddedDays: (Date | null)[] = Array(startDay).fill(null);
 
     return [...paddedDays, ...days];
@@ -55,43 +54,35 @@ export default function Calendar({ workouts, schedule = [], onDatePress, onDateS
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <View>
       <View style={styles.header}>
-        <TouchableOpacity onPress={goToPrevMonth} style={styles.navButton}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text variant="titleMedium" style={[styles.monthTitle, { color: colors.text }]}>
+        <NavButton icon="chevron.left" label="Previous month" onPress={goToPrevMonth} />
+        <Text variant="titleMedium" style={{ color: colors.text }}>
           {format(currentMonth, 'MMMM yyyy')}
         </Text>
-        <TouchableOpacity onPress={goToNextMonth} style={styles.navButton}>
-          <Ionicons name="chevron-forward" size={24} color={colors.text} />
-        </TouchableOpacity>
+        <NavButton icon="chevron.right" label="Next month" onPress={goToNextMonth} />
       </View>
 
-      {/* Day labels */}
-      <View style={styles.dayLabels}>
-        {DAYS.map((day) => (
-          <Text key={day} variant="bodySmall" style={[styles.dayLabel, { color: colors.textSecondary }]}>
+      <View style={styles.row}>
+        {DAYS.map((day, i) => (
+          <Text key={i} style={[styles.dayLabel, { color: colors.textTertiary }]} accessibilityLabel={DAY_NAMES[i]}>
             {day}
           </Text>
         ))}
       </View>
 
-      {/* Calendar grid */}
       <View style={styles.grid}>
         {calendarDays.map((day, index) => {
           if (!day) {
-            return <View key={`empty-${index}`} style={styles.dayCell} />;
+            return <View key={`empty-${index}`} style={styles.cell} />;
           }
 
           const dateStr = format(day, 'yyyy-MM-dd');
           const hasWorkout = workoutDates.has(dateStr);
-          const hasScheduled = scheduledDates.has(dateStr);
-          const isCurrentDay = isToday(day);
-          const isCurrentMonth = isSameMonth(day, currentMonth);
-          const isFutureDay = isFuture(day);
-          
+          const hasScheduled = scheduledDates.has(dateStr) && !hasWorkout;
+          const today = isToday(day);
+          const past = isPast(day) && !today;
+
           const handlePress = () => {
             if (onDatePress) {
               onDatePress(dateStr);
@@ -102,156 +93,134 @@ export default function Calendar({ workouts, schedule = [], onDatePress, onDateS
             }
           };
 
+          const state = [hasWorkout && 'workout logged', hasScheduled && 'workout planned', today && 'today'].filter(Boolean).join(', ');
+
           return (
-            <TouchableOpacity
+            <Pressable
               key={dateStr}
-              style={[
-                styles.dayCell,
-                hasWorkout && styles.workoutDay,
-                hasScheduled && styles.scheduledDay,
-                isCurrentDay && styles.today,
-              ]}
+              style={styles.cell}
               onPress={handlePress}
+              accessibilityRole="button"
+              accessibilityLabel={`${format(day, 'EEEE, MMMM d')}${state ? `, ${state}` : ''}`}
             >
-              <Text
-                variant="bodyMedium"
+              <View
                 style={[
-                  styles.dayText,
-                  { color: colors.text }, // Base color: white in dark mode, dark in light mode
-                  hasWorkout && !isCurrentDay && [styles.workoutDayText, { backgroundColor: colors.primary + '20', color: colors.primary }], // Workout days (not today): primary color text on subtle primary background
-                  hasScheduled && !hasWorkout && !isCurrentDay && [styles.scheduledDayText, { backgroundColor: colors.secondary + '20', color: colors.secondary }], // Scheduled days: secondary color
-                  isCurrentDay && [styles.todayText, { borderColor: colors.text, color: colors.text }], // Today: always show border ring
-                  isCurrentDay && hasWorkout && [styles.todayWithWorkoutText, { backgroundColor: colors.primary + '20', color: colors.primary }], // Today with workout: add subtle background
-                  isCurrentDay && hasScheduled && !hasWorkout && [styles.todayWithScheduleText, { backgroundColor: colors.secondary + '20', color: colors.secondary }], // Today with scheduled workout
-                  !isCurrentMonth && [styles.otherMonthText, { color: colors.disabled }], // Other month days: disabled color
-                  isFutureDay && [styles.futureDay, { color: colors.text }], // Future days: enabled for scheduling
+                  styles.disc,
+                  hasWorkout && { backgroundColor: colors.sunrise },
+                  hasScheduled && { borderWidth: 2, borderColor: colors.cobalt },
+                  today && { borderWidth: 2, borderColor: colors.text },
                 ]}
               >
-                {format(day, 'd')}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.dayText,
+                    { color: hasWorkout ? colors.onSunrise : hasScheduled ? colors.cobalt : past ? colors.textTertiary : colors.text },
+                  ]}
+                >
+                  {format(day, 'd')}
+                </Text>
+              </View>
+            </Pressable>
           );
         })}
       </View>
 
-      {/* Legend */}
-      <View style={[styles.legend, { borderTopColor: colors.border }]}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, styles.workoutDot, { backgroundColor: colors.primary + '20', borderColor: colors.primary, borderWidth: 1 }]} />
-          <Text variant="bodySmall" style={[styles.legendText, { color: colors.textSecondary }]}>Workout logged</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, styles.scheduledDot, { backgroundColor: colors.secondary + '20', borderColor: colors.secondary || '#FF6B6B', borderWidth: 1 }]} />
-          <Text variant="bodySmall" style={[styles.legendText, { color: colors.textSecondary }]}>Scheduled</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, styles.todayDot, { borderColor: colors.text }]} />
-          <Text variant="bodySmall" style={[styles.legendText, { color: colors.textSecondary }]}>Today</Text>
-        </View>
+      <View style={styles.legend}>
+        <LegendItem label="Logged" swatch={{ backgroundColor: colors.sunrise }} />
+        <LegendItem label="Planned" swatch={{ borderWidth: 2, borderColor: colors.cobalt }} />
+        <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
       </View>
     </View>
   );
 }
 
+function NavButton({ icon, label, onPress }: { icon: 'chevron.left' | 'chevron.right'; label: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={6}
+      style={[styles.nav, { backgroundColor: colors.glass, borderColor: colors.glassLine }]}
+    >
+      <SymbolView name={icon} size={14} weight="semibold" tintColor={colors.textSecondary} />
+    </Pressable>
+  );
+}
+
+function LegendItem({ label, swatch }: { label: string; swatch: object }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendSwatch, swatch]} />
+      <Text variant="labelMedium" style={{ color: colors.textSecondary }}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  navButton: {
-    padding: spacing.xs,
+  nav: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  monthTitle: {
-    fontWeight: '600',
-  },
-  dayLabels: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    paddingBottom: 4,
   },
   dayLabel: {
-    width: 40,
+    width: `${100 / 7}%`,
     textAlign: 'center',
-    fontWeight: '500',
+    fontFamily: fonts.rounded,
+    fontSize: 12,
+    fontWeight: '700',
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  dayCell: {
+  cell: {
     width: `${100 / 7}%`,
-    aspectRatio: 1,
-    justifyContent: 'center',
+    height: 40,
     alignItems: 'center',
-    padding: 2,
+    justifyContent: 'center',
+  },
+  disc: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dayText: {
-    width: 32,
-    height: 32,
-    textAlign: 'center',
-    lineHeight: 32,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  workoutDay: {},
-  workoutDayText: {
+    fontFamily: fonts.rounded,
+    fontSize: 15,
     fontWeight: '600',
-    lineHeight: 32,
-  },
-  scheduledDay: {},
-  scheduledDayText: {
-    fontWeight: '600',
-    lineHeight: 32,
-  },
-  today: {},
-  todayText: {
-    borderWidth: 2,
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  todayWithWorkoutText: {
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  todayWithScheduleText: {
-    fontWeight: '600',
-    lineHeight: 28,
-  },
-  otherMonthText: {
-  },
-  futureDay: {
-    opacity: 1, // Enable future days for scheduling
+    fontVariant: ['tabular-nums'],
   },
   legend: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
+    gap: spacing.gap,
     marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 5,
   },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  workoutDot: {
-  },
-  scheduledDot: {
-  },
-  todayDot: {
-    borderWidth: 2,
-    backgroundColor: 'transparent',
-  },
-  legendText: {
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

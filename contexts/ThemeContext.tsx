@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { AppState, useColorScheme } from 'react-native';
+import { AccessibilityInfo, AppState, useColorScheme } from 'react-native';
 import { format } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { darkTheme, lightTheme, darkPalette, lightPalette, Palette } from '../constants/theme';
@@ -10,6 +10,7 @@ interface ThemeContextType {
   colors: Palette;
   theme: typeof lightTheme;
   sky: WeekSky;
+  reduceTransparency: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -22,10 +23,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const workouts = useWorkoutStore(s => s.workouts);
   const schedule = useWorkoutStore(s => s.schedule);
   const [day, setDay] = useState(today);
+  const [reduceTransparency, setReduceTransparency] = useState(false);
 
   // The sky is static per visit: recomputed on data changes and when the app returns on a new day
   useEffect(() => {
     const sub = AppState.addEventListener('change', state => state === 'active' && setDay(today()));
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceTransparencyEnabled().then(setReduceTransparency);
+    const sub = AccessibilityInfo.addEventListener('reduceTransparencyChanged', setReduceTransparency);
     return () => sub.remove();
   }, []);
 
@@ -36,6 +44,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     colors: isDarkMode ? darkPalette : lightPalette,
     theme: isDarkMode ? darkTheme : lightTheme,
     sky,
+    reduceTransparency,
   };
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

@@ -104,7 +104,7 @@ training-tracker/
 │   ├── (tabs)/             # Tab navigation screens
 │   │   ├── index.tsx       # Log tab (home)
 │   │   ├── history.tsx     # History & calendar
-│   │   ├── coach.tsx       # AI Coach (coming soon)
+│   │   ├── coach.tsx       # AI Coach (weekly report + chat)
 │   │   └── settings.tsx    # App settings
 │   └── _layout.tsx         # Root layout
 ├── components/             # Reusable UI components

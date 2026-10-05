@@ -71,12 +71,21 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 ## Components
 
-- **`SkyScreen`**: the sky background plus a top safe area. Native tabs inset the scroll view for the tab bar, so content scrolls under the glass.
+- **`SkyScreen`** (`components/Sky.tsx`): the sky background plus a top safe area. Native tabs inset the scroll view for the tab bar, so content scrolls under the glass. Pushed screens pass `edges={['bottom']}` (or `[]`) and set `contentInsetAdjustmentBehavior="automatic"` on their scroll view, because their native header is transparent.
 - **`LargeTitle`**: the screen's large rounded title and an optional subtitle, as the first item in the scroll view.
+- **`SkyCard`**: a content card (material over the sky, solid under Reduce Transparency).
+- **`SectionLabel`**: the small caps label above a section or inside a card.
+- **`Pill`** (`components/Glass.tsx`): 50 pt pill button, `filled` (sunrise) for the main action and `glass` for the rest; `size="small"` for chips and inline actions.
+- **`GlassSurface`**: Liquid Glass (`expo-glass-effect`) for controls, with a translucent fallback before iOS 26 and a solid one under Reduce Transparency.
+- **`Composer`**: the Messages-style glass capsule with a send button. Dictation is the keyboard's mic key.
+- **`Segmented`**, **`HeaderButton`**: a capsule option switch, and an SF Symbol button for the native header.
+- **`Field`** (`components/Field.tsx`): a text field on a quiet fill with a small caps label.
+- **`Row`** (`components/Row.tsx`): a settings-style row with a symbol tile, title, subtitle and accessory.
+- **`Ring`** (`components/Ring.tsx`): progress ring or open gauge (`react-native-svg`), sunrise gradient by default.
+- **`UserBubble`**, **`CoachBubble`** (`components/Chat.tsx`): your message on the right in sunrise; the coach's on the left on glass with a sparkle avatar.
+- **Headers**: pushed screens use the native stack header, transparent over the sky, with a minimal back button (`app/_layout.tsx`).
 - **Tab bar**: native tabs (`expo-router/unstable-native-tabs`) with SF Symbols, tinted sunrise, minimising on scroll.
 - **Icons**: SF Symbols (`expo-symbols`) for UI icons. No emoji as icons.
-- **Glass controls**: `expo-glass-effect` (`GlassView`) for the composer and floating buttons.
-- **Rings, gauges and charts**: `react-native-svg`.
 - **Haptics**: `expo-haptics`, success on logging and planning, selection on toggles.
 
 ## Motion
@@ -94,4 +103,4 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 - Text on the sky and on cards meets 4.5:1 in both modes; check new colour pairs.
 - Never rely on colour alone: logged is a filled circle, planned an outlined ring, today a ring around the date.
-- Respect Reduce Motion and Reduce Transparency.
+- Respect Reduce Motion and Reduce Transparency (`useTheme().reduceTransparency`).

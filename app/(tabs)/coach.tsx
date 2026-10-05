@@ -1,15 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Surface, Button, Card, Chip, ProgressBar, Divider, List, Badge, TextInput, IconButton, TouchableRipple } from 'react-native-paper';
-import { SkyScreen, LargeTitle } from '../../components/Sky';
-import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, ScrollView, Alert, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text } from 'react-native-paper';
+import { SymbolView, SFSymbol } from 'expo-symbols';
+import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { Composer, Pill } from '../../components/Glass';
+import { CoachBubble, UserBubble } from '../../components/Chat';
+import Ring from '../../components/Ring';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRouter } from 'expo-router';
-import { spacing } from '../../constants/theme';
-import { getCoachingAdvice, analyzeWeeklyVolume, CoachAnalysis, TRAINING_GUIDELINES, askFollowUpQuestion } from '../../services/coach';
+import { fonts, spacing } from '../../constants/theme';
+import { getCoachingAdvice, CoachAnalysis, TRAINING_GUIDELINES, askFollowUpQuestion } from '../../services/coach';
 import { ApiError } from '../../services/claude';
-import { startOfWeek, format, addWeeks } from 'date-fns';
+import { startOfWeek, format, addDays } from 'date-fns';
+
+// How far round the gauge each letter grade sits
+const GRADE_FILL: Record<string, number> = { 'A+': 1, A: 0.92, 'B+': 0.82, B: 0.74, C: 0.55, D: 0.35 };
 
 export default function CoachScreen() {
   const { colors } = useTheme();
@@ -43,7 +49,7 @@ export default function CoachScreen() {
 
   const handleFollowUpQuestion = async () => {
     if (!currentQuestion.trim() || !analysis) return;
-    
+
     const userMessage = { role: 'user' as const, content: currentQuestion.trim() };
     setChatMessages(prev => [...prev, userMessage]);
     setCurrentQuestion('');
@@ -63,7 +69,6 @@ export default function CoachScreen() {
 
   const askQuestion = (question: string) => {
     setCurrentQuestion(question);
-    // Auto-focus would happen here in a real app
   };
 
   const handleGradeClick = (gradeType: string, grade: string) => {
@@ -81,7 +86,7 @@ export default function CoachScreen() {
 
   const getSuggestedQuestions = (analysis: CoachAnalysis) => {
     const suggestions = [];
-    
+
     if (analysis.volumeIssues.length > 0) {
       suggestions.push("How do I increase my training volume safely?");
     }
@@ -92,7 +97,7 @@ export default function CoachScreen() {
       suggestions.push("How can I improve my overall program?");
     }
     suggestions.push("What should I focus on this week?");
-    
+
     return suggestions.slice(0, 3);
   };
 
@@ -102,25 +107,6 @@ export default function CoachScreen() {
       analyzeCurrentWeek();
     }
   }, [workouts, weekOffset]);
-
-  const getQualityColor = (quality: CoachAnalysis['splitQuality']) => {
-    switch (quality) {
-      case 'excellent': return colors.success;
-      case 'good': return colors.secondary;
-      case 'fair': return colors.warning;
-      case 'poor': return colors.error;
-      default: return colors.textSecondary;
-    }
-  };
-
-  const getVolumeStatus = (muscle: string, sets: number) => {
-    const mev = TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME[muscle as keyof typeof TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME] || 6;
-    const optimal = TRAINING_GUIDELINES.OPTIMAL_VOLUME_RANGE[muscle as keyof typeof TRAINING_GUIDELINES.OPTIMAL_VOLUME_RANGE] || 14;
-    
-    if (sets < mev) return { status: 'low', color: colors.error };
-    if (sets >= mev && sets <= optimal) return { status: 'optimal', color: colors.secondary };
-    return { status: 'high', color: colors.warning };
-  };
 
   const getLetterGrade = (quality: CoachAnalysis['splitQuality']) => {
     switch (quality) {
@@ -133,16 +119,16 @@ export default function CoachScreen() {
   };
 
   const getVolumeGrade = (weeklyVolume: Record<string, number>) => {
-    const volumes = Object.entries(weeklyVolume).filter(([muscle, sets]) => 
+    const volumes = Object.entries(weeklyVolume).filter(([muscle, sets]) =>
       sets > 0 && muscle !== 'cardio' && muscle !== 'full_body'
     );
-    
+
     let goodVolumes = 0;
     volumes.forEach(([muscle, sets]) => {
       const mev = TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME[muscle as keyof typeof TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME] || 6;
       if (sets >= mev) goodVolumes++;
     });
-    
+
     const ratio = volumes.length > 0 ? goodVolumes / volumes.length : 0;
     if (ratio >= 0.8) return 'A';
     if (ratio >= 0.6) return 'B';
@@ -164,15 +150,15 @@ export default function CoachScreen() {
     return 'D';
   };
 
-  const getWorkingWell = (analysis: CoachAnalysis, colors: any) => {
+  const getWorkingWell = (analysis: CoachAnalysis) => {
     const working = [];
-    
+
     // Check for good volumes
     Object.entries(analysis.weeklyVolume).forEach(([muscle, sets]) => {
       if (sets > 0 && muscle !== 'cardio' && muscle !== 'full_body') {
         const mev = TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME[muscle as keyof typeof TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME] || 6;
         const optimal = TRAINING_GUIDELINES.OPTIMAL_VOLUME_RANGE[muscle as keyof typeof TRAINING_GUIDELINES.OPTIMAL_VOLUME_RANGE] || 14;
-        
+
         if (sets >= mev && sets <= optimal) {
           working.push(`Great ${muscle} volume (${sets} sets)`);
         }
@@ -192,12 +178,12 @@ export default function CoachScreen() {
 
   const getTopIssues = (analysis: CoachAnalysis) => {
     const issues: string[] = [];
-    
+
     // Combine all issues with priority
     analysis.volumeIssues.forEach(issue => issues.push(issue.replace(/:/g, '')));
     analysis.frequencyIssues.forEach(issue => issues.push(issue.replace(/:/g, '')));
     analysis.recommendations.slice(0, 2).forEach(rec => issues.push(rec));
-    
+
     return issues;
   };
 
@@ -216,493 +202,276 @@ export default function CoachScreen() {
   if (!workouts.length) {
     return (
       <SkyScreen>
-        <View style={styles.emptyContent}>
+        <View style={styles.content}>
           <LargeTitle title="Coach" />
-          <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
-              <Ionicons name="fitness" size={64} color={colors.primary} />
+          <SkyCard style={styles.empty}>
+            <View style={[styles.emptyIcon, { backgroundColor: colors.dim }]}>
+              <SymbolView name="sparkles" size={34} tintColor={colors.sunrise} />
             </View>
-            <Text variant="headlineMedium" style={[styles.title, { color: colors.text }]}>
-              AI Coach
+            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>
+              Your coach is ready
             </Text>
-            <Text variant="bodyLarge" style={[styles.description, { color: colors.textSecondary }]}>
+            <Text variant="bodyLarge" style={[styles.center, { color: colors.textSecondary }]}>
               Log some workouts to get personalized training analysis and recommendations based on exercise science research.
             </Text>
-            <Text variant="bodySmall" style={[styles.footnote, { color: colors.textSecondary }]}>
+            <Text variant="bodySmall" style={[styles.center, { color: colors.textTertiary }]}>
               Powered by evidence-based training principles
             </Text>
-          </Surface>
+          </SkyCard>
         </View>
       </SkyScreen>
     );
   }
 
+  const week = analyzedWeek ?? selectedWeek;
+  const isPastWeek = analyzedWeek && analyzedWeek.getTime() !== currentWeek.getTime();
+  const subtitle = `${isPastWeek ? "Last week's report" : "This week's report"} · ${format(week, 'MMM d')} – ${format(addDays(week, 6), 'MMM d')}`;
+
+  const subGrades = analysis
+    ? [
+        { label: 'Volume', grade: getVolumeGrade(analysis.weeklyVolume) },
+        { label: 'Frequency', grade: getFrequencyGrade(analysis.frequencyIssues) },
+        { label: 'Balance', grade: getBalanceGrade(analysis.volumeIssues) },
+      ]
+    : [];
+  const overall = analysis ? getLetterGrade(analysis.splitQuality) : '';
+
   return (
-    <SkyScreen>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <LargeTitle title="Coach" />
-        {/* Report Card Header */}
-        <View style={styles.header}>
-          <Text variant="headlineLarge" style={[styles.title, { color: colors.text }]}>
-            {analyzedWeek && analyzedWeek.getTime() !== currentWeek.getTime() 
-              ? `Last Week's Report Card`
-              : `This Week's Report Card`}
-          </Text>
-          {analyzedWeek && (
-            <Text variant="bodyMedium" style={[{ color: colors.textSecondary, textAlign: 'center' }]}>
-              {format(analyzedWeek, 'MMM dd')} - {format(new Date(analyzedWeek.getTime() + 6 * 24 * 60 * 60 * 1000), 'MMM dd, yyyy')}
-            </Text>
-          )}
-        </View>
+    // The composer sits above the tab bar, so pad the bottom edge too
+    <SkyScreen edges={['top', 'bottom']}>
+      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.fill}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => chatMessages.length > 0 && scrollViewRef.current?.scrollToEnd({ animated: true })}
+        >
+          <LargeTitle title="Coach" subtitle={subtitle} />
 
-        {analysis && (
-          <>
-            {/* Grade Summary */}
-            <Surface style={[styles.gradeCard, { backgroundColor: colors.surface }]} elevation={2}>
-              <View style={styles.gradeHeader}>
-                <Text variant="headlineMedium" style={[styles.overallGrade, { color: getQualityColor(analysis.splitQuality) }]}>
-                  {getLetterGrade(analysis.splitQuality)}
-                </Text>
-                <Text variant="bodyMedium" style={[{ color: colors.textSecondary }]}>
-                  Overall Training
-                </Text>
-              </View>
-              
-              <View style={styles.gradeBreakdown}>
-                <GradeItem 
-                  label="Volume" 
-                  grade={getVolumeGrade(analysis.weeklyVolume)} 
-                  colors={colors} 
-                  onPress={() => handleGradeClick('Volume', getVolumeGrade(analysis.weeklyVolume))}
-                />
-                <GradeItem 
-                  label="Frequency" 
-                  grade={getFrequencyGrade(analysis.frequencyIssues)} 
-                  colors={colors} 
-                  onPress={() => handleGradeClick('Frequency', getFrequencyGrade(analysis.frequencyIssues))}
-                />
-                <GradeItem 
-                  label="Balance" 
-                  grade={getBalanceGrade(analysis.volumeIssues)} 
-                  colors={colors} 
-                  onPress={() => handleGradeClick('Balance', getBalanceGrade(analysis.volumeIssues))}
-                />
-              </View>
-            </Surface>
+          {analysis && (
+            <>
+              <SkyCard>
+                <View style={styles.gradeRow}>
+                  <Ring size={120} stroke={11} sweep={270} progress={GRADE_FILL[overall] ?? 0.5}>
+                    <Text style={[styles.overall, { color: colors.text }]}>{overall}</Text>
+                    <Text style={[styles.overallLabel, { color: colors.textTertiary }]}>Overall</Text>
+                  </Ring>
+                  <View style={styles.subGrades}>
+                    {subGrades.map(({ label, grade }) => (
+                      <Pressable
+                        key={label}
+                        onPress={() => handleGradeClick(label, grade)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${label} grade ${grade}. Ask your coach about it`}
+                        style={({ pressed }) => [styles.subGrade, pressed && styles.pressed]}
+                      >
+                        <View style={styles.subGradeTop}>
+                          <Text variant="titleSmall" style={{ color: colors.textSecondary }}>{label}</Text>
+                          <Text style={[styles.subGradeLetter, { color: colors.text }]}>{grade}</Text>
+                        </View>
+                        <View style={[styles.track, { backgroundColor: colors.dim }]}>
+                          <View style={[styles.bar, { backgroundColor: colors.sunrise, width: `${(GRADE_FILL[grade] ?? 0.5) * 100}%` }]} />
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </SkyCard>
 
-            {/* What's Working */}
-            <Surface style={[styles.workingCard, { backgroundColor: colors.surface }]} elevation={1}>
-              <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.success }]}>
-                What's Working
-              </Text>
-              <View style={styles.workingList}>
-                {getWorkingWell(analysis, colors).map((item, index) => (
-                  <Text key={index} variant="bodyMedium" style={[styles.workingItem, { color: colors.text }]}>
-                    • {item}
-                  </Text>
+              <SkyCard>
+                <SectionLabel>What's working</SectionLabel>
+                {getWorkingWell(analysis).map((item, index) => (
+                  <ItemRow key={index} icon="checkmark.circle.fill" iconColor={colors.mint} text={item} />
+                ))}
+              </SkyCard>
+
+              {(analysis.recommendations.length > 0 || analysis.volumeIssues.length > 0 || analysis.frequencyIssues.length > 0) && (
+                <SkyCard>
+                  <SectionLabel>Fix this week</SectionLabel>
+                  {getTopIssues(analysis).slice(0, 3).map((issue, index) => (
+                    <ItemRow
+                      key={index}
+                      icon="arrow.forward.circle.fill"
+                      iconColor={colors.sunrise}
+                      text={issue}
+                      onPress={() => handleIssueClick(issue)}
+                    />
+                  ))}
+                </SkyCard>
+              )}
+
+              <CoachBubble text={getCoachQuote(analysis)} />
+
+              <View style={styles.suggestions}>
+                {getSuggestedQuestions(analysis).map((suggestion, index) => (
+                  <Pill key={index} variant="glass" size="small" label={suggestion} onPress={() => askQuestion(suggestion)} />
                 ))}
               </View>
-            </Surface>
 
-            {/* Fix This Week */}
-            {(analysis.recommendations.length > 0 || analysis.volumeIssues.length > 0 || analysis.frequencyIssues.length > 0) && (
-              <Surface style={[styles.fixCard, { backgroundColor: colors.surface }]} elevation={1}>
-                <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.warning }]}>
-                  Fix This Week
-                </Text>
-                <View style={styles.fixList}>
-                  {getTopIssues(analysis).slice(0, 3).map((issue, index) => (
-                    <TouchableRipple 
-                      key={index} 
-                      style={styles.fixItem}
-                      onPress={() => handleIssueClick(issue)}
-                      rippleColor={colors.primary + '20'}
-                    >
-                      <View style={styles.fixItemContent}>
-                        <Text variant="bodyMedium" style={[{ color: colors.text, lineHeight: 20 }]}>
-                          • {issue}
-                        </Text>
-                        <IconButton 
-                          icon="chat-question" 
-                          size={16} 
-                          iconColor={colors.primary}
-                          style={styles.askIcon}
-                        />
-                      </View>
-                    </TouchableRipple>
-                  ))}
-                </View>
-              </Surface>
-            )}
-
-            {/* Coach's Take */}
-            <Surface style={[styles.coachTakeCard, { backgroundColor: colors.primary + '10' }]} elevation={1}>
-              <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.primary }]}>
-                Your Coach's Take
-              </Text>
-              <Text variant="bodyMedium" style={[styles.coachQuote, { color: colors.text }]}>
-                "{getCoachQuote(analysis)}"
-              </Text>
-              <Text variant="bodySmall" style={[styles.coachAttribution, { color: colors.textSecondary }]}>
-                Based on exercise science research
-              </Text>
-            </Surface>
-
-            {/* Ask Your Coach */}
-            <Surface style={[styles.chatCard, { backgroundColor: colors.surface }]} elevation={1}>
-              <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.primary }]}>
-                Ask Your Coach
-              </Text>
-              
-              {/* Suggested Questions */}
-              <View style={styles.suggestionsContainer}>
-                <View style={styles.suggestionsHeader}>
-                  <Ionicons name="lightbulb" size={16} color={colors.primary} />
-                  <Text variant="bodySmall" style={[styles.suggestionsLabel, { color: colors.textSecondary }]}>
-                    Quick questions:
-                  </Text>
-                </View>
-                <View style={styles.suggestionsChips}>
-                  {getSuggestedQuestions(analysis).map((suggestion, index) => (
-                    <Chip
-                      key={index}
-                      mode="outlined"
-                      onPress={() => askQuestion(suggestion)}
-                      style={styles.suggestionChip}
-                      textStyle={styles.suggestionChipText}
-                    >
-                      {suggestion}
-                    </Chip>
-                  ))}
-                </View>
-              </View>
-
-              {/* Chat Messages */}
-              {chatMessages.length > 0 && (
-                <View style={styles.chatContainer}>
-                  {chatMessages.map((message, index) => (
-                    <View 
-                      key={index} 
-                      style={[
-                        styles.messageContainer,
-                        message.role === 'user' 
-                          ? { ...styles.userMessage, backgroundColor: colors.primary } 
-                          : { ...styles.assistantMessage, backgroundColor: colors.primary + '10' }
-                      ]}
-                    >
-                      <Text 
-                        variant="bodyMedium" 
-                        style={[
-                          styles.messageText,
-                          { color: message.role === 'user' ? '#FFFFFF' : colors.text }
-                        ]}
-                      >
-                        {message.content}
-                      </Text>
-                    </View>
-                  ))}
-                  {isChatLoading && (
-                    <View style={[styles.messageContainer, { ...styles.assistantMessage, backgroundColor: colors.primary + '10' }]}>
-                      <Text variant="bodyMedium" style={[styles.messageText, { color: colors.textSecondary }]}>
-                        Thinking...
-                      </Text>
-                    </View>
-                  )}
-                </View>
+              {chatMessages.map((message, index) =>
+                message.role === 'user' ? (
+                  <UserBubble key={index} text={message.content} />
+                ) : (
+                  <CoachBubble key={index} text={message.content} />
+                )
               )}
-              
-              {/* Chat Input - Always Visible */}
-              <View style={styles.chatInputContainer}>
-                <TextInput
-                  mode="outlined"
-                  placeholder="Ask about your training analysis..."
-                  value={currentQuestion}
-                  onChangeText={setCurrentQuestion}
-                  style={styles.chatInput}
-                  multiline
-                  onSubmitEditing={handleFollowUpQuestion}
-                  disabled={isChatLoading}
-                />
-                <IconButton
-                  icon="send"
-                  mode="contained"
-                  onPress={handleFollowUpQuestion}
-                  disabled={!currentQuestion.trim() || isChatLoading}
-                  style={styles.sendButton}
-                />
-              </View>
-            </Surface>
-          </>
-        )}
+              {isChatLoading && <CoachBubble text="Thinking…" muted />}
+            </>
+          )}
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <Button 
-            mode="outlined" 
-            onPress={() => router.push('/(tabs)/history')} 
-            style={styles.actionButton}
-            contentStyle={styles.buttonContent}
-          >
-            View History
-          </Button>
-          <Button 
-            mode="contained" 
-            onPress={analyzeCurrentWeek}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.actionButton}
-            contentStyle={styles.buttonContent}
-          >
-            {isLoading ? 'Analyzing...' : 'Refresh Analysis'}
-          </Button>
-        </View>
-      </ScrollView>
+          <View style={styles.actions}>
+            <Pill variant="glass" icon="calendar" label="History" onPress={() => router.push('/(tabs)/history')} style={styles.action} />
+            <Pill
+              variant="glass"
+              icon="arrow.clockwise"
+              label={isLoading ? 'Analyzing…' : 'Refresh'}
+              onPress={analyzeCurrentWeek}
+              loading={isLoading}
+              style={styles.action}
+            />
+          </View>
+        </ScrollView>
+
+        {analysis && (
+          <View style={styles.composer}>
+            <Composer
+              value={currentQuestion}
+              onChangeText={setCurrentQuestion}
+              onSend={handleFollowUpQuestion}
+              placeholder="Ask your coach…"
+              busy={isChatLoading}
+            />
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </SkyScreen>
   );
 }
 
-function GradeItem({ label, grade, colors, onPress }: { label: string; grade: string; colors: any; onPress: () => void }) {
-  const getGradeColor = (grade: string) => {
-    switch (grade) {
-      case 'A+':
-      case 'A': return colors.success;
-      case 'B+':
-      case 'B': return colors.secondary;
-      case 'C': return colors.warning;
-      case 'D': return colors.error;
-      default: return colors.textSecondary;
-    }
-  };
-
+function ItemRow({ icon, iconColor, text, onPress }: { icon: SFSymbol; iconColor: string; text: string; onPress?: () => void }) {
+  const { colors } = useTheme();
   return (
-    <TouchableRipple 
-      style={styles.gradeItem} 
+    <Pressable
       onPress={onPress}
-      rippleColor={colors.primary + '20'}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityHint={onPress ? 'Asks your coach about it' : undefined}
+      style={({ pressed }) => [styles.item, pressed && styles.pressed]}
     >
-      <View style={styles.gradeItemContent}>
-        <Text variant="titleLarge" style={[styles.gradeValue, { color: getGradeColor(grade) }]}>
-          {grade}
-        </Text>
-        <Text variant="bodySmall" style={[styles.gradeLabel, { color: colors.textSecondary }]}>
-          {label}
-        </Text>
-        <IconButton 
-          icon="help-circle-outline" 
-          size={12} 
-          iconColor={colors.textSecondary}
-          style={styles.gradeHelpIcon}
-        />
-      </View>
-    </TouchableRipple>
+      <SymbolView name={icon} size={19} tintColor={iconColor} style={styles.itemIcon} />
+      <Text variant="bodyLarge" style={[styles.itemText, { color: colors.text }]}>
+        {text}
+      </Text>
+      {onPress && <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  fill: {
     flex: 1,
   },
-  scrollContent: {
-    padding: spacing.md,
+  content: {
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.lg,
   },
-  emptyContent: {
-    flex: 1,
-    padding: spacing.md,
+  center: {
+    textAlign: 'center',
   },
-  card: {
-    padding: spacing.xl,
-    borderRadius: 16,
+  empty: {
     alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
   },
-  header: {
-    marginBottom: spacing.xl,
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  gradeCard: {
-    padding: spacing.xl,
-    borderRadius: 20,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  gradeHeader: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  overallGrade: {
-    fontWeight: '800',
-    fontSize: 48,
-    lineHeight: 52,
-  },
-  gradeBreakdown: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  gradeItem: {
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: spacing.sm,
-  },
-  gradeItemContent: {
-    alignItems: 'center',
-    position: 'relative',
-  },
-  gradeValue: {
-    fontWeight: '700',
-  },
-  gradeLabel: {
-    marginTop: spacing.xs,
-    fontWeight: '500',
-  },
-  workingCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  fixCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  coachTakeCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: spacing.md,
-    fontSize: 16,
-  },
-  workingList: {
-    gap: spacing.xs,
-  },
-  workingItem: {
-    lineHeight: 22,
-  },
-  fixList: {
-    gap: spacing.xs,
-  },
-  fixItem: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  fixItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  coachQuote: {
-    fontStyle: 'italic',
-    lineHeight: 22,
-    marginBottom: spacing.sm,
-  },
-  coachAttribution: {
-    textAlign: 'right',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  buttonContent: {
-    paddingVertical: spacing.xs,
-  },
-  description: {
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  footnote: {
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  chatCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  suggestionsContainer: {
-    marginBottom: spacing.md,
-  },
-  suggestionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
     marginBottom: spacing.xs,
   },
-  suggestionsLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+  gradeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.gap,
   },
-  suggestionsChips: {
+  overall: {
+    fontFamily: fonts.rounded,
+    fontSize: 40,
+    lineHeight: 44,
+    fontWeight: '900',
+  },
+  overallLabel: {
+    position: 'absolute',
+    bottom: 12,
+    fontFamily: fonts.rounded,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  subGrades: {
+    flex: 1,
+    gap: 4,
+  },
+  subGrade: {
+    paddingVertical: 4,
+  },
+  subGradeTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  subGradeLetter: {
+    fontFamily: fonts.rounded,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    marginTop: 3,
+    overflow: 'hidden',
+  },
+  bar: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingVertical: 6,
+  },
+  itemIcon: {
+    width: 22,
+    height: 22,
+  },
+  itemText: {
+    flex: 1,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+  suggestions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: 6,
+    marginBottom: spacing.gap,
   },
-  suggestionChip: {
-    marginRight: 0,
-  },
-  suggestionChipText: {
-    fontSize: 12,
-  },
-  gradeHelpIcon: {
-    position: 'absolute',
-    top: -spacing.xs,
-    right: -spacing.xs,
-    margin: 0,
-    width: 20,
-    height: 20,
-  },
-  askIcon: {
-    margin: 0,
-    width: 24,
-    height: 24,
-  },
-  chatContainer: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  messageContainer: {
-    padding: spacing.md,
-    borderRadius: 12,
-    maxWidth: '85%',
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-  },
-  assistantMessage: {
-    alignSelf: 'flex-start',
-  },
-  messageText: {
-    lineHeight: 20,
-  },
-  chatInputContainer: {
+  actions: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
     gap: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
-  chatInput: {
+  action: {
     flex: 1,
-    maxHeight: 100,
   },
-  sendButton: {
-    marginBottom: 4,
+  composer: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
 });

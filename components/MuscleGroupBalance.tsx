@@ -1,8 +1,9 @@
 import { View, StyleSheet } from 'react-native';
-import { Text, ProgressBar } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MuscleGroup, Workout } from '../types/workout';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing, muscleGroupColors } from '../constants/theme';
+import { SectionLabel } from './Sky';
 import { startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 
 interface Props {
@@ -49,9 +50,7 @@ export default function MuscleGroupBalance({ workouts, selectedWeek }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text variant="titleMedium" style={[styles.title, { color: colors.text }]}>
-        Muscle Group Balance
-      </Text>
+      <SectionLabel>Muscle balance</SectionLabel>
       
       {muscleGroupsWithWorkouts.map(([group, count]) => {
         const percentage = maxCount > 0 ? count / maxCount : 0;
@@ -59,27 +58,26 @@ export default function MuscleGroupBalance({ workouts, selectedWeek }: Props) {
         
         return (
           <View key={group} style={styles.muscleGroupRow}>
+            <View style={[styles.dot, { backgroundColor: muscleGroupColors[muscleGroup] }]} />
             <View style={styles.muscleGroupInfo}>
-              <Text variant="bodyMedium" style={[styles.muscleGroupName, { color: colors.text }]}>
-                {group.replace('_', ' ')}
-              </Text>
-              <Text variant="bodySmall" style={[styles.muscleGroupCount, { color: colors.textSecondary }]}>
-                {count} workout{count !== 1 ? 's' : ''}
-              </Text>
-            </View>
-            <View style={styles.progressContainer}>
-              <ProgressBar
-                progress={percentage}
-                color={muscleGroupColors[muscleGroup]}
-                style={[styles.progressBar, { backgroundColor: colors.border }]}
-              />
+              <View style={styles.labelRow}>
+                <Text variant="bodyLarge" style={[styles.muscleGroupName, { color: colors.text }]}>
+                  {group.replace('_', ' ')}
+                </Text>
+                <Text variant="labelMedium" style={[styles.muscleGroupCount, { color: colors.textSecondary }]}>
+                  {count} workout{count !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              <View style={[styles.track, { backgroundColor: colors.dim }]}>
+                <View style={[styles.bar, { width: `${percentage * 100}%`, backgroundColor: muscleGroupColors[muscleGroup] }]} />
+              </View>
             </View>
           </View>
         );
       })}
       
       {Object.keys(workoutsByMuscleGroup).length > 6 && (
-        <Text variant="bodySmall" style={[styles.moreText, { color: colors.textSecondary }]}>
+        <Text variant="bodySmall" style={[styles.moreText, { color: colors.textTertiary }]}>
           Showing top 6 muscle groups
         </Text>
       )}
@@ -89,33 +87,41 @@ export default function MuscleGroupBalance({ workouts, selectedWeek }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: spacing.sm,
-  },
-  title: {
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    gap: spacing.gap,
   },
   muscleGroupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.gap,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   muscleGroupInfo: {
-    minWidth: 100,
+    flex: 1,
+    gap: 5,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
   },
   muscleGroupName: {
-    fontWeight: '500',
     textTransform: 'capitalize',
   },
   muscleGroupCount: {
-    marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
-  progressContainer: {
-    flex: 1,
+  track: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
-  progressBar: {
-    height: 8,
-    borderRadius: 4,
+  bar: {
+    height: '100%',
+    borderRadius: 3,
   },
   emptyState: {
     padding: spacing.lg,
@@ -126,7 +132,5 @@ const styles = StyleSheet.create({
   },
   moreText: {
     textAlign: 'center',
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
   },
 });
