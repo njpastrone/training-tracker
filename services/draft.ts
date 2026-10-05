@@ -26,9 +26,9 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const UNIT_WORDS = /(kgs?|kilos?|kilograms?|lbs?|pounds?)\b/i;
 const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur|sun)day|\b(mon|tue|wed|thu|fri|sat|sun)\b/i;
 
-// Flags what a first parse may have guessed rather than read from the log: a number not in the log,
-// a weight with no unit given, a day not named, a name the log doesn't contain, missing weight or reps
-// on a lift. Kept alongside any flags the model returned.
+// Flags genuine ambiguity in a first parse, never missing detail (sets, reps and weight are optional):
+// an exercise the log doesn't name, a weight or rep count that isn't in the log (plate math, "same as
+// rows"), a weight with no unit given, a day not named. Kept alongside any flags the model returned.
 export function flagGuesses(draft: Draft, input: string): Draft {
   const numbers = new Set((input.match(/\d+(?:[.,]\d+)?/g) ?? []).flatMap(n => [parseFloat(n.replace(',', '.')), ...n.split(',').map(Number)]));
   const text = norm(input);
@@ -38,19 +38,19 @@ export function flagGuesses(draft: Draft, input: string): Draft {
   };
 
   draft.exercises.forEach((e, i) => {
+    // The exercise counts as named when the log has its name, an alias, or one of their words ("rows" →
+    // Barbell Row). Cardio is left alone: "ran" or "jog" for Running isn't ambiguous.
     const ref = exerciseList.find(r => r.name === e.name);
-    const names = [e.name, ...(ref?.aliases ?? [])].map(n => norm(n).replace(/s$/, ''));
-    if (!names.some(n => text.includes(n)) || (e.dayOffset && !DAY_WORDS.test(input))) flag(i, 'name');
-    for (const field of ['sets', 'reps', 'weight', 'duration', 'distance'] as const) {
+    const phrases = [e.name, ...(ref?.aliases ?? [])];
+    const words = phrases.flatMap(n => n.split(/[\s-]+/));
+    const named = [...phrases, ...words].map(n => norm(n).replace(/s$/, '')).some(n => n.length >= 3 && text.includes(n));
+    if ((!named && e.muscleGroup !== 'cardio') || (e.dayOffset && !DAY_WORDS.test(input))) flag(i, 'name');
+    // Sets of 1 and time or distance conversions ("6:30", "5k") follow the parsing rules, so they aren't guesses
+    for (const field of ['reps', 'weight'] as const) {
       const v = e[field];
       if (v !== undefined && !numbers.has(v)) flag(i, field);
     }
     if (e.weight !== undefined && !UNIT_WORDS.test(input)) flag(i, 'weight');
-    const lift = e.muscleGroup !== 'cardio' && e.duration === undefined && e.distance === undefined;
-    if (lift && (e.sets !== undefined || e.reps !== undefined || e.weight !== undefined)) {
-      if (e.reps === undefined) flag(i, 'reps');
-      if (e.weight === undefined) flag(i, 'weight');
-    }
   });
   return { ...draft, unsure: flags };
 }

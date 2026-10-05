@@ -51,20 +51,32 @@ test('a fully stated log gets no flags', () => {
 test('guessed numbers, units, days and names are flagged', () => {
   const p = parsed([
     { name: 'Squat', muscleGroup: 'quads', sets: 1, reps: 5, weight: 225, unit: 'lbs', dayOffset: -1 },
-    { name: 'Pull-ups', muscleGroup: 'back', sets: 3, reps: 10 },
+    { name: 'Kettlebell Swings', muscleGroup: 'glutes', sets: 3, reps: 10 },
+    { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 12, weight: 100, unit: 'lbs' },
   ]);
-  assert.deepEqual(flagGuesses(p, 'squat 2 plates for 5, chins 3x10').unsure, [
+  assert.deepEqual(flagGuesses(p, 'squat 2 plates for 5, swung the bell 3x10, rows same as last time').unsure, [
     { exercise: 0, field: 'name' }, // dayOffset with no day in the log
-    { exercise: 0, field: 'sets' }, // 1 set inferred
     { exercise: 0, field: 'weight' }, // 225 from "2 plates", unit assumed
-    { exercise: 1, field: 'name' }, // "chins" matched to Pull-ups
-    { exercise: 1, field: 'weight' }, // missing weight on a lift
+    { exercise: 1, field: 'name' }, // "swung the bell" read as Kettlebell Swings
+    { exercise: 2, field: 'reps' }, // copied from another exercise
+    { exercise: 2, field: 'weight' },
   ]);
 });
 
-test('missing reps are flagged and model flags are kept once', () => {
+test('missing detail is never flagged: a name-only log saves cleanly', () => {
+  const p = parsed([
+    { name: 'Bench Press', muscleGroup: 'chest' },
+    { name: 'Barbell Row', muscleGroup: 'back' },
+    { name: 'Pull-ups', muscleGroup: 'back', sets: 3 },
+    { name: 'Running', muscleGroup: 'cardio', distance: 3, distanceUnit: 'mi' },
+    { name: 'Plank', muscleGroup: 'core', sets: 1, duration: 1 },
+  ]);
+  assert.deepEqual(flagGuesses(p, 'chest and back today: bench, rows, 3 sets of pull-ups. ran 3 miles then plank for 60s').unsure, []);
+});
+
+test('model flags are kept once and missing reps are not added', () => {
   const p = parsed([{ name: 'Deadlift', muscleGroup: 'back', weight: 405, unit: 'lbs' }], [{ exercise: 0, field: 'weight' }]);
-  assert.deepEqual(flagGuesses(p, 'yesterday deadlift 405 lbs').unsure, [{ exercise: 0, field: 'weight' }, { exercise: 0, field: 'reps' }]);
+  assert.deepEqual(flagGuesses(p, 'yesterday deadlift 405 lbs').unsure, [{ exercise: 0, field: 'weight' }]);
 });
 
 test('comma-separated numbers count as typed values', () => {

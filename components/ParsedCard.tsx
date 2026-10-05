@@ -40,6 +40,8 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
 
   // An optional chip stays while it is being edited, even when emptied
   const [focused, setFocused] = useState<string | null>(null);
+  // Detail is optional: the card shows only what was said, and "Add details" opens the number chips
+  const [adding, setAdding] = useState<number | null>(null);
   const focus = (key: string) => ({ onFocus: () => setFocused(key), onBlur: () => setFocused(f => (f === key ? null : f)) });
 
   const dayTag = (offset?: number) =>
@@ -94,16 +96,23 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
                 )}
               </View>
               <View style={styles.numbers}>
-                <NumberChip value={e.sets} suffix="sets" unsure={isUnsure(i, 'sets')} onChange={v => update(i, 'sets', v)} />
-                <NumberChip value={e.reps} suffix="reps" unsure={isUnsure(i, 'reps')} onChange={v => update(i, 'reps', v)} />
-                {(e.weight !== undefined || e.muscleGroup !== 'cardio' || focused === `${i}:weight`) && (
-                  <NumberChip value={e.weight} suffix={e.unit === 'kg' ? 'kg' : 'lb'} unsure={isUnsure(i, 'weight')} onChange={v => update(i, 'weight', v)} {...focus(`${i}:weight`)} />
-                )}
-                {(e.duration !== undefined || e.muscleGroup === 'cardio' || focused === `${i}:duration`) && (
-                  <NumberChip value={e.duration} suffix="min" unsure={isUnsure(i, 'duration')} onChange={v => update(i, 'duration', v)} {...focus(`${i}:duration`)} />
-                )}
-                {(e.distance !== undefined || focused === `${i}:distance`) && (
-                  <NumberChip value={e.distance} suffix={e.distanceUnit ?? ''} unsure={isUnsure(i, 'distance')} onChange={v => update(i, 'distance', v)} {...focus(`${i}:distance`)} />
+                {(['sets', 'reps', 'weight', 'duration', 'distance'] as const)
+                  .filter(field => e[field] !== undefined || focused === `${i}:${field}` || (adding === i && (e.muscleGroup === 'cardio' ? field === 'duration' || field === 'distance' : field === 'sets' || field === 'reps' || field === 'weight')))
+                  .map(field => (
+                    <NumberChip
+                      key={field}
+                      value={e[field]}
+                      suffix={field === 'weight' ? (e.unit === 'kg' ? 'kg' : 'lb') : field === 'duration' ? 'min' : field === 'distance' ? e.distanceUnit ?? '' : field}
+                      unsure={isUnsure(i, field)}
+                      onChange={v => update(i, field, v)}
+                      {...focus(`${i}:${field}`)}
+                    />
+                  ))}
+                {[e.sets, e.reps, e.weight, e.duration, e.distance].every(v => v === undefined) && adding !== i && (
+                  <Pressable onPress={() => setAdding(i)} accessibilityRole="button" accessibilityLabel={`Add details to ${e.name}`} hitSlop={6} style={styles.addDetails}>
+                    <SymbolView name="plus" size={11} weight="semibold" tintColor={colors.textTertiary} />
+                    <Text variant="labelMedium" style={{ color: colors.textTertiary }}>Add details</Text>
+                  </Pressable>
                 )}
               </View>
               {e.notes ? (
@@ -182,7 +191,7 @@ function toNumber(text: string) {
 }
 
 // "Fix something" box: a typed correction re-parses the draft
-export function FixBox({ onFix, busy, disabled, placeholder = 'Fix it: "actually 3x10, not 3x8"' }: { onFix: (fix: string) => Promise<boolean>; busy: boolean; disabled?: boolean; placeholder?: string }) {
+export function FixBox({ onFix, busy, disabled, placeholder = 'Fix it: "it was rows, not pulldowns"' }: { onFix: (fix: string) => Promise<boolean>; busy: boolean; disabled?: boolean; placeholder?: string }) {
   const { colors } = useTheme();
   const [fix, setFix] = useState('');
   const send = async () => {
@@ -273,6 +282,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     overflow: 'hidden',
+  },
+  addDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 28,
   },
   numbers: {
     flexDirection: 'row',
