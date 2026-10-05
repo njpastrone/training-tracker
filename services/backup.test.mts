@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { addDays, format } from 'date-fns';
 
 // In-memory AsyncStorage so the real services run under node
 const mem = new Map<string, string>();
@@ -51,6 +52,7 @@ const backup = await import('./backup');
 const { useWorkoutStore } = await import('../stores/workoutStore');
 const { templateService } = await import('./templates');
 const { scheduleService } = await import('./schedule');
+const { savePlan } = await import('./planner');
 
 const workout = (id: string, date: string) => ({
   id, date, rawInput: 'bench 3x5 185', muscleGroups: ['chest'], createdAt: `${date}T10:00:00.000Z`, updatedAt: `${date}T10:00:00.000Z`,
@@ -65,7 +67,12 @@ async function seed() {
   useWorkoutStore.getState().updateSettings({ weightUnit: 'kg' });
   const t = await templateService.createTemplate({ name: 'Push', exercises: [] } as any);
   await scheduleService.scheduleWorkout('2026-10-06', t.id);
-  mem.set('@training-tracker/plans', JSON.stringify([{ id: 'p1', name: 'Re-entry week' }]));
+  await savePlan({
+    name: 'Re-entry week',
+    days: { UA: { name: 'Upper A', source: 'suggested', exercises: [{ name: 'Bench press', muscleGroup: 'chest', sets: 3, reps: 8 }] } },
+    sessions: [{ date: format(addDays(new Date(), 1), 'yyyy-MM-dd'), day: 'UA' }],
+    repeatWeeks: 1,
+  } as any, 'plan a week', 'lbs');
   await new Promise((r) => setTimeout(r, 10)); // let the store's async persist land
 }
 
@@ -78,14 +85,9 @@ beforeEach(async () => {
   mem.clear();
 });
 
-test('every persisted AsyncStorage key in the app is backed up', () => {
-  for (const dir of ['services', 'stores']) {
-    for (const f of fs.readdirSync(dir).filter((n) => /\.tsx?$/.test(n))) {
-      for (const [key] of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/'@training-tracker\/[^']+'/g)) {
-        assert.ok(backup.BACKUP_KEYS.includes(key.slice(1, -1)), `${key} in ${f} is not in BACKUP_KEYS`);
-      }
-    }
-  }
+test('every key the app persists is backed up', async () => {
+  await seed(); // writes through the store, templates, schedule and planner
+  assert.deepEqual([...mem.keys()].sort(), [...backup.BACKUP_KEYS].sort());
 });
 
 test('export → import restores identical data and takes a safety backup', async () => {
@@ -103,14 +105,14 @@ test('export → import restores identical data and takes a safety backup', asyn
   const diverged = snapshot();
 
   const { backup: b, summary } = backup.parseBackup(exported);
-  assert.deepEqual({ ...summary, createdAt: undefined }, { workouts: 2, templates: 1, plans: 1, createdAt: undefined });
+  assert.deepEqual({ ...summary, createdAt: undefined }, { workouts: 2, templates: 2, plans: 1, createdAt: undefined });
   const safety = await backup.restoreBackup(b);
 
   assert.deepEqual(snapshot(), before);
   assert.deepEqual(useWorkoutStore.getState().workouts.map((w) => w.id), ['w2', 'w1']);
   assert.equal(useWorkoutStore.getState().settings.weightUnit, 'kg');
-  assert.equal(useWorkoutStore.getState().templates.length, 1);
-  assert.equal(useWorkoutStore.getState().schedule[0].date, '2026-10-06');
+  assert.equal(useWorkoutStore.getState().templates.length, 2);
+  assert.equal(useWorkoutStore.getState().schedule.length, 2);
 
   // The safety backup holds the pre-restore data and restores it
   assert.deepEqual(backup.listBackups('safety').map((f) => f.uri), [safety.uri]);
