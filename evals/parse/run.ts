@@ -11,12 +11,13 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { scoreCase, type Predicted } from './score.ts';
+import { identityCounts, scoreCase, type Predicted } from './score.ts';
+import { identityFor } from './identity.ts';
 
 const { values: args } = parseArgs({
   options: {
     parser: { type: 'string', default: '../../server/src/parse.ts' },
-    set: { type: 'string', default: 'cases' }, // or 'holdout', 'corrections'
+    set: { type: 'string', default: 'cases' }, // or 'holdout', 'identity', 'corrections'
     model: { type: 'string' },
     effort: { type: 'string' },
     compat: { type: 'boolean', default: false }, // send what the Worker deployed before the parse mode sends
@@ -63,8 +64,11 @@ async function callAnthropic(body: Record<string, unknown>) {
   }
 }
 
-async function runCase(c: (typeof cases)[number] & { draft?: unknown; fix?: string }) {
-  const options = { date: c.date ?? '2026-10-03', unit: c.unit ?? 'lbs' };
+async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name: string }[] }; fix?: string }) {
+  // A correction picks from the exercises its draft and fix name, like the app does
+  const identity = identityFor(c.fix ? { ...c, input: `${c.draft!.exercises.map((e) => e.name).join(', ')}\n${c.fix}` } : c);
+  const exercises = identity.candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
+  const options = { date: c.date ?? '2026-10-03', unit: c.unit ?? 'lbs', exercises };
   let body = c.fix ? parser.buildCorrectionRequest(c.draft, c.fix, options) : parser.buildParseRequest(c.input, options);
   if (args.model) body.model = args.model;
   if (args.effort) body.output_config = { ...body.output_config, effort: args.effort };
@@ -89,14 +93,14 @@ async function runCase(c: (typeof cases)[number] & { draft?: unknown; fix?: stri
     error = String(e);
   }
   const ms = Date.now() - started;
-  const parsed: Predicted | null = error ? null : parser.finalizeParse(text, c.unit ?? 'lbs');
+  const parsed: Predicted | null = error ? null : parser.finalizeParse(text, c.unit ?? 'lbs', identity);
   const [pin, pout] = price(body.model);
   const cacheWrite = usage.cache_creation_input_tokens ?? 0;
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cost = ((usage.input_tokens + cacheWrite * 1.25 + cacheRead * 0.1) * pin + usage.output_tokens * pout) / 1e6;
   // What one live request costs (the Worker doesn't cache: real traffic is too sparse for a 5-minute cache).
   const liveCost = ((usage.input_tokens + cacheWrite + cacheRead) * pin + usage.output_tokens * pout) / 1e6;
-  return { id: c.id, category: c.category, model: body.model, ms, cost, liveCost, usage, error, text, parsed, ...scoreCase(c, parsed) };
+  return { id: c.id, category: c.category, model: body.model, ms, cost, liveCost, usage, error, text, parsed, identity: identityCounts(c, parsed), ...scoreCase(c, parsed) };
 }
 
 async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {
@@ -146,6 +150,9 @@ console.log(`model ${results[0]?.model}${args.compat ? ' (compat: no structured 
 console.table(Object.fromEntries(rows.map((r) => [r.category, { cases: r.cases, score: r.score.toFixed(3), perfect: r.perfect }])));
 console.log(`OVERALL ${overall.toFixed(3)}  perfect ${selected.filter((c) => caseScore(c.id) === 1).length}/${selected.length}`);
 console.log(`cost $${totalCost.toFixed(4)} total, $${(totalCost / repeat).toFixed(4)} per full pass (eval, cached), $${liveCost.toFixed(5)} per live request  latency p50 ${latencies[Math.floor(latencies.length / 2)]}ms p90 ${latencies[Math.floor(latencies.length * 0.9)]}ms`);
+const sum = (k: 'silent' | 'needless' | 'wronglyNew' | 'exercises') => results.reduce((s, r) => s + r.identity[k], 0);
+console.log(`IDENTITY silent mismatches ${sum('silent')} (gate: 0)  needless flags ${sum('needless')}/${sum('exercises')} (${((100 * sum('needless')) / (sum('exercises') || 1)).toFixed(1)}%, target <= 5%)  wrongly new ${sum('wronglyNew')} (target 0)`);
+for (const m of [...new Set(results.flatMap((r) => r.identity.mismatches))]) console.log(`  SILENT ${m}`);
 const errors = results.filter((r) => r.error);
 if (errors.length) console.log(`${errors.length} request errors, first: ${errors[0].error}`);
 

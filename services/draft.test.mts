@@ -166,3 +166,11 @@ test('a typed fix keeps earlier flags only on values it left unchanged', () => {
   assert.deepEqual(fixed(135), [{ exercise: 1, field: 'weight' }]);
   assert.deepEqual(fixed(155), []);
 });
+
+test('with exercise identity, its unsure verdict decides the name flag', () => {
+  const p = parsed([
+    { name: 'Pull-up', muscleGroup: 'back', sets: 3, reps: 8, match: 'unsure' },
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, match: 'sure' },
+  ] as ParsedWorkoutResponse['exercises']);
+  assert.deepEqual(flagGuesses(p, 'chins 3x8, flat bb 3x8').unsure, [{ exercise: 0, field: 'name' }]);
+});

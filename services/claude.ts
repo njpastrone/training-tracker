@@ -4,6 +4,9 @@ import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, modelNames, type ParseOptions } from '../server/src/parse';
+import { buildCandidates } from '../server/src/identity';
+import { yourExercises } from './exerciseIdentity';
+import { useWorkoutStore } from '../stores/workoutStore';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
 
@@ -41,12 +44,17 @@ export async function callClaude(
 
 // Parses a free-text log. options.date is the day being logged; dayOffset on each exercise
 // says how many days before it the exercise was done.
+// Every exercise comes back with an exerciseId and match, picked by the model from the user's own
+// exercises and the catalog entries the log mentions, then checked in code (server/src/identity.ts).
 export async function parseWorkout(input: string, options: ParseOptions): Promise<ParsedWorkoutResponse | null> {
   try {
-    const req = buildParseRequest(input, options);
+    const { workouts, exerciseLibrary } = useWorkoutStore.getState();
+    const candidates = buildCandidates(input, yourExercises(workouts, exerciseLibrary));
+    const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
+    const req = buildParseRequest(input, { ...options, exercises });
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
-    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options });
-    const parsed = finalizeParse(text, options.unit);
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises });
+    const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
     return parsed ? flagGuesses(parsed, input) : fallbackParse(input);
   } catch (error) {
     console.error('Error parsing workout:', error);
@@ -61,11 +69,15 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
 // updated draft, or null when the reply is unusable. Workers without correction mode parse `input`,
 // the draft written back as a log plus the fix; Workers older than parse mode send system/messages.
 export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, options: ParseOptions): Promise<ParsedWorkoutResponse | null> {
-  const req = buildCorrectionRequest(draft, fix, options);
   const input = `${draftToText(draft.exercises, draft.notes)}\nCorrection: ${fix}`;
   try {
-    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, draft, fix });
-    const updated = finalizeParse(text, options.unit);
+    // The model picks from the exercises the draft and the fix name, as in a parse
+    const { workouts, exerciseLibrary } = useWorkoutStore.getState();
+    const candidates = buildCandidates(input, yourExercises(workouts, exerciseLibrary));
+    const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
+    const req = buildCorrectionRequest(draft, fix, { ...options, exercises });
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises, draft, fix });
+    const updated = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
     return updated && keepIdentity(draft, updated, modelNames(text));
   } catch (error) {
     if (error instanceof ApiError) throw error;

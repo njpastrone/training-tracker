@@ -75,3 +75,38 @@ test('buildCorrectionRequest sends the draft with nulls and without app-only fie
   assert.match(content, /<fix>it was 6k<\/fix>$/);
   assert.equal(req.model, buildParseRequest('x', { date: '2026-10-03', unit: 'kg' }).model);
 });
+
+test('finalizeParse merges identical sets in a row, keeping each note', () => {
+  const text = JSON.stringify({ exercises: [
+    { name: 'Squat', sets: 2, reps: 5, weight: 140, unit: 'kg' },
+    { name: 'Squat', sets: 2, reps: 5, weight: 140, unit: 'kg', notes: 'wraps' },
+    { name: 'Squat', sets: 1, reps: 3, weight: 150, unit: 'kg' },
+    { name: 'Bench Press', sets: 3, reps: 5, weight: 100, unit: 'kg', dayOffset: -1 },
+    { name: 'Bench Press', sets: 3, reps: 5, weight: 100, unit: 'kg' },
+  ] });
+  assert.deepEqual(finalizeParse(text)!.exercises.map((e) => [e.name, e.sets, e.weight, e.notes]), [
+    ['Squat', 4, 140, 'wraps'], ['Squat', 1, 150, undefined], ['Bench Press', 3, 100, undefined], ['Bench Press', 3, 100, undefined],
+  ]);
+});
+
+test('finalizeParse never stores assistance as a weight', async () => {
+  const { buildCandidates } = await import('./identity.ts');
+  const input = 'assisted pullups 3x8 with 50 lbs assistance';
+  const candidates = buildCandidates(input, []);
+  const ex = `e${candidates.findIndex((c) => c.id === 'assisted-pull-up') + 1}`;
+  const text = JSON.stringify({ exercises: [{ said: 'assisted pullups', ex, sets: 3, reps: 8, weight: 50, unit: 'lbs' }] });
+  const [e] = finalizeParse(text, 'lbs', { input, candidates })!.exercises;
+  assert.deepEqual([e.weight, e.unit, e.notes], [undefined, undefined, '50 lbs assistance']);
+});
+
+test('finalizeParse maps unsure flags onto merged sets', () => {
+  const text = JSON.stringify({
+    exercises: [
+      { name: 'Squat', sets: 2, reps: 5, weight: 140, unit: 'kg' },
+      { name: 'Squat', sets: 2, reps: 5, weight: 140, unit: 'kg' },
+      { name: 'Bench Press', sets: 3, reps: 5, weight: 100, unit: 'kg' },
+    ],
+    unsure: [{ exercise: 1, field: 'weight' }, { exercise: 0, field: 'weight' }, { exercise: 2, field: 'reps' }],
+  });
+  assert.deepEqual(finalizeParse(text)!.unsure, [{ exercise: 0, field: 'weight' }, { exercise: 1, field: 'reps' }]);
+});

@@ -29,7 +29,11 @@ export function removeFromDraft(draft: Draft, index: number): Draft {
 // ones are resolved again on save. Its earlier flags stay on values the fix left unchanged.
 export function keepIdentity(before: Draft, after: Draft, returnedNames: string[]): Draft {
   const same = (a?: string, b?: string) => a !== undefined && b !== undefined && a.trim().toLowerCase() === b.trim().toLowerCase();
-  const kept = (i: number) => !!before.exercises[i] && same(returnedNames[i], before.exercises[i].name);
+  // Unchanged: the model returned the name it was sent, or picked the same exercise again
+  const kept = (i: number) => {
+    const old = before.exercises[i];
+    return !!old && (same(returnedNames[i], old.name) || (!!old.exerciseId && after.exercises[i]?.exerciseId === old.exerciseId));
+  };
   const exercises = after.exercises.map((e, i) => {
     const old = before.exercises[i];
     return kept(i) ? { ...e, name: old.name, exerciseId: old.exerciseId, match: old.match, said: old.said } : e;
@@ -67,7 +71,9 @@ export function flagGuesses(draft: Draft, input: string): Draft {
     // "ran" or "jog" for Running isn't ambiguous, nor are the "<Part> Workout" entries for body-part logs.
     const ref = exerciseList.find(r => r.name === e.name);
     const named = / workout$/i.test(e.name) || [e.name, ...(ref?.aliases ?? [])].map(words).some(p => logWords.some((_, k) => p.every((w, j) => logWords[k + j] === w)));
-    if ((!named && e.muscleGroup !== 'cardio') || (e.dayOffset && !DAY_WORDS.test(input))) flag(i, 'name');
+    // With exercise identity, its own verdict decides which exercise is meant; the word check is the fallback
+    const unsureExercise = e.match ? e.match === 'unsure' : !named && e.muscleGroup !== 'cardio';
+    if (unsureExercise || (e.dayOffset && !DAY_WORDS.test(input))) flag(i, 'name');
     // Sets of 1 and time or distance conversions ("6:30", "5k") follow the parsing rules, so they aren't guesses
     for (const field of ['reps', 'weight'] as const) {
       const v = e[field];

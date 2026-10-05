@@ -1,4 +1,5 @@
-import type { Case, ExpectedExercise, Keywords } from './cases.ts';
+import type { Case, ExpectedExercise, Keywords, Status } from './cases.ts';
+import { catalogById } from '../../data/catalog.ts';
 
 // Field-by-field scoring. Every asserted field is one point: a field counts when the expected
 // value or the predicted value is non-empty, so a correct "nothing here" is free and an invented
@@ -41,7 +42,26 @@ function nameMatches(exp: ExpectedExercise, name: unknown) {
   return typeof name === 'string' && [exp.name, ...(exp.alt ?? [])].some((n) => normName(n) === normName(name));
 }
 
-function scoreExercise(exp: ExpectedExercise, got: Record<string, unknown> | undefined, label: string) {
+// With an expected id the identity is what counts, not the spelling of the name. An expected new
+// exercise must come back without an id.
+function sameExercise(exp: ExpectedExercise, got: Record<string, unknown> | undefined) {
+  if (exp.id) return got?.exerciseId === exp.id || (exp.ids ?? []).includes(got?.exerciseId as string);
+  if (exp.status === 'new') return !got?.exerciseId && nameMatches(exp, got?.name);
+  return nameMatches(exp, got?.name);
+}
+
+export function statusOf(c: Case, got: Record<string, unknown>): Status {
+  if (got.match === 'unsure') return 'unsure';
+  if (!got.exerciseId) return 'new';
+  return c.library?.some((l) => l.id === got.exerciseId) ? 'known' : 'new-for-you';
+}
+
+// The user's words for it are in the log and overlap the expected words
+const saidMatches = (exp: string, got: unknown) =>
+  typeof got === 'string' && got.trim() !== '' && normName(got).length > 0 &&
+  (normName(exp).includes(normName(got)) || normName(got).includes(normName(exp)));
+
+function scoreExercise(c: Case, exp: ExpectedExercise, got: Record<string, unknown> | undefined, label: string) {
   let points = 0;
   let total = 0;
   const misses: string[] = [];
@@ -50,7 +70,10 @@ function scoreExercise(exp: ExpectedExercise, got: Record<string, unknown> | und
     if (ok) points++;
     else misses.push(`${label}.${field}: want ${JSON.stringify(want ?? null)} got ${JSON.stringify(have ?? null)}`);
   };
-  check('name', nameMatches(exp, got?.name), exp.name, got?.name);
+  if (exp.id) check('id', sameExercise(exp, got), [exp.id, ...(exp.ids ?? [])].join('|'), got?.exerciseId);
+  else check('name', sameExercise(exp, got), exp.name, got?.name);
+  if (exp.status) check('status', !!got && statusOf(c, got) === exp.status, exp.status, got && statusOf(c, got));
+  if (exp.said) check('said', saidMatches(exp.said, got?.said), exp.said, got?.said);
   check('muscleGroup', got?.muscleGroup === exp.muscleGroup, exp.muscleGroup, got?.muscleGroup);
   for (const f of NUMERIC) {
     if (has(exp[f]) || has(got?.[f])) check(f, has(exp[f]) ? numEq(exp[f], got?.[f]) : !has(got?.[f]), exp[f], got?.[f]);
@@ -78,8 +101,19 @@ function scoreExercise(exp: ExpectedExercise, got: Record<string, unknown> | und
 const extraFields = (got: Record<string, unknown>) =>
   2 + [...NUMERIC, ...STRINGS, 'distance'].filter((f) => has(got[f])).length;
 
-export function scoreCase(c: Case, pred: Predicted | null): CaseScore {
+// An acceptable alternative guess (one of `ids`) is judged as that exercise, muscle group included
+function asPredictedAlternative(c: Case, pred: Predicted): Case {
+  const exercises = c.exercises.map((exp) => {
+    const got = pred.exercises.find((g) => exp.ids?.includes(g.exerciseId as string));
+    const group = got && catalogById.get(got.exerciseId as string)?.primary;
+    return group && !pred.exercises.some((g) => g.exerciseId === exp.id) ? { ...exp, muscleGroup: group } : exp;
+  });
+  return { ...c, exercises };
+}
+
+export function scoreCase(original: Case, pred: Predicted | null): CaseScore {
   if (!pred) return { score: 0, points: 0, total: 1, misses: ['no parse result'] };
+  const c = asPredictedAlternative(original, pred);
 
   if (c.exercises.length === 0) {
     const ok = pred.exercises.length === 0;
@@ -93,8 +127,8 @@ export function scoreCase(c: Case, pred: Predicted | null): CaseScore {
     let best: number | undefined;
     let bestPoints = -1;
     pred.exercises.forEach((g, j) => {
-      if (used.has(j) || !nameMatches(exp, g.name)) return;
-      const { points, total } = scoreExercise(exp, g, '');
+      if (used.has(j) || !sameExercise(exp, g)) return;
+      const { points, total } = scoreExercise(c, exp, g, '');
       if (points / total > bestPoints) [best, bestPoints] = [j, points / total];
     });
     if (best !== undefined) used.add(best);
@@ -113,7 +147,7 @@ export function scoreCase(c: Case, pred: Predicted | null): CaseScore {
   const misses: string[] = [];
   c.exercises.forEach((exp, k) => {
     const got = pairs[k] === undefined ? undefined : pred.exercises[pairs[k]!];
-    const r = scoreExercise(exp, got, `${k}:${exp.name}`);
+    const r = scoreExercise(c, exp, got, `${k}:${exp.name}`);
     points += r.points;
     total += r.total;
     misses.push(...(got ? r.misses : [`${k}:${exp.name}: missing`]));
@@ -147,4 +181,33 @@ export function scoreCase(c: Case, pred: Predicted | null): CaseScore {
   }
 
   return { score: points / total, points, total, misses };
+}
+
+// Identity headline counts for one case, over its expected exercises paired as scoreCase pairs them:
+// silent: a confident (known or new-for-you) pick of the wrong exercise. The release gate is 0.
+// needless: unsure where a sure answer was expected (no ambiguity listed)
+// wronglyNew: a new exercise proposed where a known id was expected
+export function identityCounts(c: Case, pred: Predicted | null) {
+  const counts = { silent: 0, needless: 0, wronglyNew: 0, exercises: 0, mismatches: [] as string[] };
+  if (!pred) return counts;
+  const used = new Set<number>();
+  for (const exp of c.exercises) {
+    // Prefer a prediction of the same exercise; otherwise the first unused one with the same words
+    let j = pred.exercises.findIndex((g, i) => !used.has(i) && sameExercise(exp, g));
+    if (j < 0) j = pred.exercises.findIndex((g, i) => !used.has(i) && (nameMatches(exp, g.name) || (exp.said && saidMatches(exp.said, g.said))));
+    if (j < 0 && c.exercises.length === pred.exercises.length) j = c.exercises.indexOf(exp); // same shape: pair by position
+    if (j < 0 || used.has(j)) continue;
+    used.add(j);
+    const got = pred.exercises[j];
+    const status = statusOf(c, got);
+    counts.exercises++;
+    if ((status === 'known' || status === 'new-for-you') && !sameExercise(exp, got)) {
+      counts.silent++;
+      counts.mismatches.push(`${c.id}: ${String(got.said ?? got.name)} -> ${String(got.exerciseId)}, want ${exp.id ?? exp.name}`);
+    }
+    const expectsSure = exp.status ? exp.status !== 'unsure' : !exp.ids;
+    if (status === 'unsure' && expectsSure) counts.needless++;
+    if (status === 'new' && exp.id) counts.wronglyNew++;
+  }
+  return counts;
 }

@@ -10,11 +10,13 @@ npm run eval:parse -- --verbose                     # also print every miss
 npm run eval:parse -- --only multi_day,terse-bench  # categories or case ids
 npm run eval:parse -- --repeat 3                    # average out run-to-run noise
 npm run eval:parse -- --set holdout                 # 20 cases never used for tuning
+npm run eval:parse -- --set identity                # which exercise each lift is, given a library
 npm run eval:parse -- --model claude-sonnet-5-5 --effort low
 npm run eval:parse -- --compat                      # what a Worker deployed before parse mode sends
 npm run eval:parse -- --set corrections             # typed fixes applied to a draft (correction mode)
 npm run eval:parse -- --against evals/parse/results/<earlier run>.json   # list regressions
 node --test evals/parse/score.test.ts               # scorer self-check
+node --test evals/parse/recall.test.ts              # offline, free: is the right exercise a candidate?
 ```
 
 It needs an Anthropic API key in `ANTHROPIC_API_KEY`, either exported or in `.env.eval.local` at the
@@ -28,21 +30,49 @@ app's daily cap. Each run saves its full results to `evals/parse/results/` (git-
 ## Scoring
 
 Each case lists the exact result expected (`cases.ts`). Every field that is set in either the expected
-or the actual exercise is worth one point: name, muscleGroup, sets, reps, weight, unit, duration,
+or the actual exercise is worth one point: name (or, when the case gives one, the exercise `id`
+instead: identity, not spelling), muscleGroup, sets, reps, weight, unit, duration,
 distance (compared in metres, so 5 km = 5000 m) and dayOffset. Each expected note keyword is also a
 point. An invented value or an extra exercise costs points, and a correct "nothing here" is free.
 Workout notes must contain the expected keywords, or must be empty when the case expects none.
 muscleGroups scores by overlap. A case's score is points ÷ possible points. A non-workout passes
 only with zero exercises.
 
+Exercises can also expect a `status` (a point) and the user's words, `said` (a point). `ids` lists
+other acceptable best guesses for an ambiguous word; a guess from that list is judged as that
+exercise, muscle group included. Every run also prints the identity headline:
+
+- **silent mismatches**: a confident pick (known or new-for-you) of the wrong exercise. Release
+  gate: **0**, on every set.
+- **needless flags**: unsure where nothing was ambiguous. Target ≤ 5%.
+- **wrongly new**: a new exercise proposed where a known id was expected. Target 0.
+
+## Identity set
+
+`identity.ts` (54 cases) checks which exercise each lift is. Each case can give the user's library
+(their exercises, most recent first, with remembered aliases). Statuses: `known` (in the library),
+`new-for-you` (a catalog exercise they haven't logged), `new` (neither: the user confirms the
+proposed name later) and `unsure` (flagged for the user, never counted in PRs until confirmed).
+Groups: many wordings of one lift, lookalikes kept apart (incline DB vs bench, chin-ups vs
+pull-ups, knee vs leg raises, assisted pull-ups…), modifiers and machine brands as notes, the
+library first, new exercises that must not become the nearest catalog entry, ambiguous words,
+slang, typos and an injection attempt, and logs of names only (a complete log: missing numbers
+never make an exercise unsure).
+
 ## Parsing contract
 
 These rules are what the expected results encode. The prompt states them too.
 
-- **Names**: use the canonical name from `data/exercises.ts`. Slang, aliases and typos map onto it
-  ("chess" → chest, "deadz" → Deadlift). `finalizeParse` also snaps names and aliases to the list and
-  takes the muscle group from it. Exercises not on the list get their standard gym name and their
-  primary muscle. Modifiers (paused, tempo) keep the base name and go in notes.
+- **Exercises**: the app sends a candidate list with each log (`server/src/identity.ts`): the
+  user's own exercises, then catalog entries (`data/catalog.ts`) the log mentions, including typos,
+  past tenses and every variant of each hit. The model returns, per exercise, the user's words
+  (`said`) and the key of the same exercise (`ex`, e.g. `e3`), a second choice (`alt`) when two
+  could be meant, or `ex: null` with a standard name. `finalizeParse` then checks every pick in code:
+  the key must exist, the user's alias table wins, `said` must be in the log, marker words (incline,
+  DB, smith, single-arm, assisted, front, sumo…) must agree with the pick, and an ambiguous word
+  ("rows", "curls", "dips") only maps on its own when the user has exactly one such exercise.
+  Anything that fails is `unsure`. The muscle group comes from the exercise, not the model.
+  Modifiers, grips, attachments and machine brands are notes on the base exercise.
 - **Sets/reps**: reps without a set count means 1 set. A weight alone ("bench 225") means sets and
   reps are unknown. A rep range keeps the lower number, and the range goes in notes. Warm-ups aren't
   logged. Self-corrections win.
@@ -82,6 +112,21 @@ These rules are what the expected results encode. The prompt states them too.
 Schema additions this needed: `Exercise.distanceUnit` (distance existed but its unit was
 ambiguous) and `dayOffset` on parsed exercises (the app turns it into a date and doesn't store it).
 
+## Identity contract results (2026-10-05, Claude Haiku 4.5, 3 runs averaged)
+
+| set | score | silent mismatches | needless flags | wrongly new |
+|---|---|---|---|---|
+| main (101) | 0.996 (0.998 before) | 0 | 0 / 582 | 0 |
+| identity (52) | 1.000 | 0 | 0 / 165 | 0 |
+| holdout (20, 1 run) | 1.000 | 0 | 1 / 34 | 0 |
+
+Offline recall (`recall.test.ts`): every expected exercise in all three sets is in its candidate
+list (about 13 candidates on average, at most 40). A live parse costs about $0.0050 against $0.0058
+before: the 102-entry exercise list left the prompt. The main set's misses are the model's, not
+identity's: plate math on one leg press, a logged warm-up set, a feeling put in exercise notes and
+a restated workout note. Two contract rules now hold in code whatever the model writes: assistance
+is never a weight (it goes in notes), and identical sets in a row of the same exercise merge.
+
 ## Results (2026-10-05, Claude Haiku 4.5, 3 runs averaged)
 
 | category | baseline | final |
@@ -100,7 +145,7 @@ ambiguous) and `dayOffset` on parsed exercises (the app turns it into a date and
 | nonsense (9) | 1.000 | 1.000 |
 | **overall** | **0.779 (9/100 perfect)** | **0.998 (97/100 perfect)** |
 | holdout (20) | 0.690 (2/20) | 1.000 (20/20) |
-| corrections (12, added 2026-10-05) | | 1.000 (12/12) |
+| corrections (12, added 2026-10-05) | | 1.000 (12/12); with exercise identity: 1.000, 0 silent mismatches, 3.5% needless flags |
 
 Baseline is the prompt from before this eval (`services/claude.ts` at 86645ec), scored with the same
 cases. Its biggest gaps: sets with different weights collapsed into one, no distances, everything

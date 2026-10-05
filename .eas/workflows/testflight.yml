@@ -1,12 +1,39 @@
 name: Ship to TestFlight
 
+# Push to main: if a production build with the same native fingerprint exists,
+# publish an over-the-air update to it; otherwise build and submit to TestFlight.
+# Force a full build: put [release] in the merge commit message, or run
+#   npx eas-cli workflow:run .eas/workflows/testflight.yml -F force_build=true
+
 on:
   push:
     branches: ['main']
+  workflow_dispatch:
+    inputs:
+      force_build:
+        type: boolean
+        default: false
+        description: 'Build and submit to TestFlight even if the native fingerprint is unchanged'
 
 jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+
+  get_ios_build:
+    name: Check for existing iOS build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+
   build_ios:
     name: Build iOS
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id || inputs.force_build || contains(github.commit_message || '', '[release]') }}
     type: build
     params:
       platform: ios
@@ -18,3 +45,13 @@ jobs:
     type: submit
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
+
+  publish_ios_update:
+    name: Publish iOS update
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id && !inputs.force_build && !contains(github.commit_message || '', '[release]') }}
+    type: update
+    environment: production
+    params:
+      channel: production
+      platform: ios

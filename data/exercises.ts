@@ -16,7 +16,8 @@ export const exercises: ExerciseReference[] = [
 
   // BACK
   { name: 'Deadlift', aliases: ['conventional deadlift', 'deads'], muscleGroup: 'back', secondaryMuscles: ['hamstrings', 'glutes', 'core'], isCompound: true, equipment: ['barbell'] },
-  { name: 'Pull-ups', aliases: ['pullups', 'pull ups', 'chin ups', 'chinups'], muscleGroup: 'back', secondaryMuscles: ['biceps'], isCompound: true, equipment: ['pull-up bar'] },
+  { name: 'Pull-ups', aliases: ['pullups', 'pull ups'], muscleGroup: 'back', secondaryMuscles: ['biceps'], isCompound: true, equipment: ['pull-up bar'] },
+  { name: 'Chin-ups', aliases: ['chin ups', 'chinups'], muscleGroup: 'back', secondaryMuscles: ['biceps'], isCompound: true, equipment: ['pull-up bar'] },
   { name: 'Lat Pulldown', aliases: ['lat pull down', 'pulldown', 'lat pull'], muscleGroup: 'back', secondaryMuscles: ['biceps'], isCompound: true, equipment: ['cable machine'] },
   { name: 'Barbell Row', aliases: ['bent over row', 'bb row', 'barbell rows'], muscleGroup: 'back', secondaryMuscles: ['biceps'], isCompound: true, equipment: ['barbell'] },
   { name: 'Dumbbell Row', aliases: ['db row', 'one arm row', 'single arm row'], muscleGroup: 'back', secondaryMuscles: ['biceps'], isCompound: true, equipment: ['dumbbells'] },

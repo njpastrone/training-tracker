@@ -332,17 +332,17 @@ export const CATALOG: CatalogExercise[] = [
   { id: 'mobility', name: 'Mobility', aliases: ['mobility work', 'mobility session', 'mobility drills'], equipment: 'none', pattern: 'mobility', primary: 'full_body', metric: 'session' },
 
   // BODY-PART SESSIONS (a log that names body parts but no exercises)
-  { id: 'chest-workout', name: 'Chest Workout', aliases: ['chest day', 'chest session'], equipment: 'none', pattern: 'general', primary: 'chest', metric: 'session', family: 'body-part' },
-  { id: 'back-workout', name: 'Back Workout', aliases: ['back day', 'back session'], equipment: 'none', pattern: 'general', primary: 'back', metric: 'session', family: 'body-part' },
-  { id: 'shoulder-workout', name: 'Shoulder Workout', aliases: ['shoulders workout', 'shoulder day', 'shoulders day', 'delt day'], equipment: 'none', pattern: 'general', primary: 'shoulders', metric: 'session', family: 'body-part' },
+  { id: 'chest-workout', name: 'Chest Workout', aliases: ['chest', 'chest day', 'chest session'], equipment: 'none', pattern: 'general', primary: 'chest', metric: 'session', family: 'body-part' },
+  { id: 'back-workout', name: 'Back Workout', aliases: ['back', 'back day', 'back session'], equipment: 'none', pattern: 'general', primary: 'back', metric: 'session', family: 'body-part' },
+  { id: 'shoulder-workout', name: 'Shoulder Workout', aliases: ['shoulders', 'shoulders workout', 'shoulder day', 'shoulders day', 'delt day'], equipment: 'none', pattern: 'general', primary: 'shoulders', metric: 'session', family: 'body-part' },
   { id: 'arm-workout', name: 'Arm Workout', aliases: ['arms workout', 'arm day', 'arms day', 'arms'], equipment: 'none', pattern: 'general', primary: 'biceps', metric: 'session', family: 'body-part' },
   { id: 'leg-workout', name: 'Leg Workout', aliases: ['legs workout', 'leg day', 'legs day', 'legs'], equipment: 'none', pattern: 'general', primary: 'quads', metric: 'session', family: 'body-part' },
-  { id: 'glute-workout', name: 'Glute Workout', aliases: ['glutes workout', 'glute day', 'glutes day', 'booty day'], equipment: 'none', pattern: 'general', primary: 'glutes', metric: 'session', family: 'body-part' },
-  { id: 'core-workout', name: 'Core Workout', aliases: ['abs workout', 'ab workout', 'abs', 'core day', 'ab day', 'abs day'], equipment: 'none', pattern: 'general', primary: 'core', metric: 'session', family: 'body-part' },
+  { id: 'glute-workout', name: 'Glute Workout', aliases: ['glutes', 'glutes workout', 'glute day', 'glutes day', 'booty day'], equipment: 'none', pattern: 'general', primary: 'glutes', metric: 'session', family: 'body-part' },
+  { id: 'core-workout', name: 'Core Workout', aliases: ['core', 'abs workout', 'ab workout', 'abs', 'core day', 'ab day', 'abs day'], equipment: 'none', pattern: 'general', primary: 'core', metric: 'session', family: 'body-part' },
   { id: 'upper-body-workout', name: 'Upper Body Workout', aliases: ['upper body', 'upper day', 'upper body day'], equipment: 'none', pattern: 'general', primary: 'chest', metric: 'session', family: 'body-part' },
   { id: 'lower-body-workout', name: 'Lower Body Workout', aliases: ['lower body', 'lower day', 'lower body day'], equipment: 'none', pattern: 'general', primary: 'quads', metric: 'session', family: 'body-part' },
-  { id: 'push-workout', name: 'Push Workout', aliases: ['push day', 'push session'], equipment: 'none', pattern: 'general', primary: 'chest', metric: 'session', family: 'body-part' },
-  { id: 'pull-workout', name: 'Pull Workout', aliases: ['pull day', 'pull session'], equipment: 'none', pattern: 'general', primary: 'back', metric: 'session', family: 'body-part' },
+  { id: 'push-workout', name: 'Push Workout', aliases: ['push', 'push day', 'push session'], equipment: 'none', pattern: 'general', primary: 'chest', metric: 'session', family: 'body-part' },
+  { id: 'pull-workout', name: 'Pull Workout', aliases: ['pull', 'pull day', 'pull session'], equipment: 'none', pattern: 'general', primary: 'back', metric: 'session', family: 'body-part' },
   { id: 'full-body-workout', name: 'Full Body Workout', aliases: ['full body', 'full body day', 'total body workout', 'full body session'], equipment: 'none', pattern: 'general', primary: 'full_body', metric: 'session', family: 'body-part' },
 ];
 
@@ -408,6 +408,7 @@ export const LEGACY_NAMES: Record<string, string> = {
   'Pec Deck': 'pec-deck',
   'Deadlift': 'deadlift',
   'Pull-ups': 'pull-up',
+  'Chin-ups': 'chin-up',
   'Lat Pulldown': 'lat-pulldown',
   'Barbell Row': 'barbell-row',
   'Dumbbell Row': 'dumbbell-row',
