@@ -4,6 +4,9 @@ import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, finalizeParse, type ParseOptions } from '../server/src/parse';
+import { buildCandidates } from '../server/src/identity';
+import { yourExercises } from './exerciseIdentity';
+import { useWorkoutStore } from '../stores/workoutStore';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
@@ -34,12 +37,17 @@ export async function callClaude(system: string, content: string, maxTokens: num
 
 // Parses a free-text log. options.date is the day being logged; dayOffset on each exercise
 // says how many days before it the exercise was done.
+// Every exercise comes back with an exerciseId and match, picked by the model from the user's own
+// exercises and the catalog entries the log mentions, then checked in code (server/src/identity.ts).
 export async function parseWorkout(input: string, options: ParseOptions): Promise<ParsedWorkoutResponse | null> {
   try {
-    const req = buildParseRequest(input, options);
+    const { workouts, exerciseLibrary } = useWorkoutStore.getState();
+    const candidates = buildCandidates(input, yourExercises(workouts, exerciseLibrary));
+    const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
+    const req = buildParseRequest(input, { ...options, exercises });
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
-    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options });
-    return finalizeParse(text, options.unit) ?? fallbackParse(input);
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises });
+    return finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases }) ?? fallbackParse(input);
   } catch (error) {
     console.error('Error parsing workout:', error);
     if (error instanceof ApiError) throw error;

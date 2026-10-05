@@ -1,4 +1,5 @@
-import { buildParseRequest } from './parse.ts';
+import { fitsPrompt } from './identity.ts';
+import { buildParseRequest, type ParseOptions } from './parse.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -10,6 +11,24 @@ export interface Env {
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1500;
 const MAX_BODY_CHARS = 100_000;
+const MAX_CANDIDATES = 120;
+const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
+
+const shortText = (v: unknown) => typeof v === 'string' && fitsPrompt(v);
+
+// The exercise list the app sends with a log; undefined if any entry is malformed
+function parseCandidates(v: unknown): ParseOptions['exercises'] | undefined {
+  if (!Array.isArray(v) || v.length > MAX_CANDIDATES) return undefined;
+  const out: NonNullable<ParseOptions['exercises']> = [];
+  for (const c of v) {
+    const { name, muscleGroup, also, yours } = (c ?? {}) as Record<string, unknown>;
+    if (!shortText(name) || !MUSCLE_GROUPS.includes(muscleGroup as string)) return undefined;
+    if (also !== undefined && !(Array.isArray(also) && also.length <= 3 && also.every(shortText))) return undefined;
+    if (yours !== undefined && typeof yours !== 'boolean') return undefined;
+    out.push({ name: name as string, muscleGroup: muscleGroup as NonNullable<ParseOptions['exercises']>[number]['muscleGroup'], ...(also ? { also: also as string[] } : {}), ...(yours ? { yours: true } : {}) });
+  }
+  return out;
+}
 
 const json = (status: number, body: unknown) => Response.json(body, { status });
 
@@ -46,11 +65,12 @@ export default {
     // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
     let upstream: Record<string, unknown>;
     if (parse !== undefined) {
-      const { input, date, unit } = (parse ?? {}) as Record<string, unknown>;
-      if (typeof input !== 'string' || !input.trim() || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg')) {
+      const { input, date, unit, exercises } = (parse ?? {}) as Record<string, unknown>;
+      const candidates = exercises === undefined ? [] : parseCandidates(exercises);
+      if (typeof input !== 'string' || !input.trim() || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
         return json(400, { error: 'Invalid request.' });
       }
-      upstream = buildParseRequest(input, { date, unit });
+      upstream = buildParseRequest(input, { date, unit, exercises: candidates });
     } else {
       if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
         return json(400, { error: 'Invalid request.' });

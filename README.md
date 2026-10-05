@@ -93,7 +93,7 @@ Restart `npm start` so Expo picks up the new values. To change the daily cap, ed
 
 Server tests (Node 22.18+): `cd server && npm test`
 
-Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit } }`, and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
+Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 
 ## Project Structure
 

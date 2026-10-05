@@ -64,7 +64,7 @@ export interface CustomExercise {
 export interface ExerciseLibrary {
   custom: CustomExercise[];
   renames: Record<string, string>; // display-name overrides for catalog ids
-  aliases: Record<string, string>; // exerciseKey(words) → exerciseId; written only by explicit answers
+  aliases: Record<string, string>; // normalized words ("bb bench") → exerciseId; written only by explicit answers
   merged: Record<string, string>; // merged-away id → the id it now resolves to
 }
 
@@ -107,7 +107,8 @@ export interface WorkoutStats {
 
 // Response from Claude API parsing
 export interface ParsedWorkoutResponse {
-  exercises: (Omit<Exercise, 'id'> & { dayOffset?: number })[]; // dayOffset: days before the logging date
+  // dayOffset: days before the logging date; alt: a second choice for an unsure exercise
+  exercises: (Omit<Exercise, 'id'> & { dayOffset?: number; alt?: string })[];
   muscleGroups: MuscleGroup[];
   notes?: string;
   confidence: number; // 0-1 confidence score
