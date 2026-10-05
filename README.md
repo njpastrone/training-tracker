@@ -7,6 +7,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **Natural Language Input** - Just type what you did: "Hit chest today - bench press 3x10 at 185, incline dumbbell press, cable flyes"
 - **AI-Powered Parsing** - Claude API extracts exercises, sets, reps, weights, and muscle groups automatically
 - **Workout History** - Calendar view showing your workout frequency and streaks
+- **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Streak Tracking** - Stay motivated with current and longest streak counters
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
 - **Local Storage** - Your data stays on your device
@@ -128,6 +129,10 @@ The AI will parse your input and extract:
 - Sets and reps
 - Weight (if mentioned)
 - Muscle groups worked
+
+### Planning a Week
+
+Tap **Plan your week** on the Log tab (shown when nothing is scheduled) or the **Plan** chip on the History calendar. Describe what you want, adjust the plan with the tweak chips or a short note, then tap **Plan it** to add the sessions to your calendar. Plan it replaces any not-completed sessions on the same dates. Undo from the History banner, or tap a planned day on the calendar and choose **Delete Plan** to remove its upcoming sessions (completed workouts stay).
 
 ### Viewing History
 
