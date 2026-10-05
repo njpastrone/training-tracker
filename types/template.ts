@@ -9,6 +9,7 @@ export interface WorkoutTemplate {
   createdAt: string;
   lastUsed?: string;
   usageCount: number;
+  planId?: string; // Set on day types a training plan created (Upper A, Push...)
 }
 
 export interface TemplateExercise {
@@ -33,6 +34,8 @@ export interface TemplateSchedule {
   skipped?: boolean;
   skipReason?: string;
   completedWorkoutId?: string; // Reference to actual logged workout
+  planId?: string; // Training plan that created this session
+  note?: string; // Coach note for the day, e.g. "Easy day: stop ~3 reps short of failure"
 }
 
 export type CreateTemplateInput = Omit<WorkoutTemplate, 'id' | 'createdAt' | 'usageCount'>;

@@ -12,7 +12,7 @@ interface WorkoutInputProps {
   initialValue?: string;
   templateId?: string;
   templateExercises?: any; // Pre-structured exercises from template
-  onWorkoutLogged?: () => void;
+  onWorkoutLogged?: (workoutId: string) => void;
 }
 
 export default function WorkoutInput({ initialValue = '', templateId, templateExercises, onWorkoutLogged }: WorkoutInputProps) {
@@ -80,7 +80,7 @@ export default function WorkoutInput({ initialValue = '', templateId, templateEx
       
       // Call callback if provided (useful for closing dialogs/modals)
       if (onWorkoutLogged) {
-        onWorkoutLogged();
+        onWorkoutLogged(workout.id);
       }
     } catch (err) {
       console.error('Error parsing workout:', err);
