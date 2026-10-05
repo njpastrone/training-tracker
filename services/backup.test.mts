@@ -8,10 +8,14 @@ import { addDays, format } from 'date-fns';
 
 // In-memory AsyncStorage so the real services run under node
 const mem = new Map<string, string>();
+let failSetItem: string | null = null;
 mock.module('@react-native-async-storage/async-storage', {
   defaultExport: {
     getItem: async (k: string) => mem.get(k) ?? null,
-    setItem: async (k: string, v: string) => void mem.set(k, v),
+    setItem: async (k: string, v: string) => {
+      if (k === failSetItem) { failSetItem = null; throw new Error('disk full'); }
+      mem.set(k, v);
+    },
     removeItem: async (k: string) => void mem.delete(k),
   },
 });
@@ -134,7 +138,13 @@ test('bad, old and too-new files are rejected without touching data', async () =
     ['newer store', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].version = 9; return g; })()), /newer version/],
     ['no workouts', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.workouts; return g; })()), /damaged/],
     ['bad workout', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.workouts.push({ id: 5 }); return g; })()), /damaged/],
+    ['workout without exercises', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.workouts[0].exercises; return g; })()), /damaged/],
+    ['bad exercise', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.workouts[0].exercises.push(null); return g; })()), /damaged/],
+    ['no settings', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.settings; return g; })()), /damaged/],
     ['bad templates', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'] = 'x'; return g; })()), /damaged/],
+    ['null template', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'].push(null); return g; })()), /damaged/],
+    ['schedule without template', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/schedule'][0].templateId; return g; })()), /damaged/],
+    ['plan without dates', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/plans'][0].startDate; return g; })()), /damaged/],
     ['bad date', JSON.stringify({ ...good(), createdAt: 'yesterday' }), /damaged/],
   ];
   for (const [label, text, message] of cases) {
@@ -147,6 +157,19 @@ test('bad, old and too-new files are rejected without touching data', async () =
 
   assert.deepEqual(snapshot(), before);
   assert.deepEqual(backup.listBackups('safety'), []);
+});
+
+test('a restore that fails partway puts the previous data back', async () => {
+  await seed();
+  const before = snapshot();
+  const other = await backup.createBackup();
+  other.data['@training-tracker/storage'] = { ...(other.data['@training-tracker/storage'] as any), state: { ...(other.data['@training-tracker/storage'] as any).state, workouts: [] } };
+  other.data['@training-tracker/templates'] = [];
+  failSetItem = '@training-tracker/schedule';
+  await assert.rejects(backup.restoreBackup(other), /LiftText-safety-.*\.json in Files/);
+  assert.deepEqual(snapshot(), before);
+  assert.deepEqual(useWorkoutStore.getState().workouts.map((w) => w.id), ['w2', 'w1']);
+  assert.equal(useWorkoutStore.getState().templates.length, 2);
 });
 
 test('import runs the store migration on files from older app versions', async () => {

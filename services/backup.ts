@@ -34,6 +34,7 @@ type Kind = 'weekly' | 'safety';
 
 // Documents/Backups shows in Files › On My iPhone › LiftText and is part of the iCloud device backup
 export const backupDir = () => new Directory(Paths.document, 'Backups');
+export const BACKUP_FOLDER = 'Files › On My iPhone › LiftText › Backups';
 
 export async function createBackup(): Promise<Backup> {
   const data: Record<string, unknown> = {};
@@ -48,6 +49,15 @@ const fail = (message: string): never => {
   throw new Error(message);
 };
 const isObject = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const hasStrings = (v: unknown, ...keys: string[]) => isObject(v) && keys.every((k) => typeof v[k] === 'string');
+const listOf = (v: unknown, ok: (item: any) => boolean) => Array.isArray(v) && v.every(ok);
+const exercisesOk = (v: unknown) => listOf(v, (e) => hasStrings(e, 'name'));
+// Shape of each array key's elements, checked down to the fields the screens dereference
+const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
+  '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises),
+  '@training-tracker/schedule': (s) => hasStrings(s, 'id', 'date', 'templateId'),
+  '@training-tracker/plans': (p) => hasStrings(p, 'id', 'name', 'startDate', 'endDate'),
+};
 const NOT_A_BACKUP = "This file isn't a LiftText backup.";
 const DAMAGED = 'This backup file is damaged and was not restored.';
 const TOO_NEW = 'This backup was made by a newer version of LiftText. Update the app and try again.';
@@ -70,9 +80,10 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   if (!isObject(store) || !isObject(store.state) || !Number.isInteger(store.version)) fail(DAMAGED);
   if (store.version > (useWorkoutStore.persist.getOptions().version ?? 0)) fail(TOO_NEW);
   const workouts = store.state.workouts;
-  if (!Array.isArray(workouts) || !workouts.every((w) => isObject(w) && typeof w.id === 'string' && typeof w.date === 'string')) fail(DAMAGED);
+  if (!listOf(workouts, (w) => hasStrings(w, 'id', 'date') && exercisesOk(w.exercises))) fail(DAMAGED);
+  if (!isObject(store.state.settings)) fail(DAMAGED);
   for (const key of BACKUP_KEYS.slice(1)) {
-    if (b.data[key] != null && !Array.isArray(b.data[key])) fail(DAMAGED);
+    if (b.data[key] != null && !listOf(b.data[key], ITEM_CHECKS[key])) fail(DAMAGED);
   }
 
   const backup: Backup = { app: 'LiftText', backupVersion: b.backupVersion, createdAt: b.createdAt, data: b.data };
@@ -123,19 +134,34 @@ export async function runWeeklyBackup(now = new Date()): Promise<File | null> {
   return writeBackupFile('weekly', format(now, 'yyyy-MM-dd'), backup, WEEKLY_KEEP);
 }
 
-// Saves the current data as a safety backup, then replaces everything with the backup's data.
-// Returns the safety file so the user can undo.
-export async function restoreBackup(backup: Backup): Promise<File> {
-  const safety = writeBackupFile('safety', format(new Date(), 'yyyy-MM-dd-HHmmss'), await createBackup(), SAFETY_KEEP);
+async function writeData(data: Backup['data']): Promise<void> {
   for (const key of BACKUP_KEYS) {
-    const value = backup.data[key];
+    const value = data[key];
     if (value == null) await AsyncStorage.removeItem(key);
     else await AsyncStorage.setItem(key, JSON.stringify(value));
   }
-  // Rehydrating runs the store's persist migration on backups from older app versions
+}
+
+// Rehydrating runs the store's persist migration on backups from older app versions
+async function reloadStore(): Promise<void> {
   await useWorkoutStore.persist.rehydrate();
   const { loadTemplates, loadSchedule } = useWorkoutStore.getState();
   await Promise.all([loadTemplates(), loadSchedule()]);
+}
+
+// Saves the current data as a safety backup, then replaces everything with the backup's data.
+// Returns the safety file so the user can undo. A failed write puts the previous data back.
+export async function restoreBackup(backup: Backup): Promise<File> {
+  const current = await createBackup();
+  const safety = writeBackupFile('safety', format(new Date(), 'yyyy-MM-dd-HHmmss'), current, SAFETY_KEEP);
+  try {
+    await writeData(backup.data);
+  } catch {
+    await writeData(current.data).catch(() => {});
+    await reloadStore();
+    fail(`The restore failed. Your previous data is saved as ${safety.name} in ${BACKUP_FOLDER}.`);
+  }
+  await reloadStore();
   return safety;
 }
 

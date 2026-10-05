@@ -8,9 +8,7 @@ import Row from '../../components/Row';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
-import { lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
-
-const BACKUP_FOLDER = 'Files › On My iPhone › LiftText › Backups';
+import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
