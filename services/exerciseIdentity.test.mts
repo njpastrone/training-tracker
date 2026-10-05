@@ -166,6 +166,9 @@ test('"Call it Machine flys" names a catalog exercise in the user\'s words and c
   assert.equal(offersName('butterfly', 'pec-deck', fix, emptyLibrary()), false); // not in the fix
   assert.equal(offersName('pec deck', 'pec-deck', fix, emptyLibrary()), false); // already its name
   assert.equal(offersName('machine flys', 'custom-1', fix, emptyLibrary()), false); // not a catalog exercise
+  const other = 'is pec deck the same as a cable fly? or a chest fly?';
+  assert.equal(offersName('cable fly', 'pec-deck', other, emptyLibrary()), false); // names another exercise
+  assert.equal(offersName('chest fly', 'pec-deck', other, emptyLibrary()), false); // could mean another exercise
 
   const lib = rememberName(emptyLibrary(), 'pec-deck', 'machine flys');
   assert.equal(lib.renames['pec-deck'], 'Machine flys');

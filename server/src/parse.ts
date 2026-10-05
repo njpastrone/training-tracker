@@ -119,7 +119,7 @@ Instead of a log, the user message may hold <draft>, the workout as you parsed i
 Also return unsure: the values you could not be sure of, as [{"exercise": index in exercises, "field": "name", "sets", "reps", "weight", "duration" or "distance"}], such as a garbled number in the fix. Values the user did not give stay null and are not listed. Usually it is [].
 The fix can also be a question about the draft ("is pec deck the same as machine flys?", "what's an RDL?", "why is this 1 set?"), or a question and a fix together. A question changes nothing: return the draft exactly as it is, apart from any fix that comes with it.
 Also return reply: when the fix asks a question, a short plain answer to it (one or two sentences, e.g. "Yes, a pec deck is the machine fly. Same exercise."); null when it asks nothing.
-Also return callIt: when the question shows the user knows a draft exercise by other words than its name ("is pec deck machine flys?"), {"exercise": index in exercises, "words": those words copied exactly from the fix}; otherwise null.
+Also return callIt: when the question shows the user knows a draft exercise by other words than its name and your answer is yes, they are the same exercise ("is pec deck machine flys?"), {"exercise": index in exercises, "words": those words copied exactly from the fix}; otherwise null.
 </correction>`;
 
 export interface ParseOptions {

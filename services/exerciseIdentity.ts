@@ -212,11 +212,15 @@ export function yourExercises(workouts: Workout[], library: ExerciseLibrary): Om
 
 export const sentenceCase = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
 
-// Offer to call a catalog exercise by the user's words only when they typed them and it isn't
-// already called that
-export const offersName = (words: string, exerciseId: string, fix: string, library: ExerciseLibrary) =>
-  catalogById.has(resolveId(exerciseId, library)) && fitsPrompt(words) && saidInLog(words, fix) &&
-  exerciseKey(words) !== exerciseKey(displayName(resolveId(exerciseId, library), library) ?? '');
+// Offer to call a catalog exercise by the user's words only when they typed them, it isn't
+// already called that, and the words don't mean another exercise
+export function offersName(words: string, exerciseId: string, fix: string, library: ExerciseLibrary) {
+  const id = resolveId(exerciseId, library);
+  const known = knownIdFor(words, library);
+  return catalogById.has(id) && fitsPrompt(words) && saidInLog(words, fix) &&
+    (known ? known === id : !ambiguousKeys.has(exerciseKey(words))) &&
+    exerciseKey(words) !== exerciseKey(displayName(id, library) ?? '');
+}
 
 // "Call it 'Machine flys' from now on": the words become its display name and an alias, so later
 // logs pick it by those words and cards show them
