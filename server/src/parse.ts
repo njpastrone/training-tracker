@@ -143,6 +143,11 @@ function canonical(name: string) {
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined);
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
 const oneOf = <T extends string>(v: unknown, options: readonly T[]) => (options.includes(v as T) ? (v as T) : undefined);
+const UNITS: Record<string, 'lbs' | 'kg'> = {
+  kg: 'kg', kgs: 'kg', kilo: 'kg', kilos: 'kg', kilogram: 'kg', kilograms: 'kg',
+  lb: 'lbs', lbs: 'lbs', pound: 'lbs', pounds: 'lbs',
+};
+const weightUnit = (v: unknown) => (typeof v === 'string' ? UNITS[v.trim().toLowerCase()] : undefined);
 
 // Model text → app shape: drops nulls and bad values, snaps names to the exercise list.
 // Returns null when the text holds no usable JSON object.
@@ -169,11 +174,11 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit']):
         sets: num(e.sets),
         reps: num(e.reps),
         weight,
-        unit: weight ? (oneOf(e.unit, ['lbs', 'kg'] as const) ?? defaultUnit) : undefined,
+        unit: weight ? (weightUnit(e.unit) ?? defaultUnit) : undefined,
         duration: num(e.duration),
         distance,
         distanceUnit: distance ? oneOf(e.distanceUnit, ['mi', 'km', 'm'] as const) : undefined,
-        dayOffset: day < 0 && day >= -14 ? day : undefined,
+        dayOffset: day < 0 ? day : undefined,
         notes: str(e.notes),
       };
     })
