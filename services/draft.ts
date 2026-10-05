@@ -30,7 +30,7 @@ const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur
 // a weight with no unit given, a day not named, a name the log doesn't contain, missing weight or reps
 // on a lift. Kept alongside any flags the model returned.
 export function flagGuesses(draft: Draft, input: string): Draft {
-  const numbers = new Set((input.match(/\d+(?:[.,]\d+)?/g) ?? []).map(n => parseFloat(n.replace(',', '.'))));
+  const numbers = new Set((input.match(/\d+(?:[.,]\d+)?/g) ?? []).flatMap(n => [parseFloat(n.replace(',', '.')), ...n.split(',').map(Number)]));
   const text = norm(input);
   const flags: UnsureField[] = [...(draft.unsure ?? [])];
   const flag = (exercise: number, field: UnsureField['field']) => {
