@@ -19,6 +19,9 @@ import { templateService } from '../../services/templates';
 import { getPlans } from '../../services/planner';
 import { TrainingPlan } from '../../types/plan';
 
+// Detail is optional: names alone are a complete log, numbers are welcome
+const EXAMPLES = ['chest and back today: bench, rows, pull-ups', 'legs: squats, RDLs, lunges, felt strong', 'ran 3 miles then some core', 'squats 5x5 at 225, then lunges'];
+
 const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
 
 export default function LogScreen() {
@@ -188,8 +191,13 @@ export default function LogScreen() {
               <SymbolView name="bubble.left.and.text.bubble.right" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Just say what you did</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-                Type or dictate it. Sets, reps and weights in any format.
+                Type or dictate it. The exercises are enough; add numbers only if you want.
               </Text>
+              <View style={styles.examples}>
+                {EXAMPLES.map(example => (
+                  <Text key={example} variant="bodyMedium" style={[styles.center, { color: colors.textTertiary }]}>“{example}”</Text>
+                ))}
+              </View>
             </SkyCard>
           )}
 
@@ -249,7 +257,7 @@ export default function LogScreen() {
             value={log.text}
             onChangeText={log.setText}
             onSend={log.parse}
-            placeholder={todaysSchedule && !reviewing ? 'Or tell me what you did…' : 'Tell me what you did…'}
+            placeholder="What'd you do today?"
             busy={log.busy === 'parse'}
           />
         </View>
@@ -388,6 +396,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 22,
+  },
+  examples: {
+    gap: 2,
+    marginTop: spacing.sm,
   },
   planText: {
     marginTop: spacing.xs,

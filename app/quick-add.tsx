@@ -45,7 +45,7 @@ export default function QuickAddScreen() {
             <>
               <SkyCard>
                 <Field
-                  placeholder="e.g., Bench press 3x10 @ 185lbs, incline dumbbell press 4x12..."
+                  placeholder="What'd you do? e.g. legs: squats, RDLs, lunges"
                   value={log.text}
                   onChangeText={log.setText}
                   multiline
