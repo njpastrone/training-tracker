@@ -73,7 +73,7 @@ muscleGroups lists the muscleGroup of every logged exercise, without secondary m
 </muscle_groups>
 
 <days>
-The user message gives the logging date and the dayOffset of each recent weekday. dayOffset is 0 for the logging date ("today", "this morning", or no day mentioned), -1 for "yesterday" or "last night", -2 for "two days ago", and so on. A weekday name means its most recent occurrence (0 if it is the logging day). Earlier sessions mentioned only for comparison ("harder than Monday", "sore from Thursday's run") are not logged.
+The user message gives the logging date and the dayOffset of each recent weekday. dayOffset is 0 for the logging date ("today", "this morning", or no day mentioned), -1 for "yesterday" or "last night", -2 for "two days ago", and so on. A weekday name means its most recent occurrence (0 if it is the logging day). Earlier sessions mentioned only for comparison ("harder than Monday", "sore from Thursday's run") are not logged. A past session the user is adding late is a workout to log on that day, even when it names only body parts: "forgot to log Tuesday: chest and back day", "I did legs six days ago, forgot to put it in".
 </days>
 
 <notes>
@@ -132,8 +132,12 @@ const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frida
 
 function context({ date, unit }: ParseOptions) {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay();
-  const recent = [1, 2, 3, 4, 5, 6].map((n) => `${WEEKDAYS[(day - n + 7) % 7]} -${n}`).join(', ');
-  return `Logging date: ${WEEKDAYS[day]} ${date} (${recent})
+  // Every recent day spelled out, so "last Tuesday" or "the 28th" is a lookup, not arithmetic
+  const base = new Date(`${date}T00:00:00Z`).getTime();
+  const recent = Array.from({ length: 13 }, (_, i) => i + 1)
+    .map((n) => `${WEEKDAYS[(day - (n % 7) + 7) % 7]} ${new Date(base - n * 864e5).toISOString().slice(0, 10)} = -${n}`)
+    .join('; ');
+  return `Logging date: ${WEEKDAYS[day]} ${date}. Earlier days: ${recent}. A bare weekday or "last <weekday>" means the most recent one in this list.
 Default weight unit: ${unit}`;
 }
 

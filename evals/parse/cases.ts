@@ -459,6 +459,33 @@ export const cases: Case[] = [
   { id: 'days-context-not-a-day', category: 'multi_day', input: "bench 3x8 185 today, way easier than last week's session",
     exercises: [{ name: 'Bench Press', id: 'bench-press', muscleGroup: 'chest', sets: 3, reps: 8, weight: 185, unit: 'lbs' }],
     notes: '*' },
+  // Late additions ("forgot to log…"), logged on Thu 2026-10-08: a past session to save on its own day
+  { id: 'days-backfill-six-days-ago', category: 'multi_day', date: '2026-10-08', input: 'I did legs six days ago, forgot to log it',
+    exercises: [{ name: 'Leg Workout', alt: ['Legs Workout', 'Leg Day'], id: 'leg-workout', muscleGroup: 'quads', dayOffset: -6 }],
+    muscleGroups: ['quads', 'hamstrings', 'glutes'], notes: '*' },
+  { id: 'days-backfill-last-tuesday', category: 'multi_day', date: '2026-10-08', input: 'forgot to log last Tuesday: chest and back day',
+    exercises: [
+      { name: 'Chest Workout', id: 'chest-workout', muscleGroup: 'chest', dayOffset: -2 },
+      { name: 'Back Workout', id: 'back-workout', muscleGroup: 'back', dayOffset: -2 },
+    ], notes: '*' },
+  { id: 'days-backfill-tuesday', category: 'multi_day', date: '2026-10-08', input: 'forgot to log Tuesday: chest and back day',
+    exercises: [
+      { name: 'Chest Workout', id: 'chest-workout', muscleGroup: 'chest', dayOffset: -2 },
+      { name: 'Back Workout', id: 'back-workout', muscleGroup: 'back', dayOffset: -2 },
+    ], notes: '*' },
+  { id: 'days-backfill-weekday-first', category: 'multi_day', date: '2026-10-08', input: 'tuesday I did legs, forgot to add it',
+    exercises: [{ name: 'Leg Workout', alt: ['Legs Workout', 'Leg Day'], id: 'leg-workout', muscleGroup: 'quads', dayOffset: -2 }],
+    muscleGroups: ['quads', 'hamstrings', 'glutes'], notes: '*' },
+  { id: 'days-backfill-oh-and-monday', category: 'multi_day', date: '2026-10-08', input: 'oh and monday I did bench 3x8 at 145',
+    exercises: [{ name: 'Bench Press', id: 'bench-press', muscleGroup: 'chest', sets: 3, reps: 8, weight: 145, unit: 'lbs', dayOffset: -3 }] },
+  { id: 'days-backfill-run-days-ago', category: 'multi_day', date: '2026-10-08', input: 'did a 5k run 3 days ago',
+    exercises: [{ name: 'Running', id: 'running', muscleGroup: 'cardio', distance: 5, distanceUnit: 'km', dayOffset: -3 }] },
+  { id: 'days-backfill-date-of-month', category: 'multi_day', date: '2026-10-08', input: 'legs on the 28th, forgot to put it in',
+    exercises: [{ name: 'Leg Workout', alt: ['Legs Workout', 'Leg Day'], id: 'leg-workout', muscleGroup: 'quads', dayOffset: -10 }],
+    muscleGroups: ['quads', 'hamstrings', 'glutes'], notes: '*' },
+  { id: 'days-backfill-comparison-not-logged', category: 'multi_day', date: '2026-10-08', input: 'sore from Thursdays legs, today was upper: bench 3x8 145',
+    exercises: [{ name: 'Bench Press', id: 'bench-press', muscleGroup: 'chest', sets: 3, reps: 8, weight: 145, unit: 'lbs' }],
+    notes: '*' },
 
   // ---------------------------------------------------------------- kg vs lbs
   { id: 'units-explicit-kg', category: 'units', input: 'squat 140kg 3x5',
