@@ -58,6 +58,7 @@ test('guessed numbers, units, days and names are flagged', () => {
     { exercise: 0, field: 'name' }, // dayOffset with no day in the log
     { exercise: 0, field: 'weight' }, // 225 from "2 plates", unit assumed
     { exercise: 1, field: 'name' }, // "swung the bell" read as Kettlebell Swings
+    { exercise: 2, field: 'name' }, // "rows" alone doesn't say which row
     { exercise: 2, field: 'reps' }, // copied from another exercise
     { exercise: 2, field: 'weight' },
   ]);
@@ -71,7 +72,7 @@ test('missing detail is never flagged: a name-only log saves cleanly', () => {
     { name: 'Running', muscleGroup: 'cardio', distance: 3, distanceUnit: 'mi' },
     { name: 'Plank', muscleGroup: 'core', sets: 1, duration: 1 },
   ]);
-  assert.deepEqual(flagGuesses(p, 'chest and back today: bench, rows, 3 sets of pull-ups. ran 3 miles then plank for 60s').unsure, []);
+  assert.deepEqual(flagGuesses(p, 'chest and back today: bench, barbell rows, 3 sets of pull-ups. ran 3 miles then plank for 60s').unsure, []);
 });
 
 test('model flags are kept once and missing reps are not added', () => {
@@ -86,4 +87,14 @@ test('comma-separated numbers count as typed values', () => {
     { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 10, weight: 2.5, unit: 'kg' },
   ]);
   assert.deepEqual(flagGuesses(p, 'bench 1 set each 135 lbs 10,8 then 3x8,3x10 at 2,5 kg').unsure, []);
+});
+
+test('a misread exercise is flagged even when it shares a generic word with the log', () => {
+  const cases: [string, ParsedWorkoutResponse['exercises'][number]][] = [
+    ['lat pulldowns 3x10', { name: 'Pull-ups', muscleGroup: 'back', sets: 3, reps: 10 }],
+    ['incline press 3x8', { name: 'Overhead Press', muscleGroup: 'shoulders', sets: 3, reps: 8 }],
+    ['dumbbell curls 3x12', { name: 'Dumbbell Shoulder Press', muscleGroup: 'shoulders', sets: 3, reps: 12 }],
+    ['med ball throw then grow', { name: 'Barbell Row', muscleGroup: 'back' }],
+  ];
+  for (const [log, exercise] of cases) assert.deepEqual(flagGuesses(parsed([exercise]), log).unsure, [{ exercise: 0, field: 'name' }], log);
 });
