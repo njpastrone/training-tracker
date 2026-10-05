@@ -82,13 +82,13 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 - **`Field`** (`components/Field.tsx`): a text field on a quiet fill with a small caps label.
 - **`Row`** (`components/Row.tsx`): a settings-style row with a symbol tile, title, subtitle and accessory.
 - **`Ring`** (`components/Ring.tsx`): progress ring or open gauge (`react-native-svg`), sunrise gradient by default.
-- **`UserBubble`**, **`CoachBubble`** (`components/Chat.tsx`): your message on the right in sunrise; the coach's on the left on glass with a sparkle avatar.
+- **`UserBubble`**, **`CoachBubble`** (`components/Chat.tsx`): your message on the right in sunrise; the coach's on the left on glass with a LiftText-mark avatar.
 - **`ParsedCard`** (`components/ParsedCard.tsx`): the parsed workout reviewed before saving. It shows only what was said: detail is optional, so an exercise with no numbers shows an "Add details" link instead of empty chips. Numbers are tappable chips; values flagged `unsure` (genuine ambiguity the app spots in a first parse, `flagGuesses` in `services/draft.ts`, plus what a typed fix left uncertain; never missing detail) are outlined in warning; a low `confidence` shows a banner asking for a check; Save, Discard and a **`FixBox`** for typed fixes. The flow lives in `hooks/useLogDraft.ts` (Log and Add Workout); the workout screen reuses `FixBox`.
 - **`ExerciseRows`** (`components/ExerciseRows.tsx`): read-only rows (muscle dot, name, numbers) with exercise notes and distance quiet underneath; used by the workout cards.
 - **Sheets**: Plan is a native form sheet (`presentation: 'formSheet'` in `app/_layout.tsx`) with a grabber and a close button.
 - **Headers**: pushed screens use the native stack header, transparent over the sky, with a minimal back button (`app/_layout.tsx`).
 - **Tab bar**: native tabs (`expo-router/unstable-native-tabs`) with SF Symbols, tinted sunrise, minimising on scroll.
-- **Icons**: SF Symbols (`expo-symbols`) for UI icons. No emoji as icons.
+- **Icons**: SF Symbols (`expo-symbols`) for UI icons. AI features (coach, parsing) use the LiftText mark (`components/LogoMark.tsx`; the Coach tab uses `assets/tab-logo.png`). No emoji as icons.
 - **Haptics**: `expo-haptics`, success on logging and planning, selection on toggles.
 
 ## Motion
