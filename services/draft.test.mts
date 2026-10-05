@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { editDraft, removeFromDraft, flagGuesses } from './draft';
+import { editDraft, removeFromDraft, flagGuesses, keepIdentity } from './draft';
 import type { ParsedWorkoutResponse } from '../types/workout';
 
 const draft = {
@@ -102,4 +102,43 @@ test('a misread exercise is flagged even when it shares a generic word with the 
 test("an apostrophe in a named exercise doesn't break the match", () => {
   const p = parsed([{ name: 'Farmers Walk', muscleGroup: 'forearms', sets: 3 }]);
   assert.deepEqual(flagGuesses(p, "farmer's walk 3 sets").unsure, []);
+});
+
+test('renaming an exercise drops its identity so it is resolved again on save', () => {
+  const picked = parsed([{ name: 'Bench Press', muscleGroup: 'chest', exerciseId: 'bench-press', match: 'sure' }]);
+  const renamed = editDraft(picked, 0, 'name', 'Incline Bench Press').exercises[0];
+  assert.equal(renamed.name, 'Incline Bench Press');
+  assert.equal(renamed.exerciseId, undefined);
+  assert.equal(renamed.match, undefined);
+  assert.equal(editDraft(picked, 0, 'sets', 4).exercises[0].exerciseId, 'bench-press');
+});
+
+test('a typed fix keeps the identity of exercises it did not rename', () => {
+  const before = parsed([
+    { name: 'Chin-Up', muscleGroup: 'back', sets: 3, exerciseId: 'chin-up', match: 'sure', said: 'chin ups' },
+    { name: 'Bench Press', muscleGroup: 'chest', exerciseId: 'bench-press', match: 'sure' },
+  ]);
+  const after = parsed([
+    { name: 'Pull-ups', muscleGroup: 'back', sets: 4 }, // the list name snapped back by the parser
+    { name: 'Incline Bench Press', muscleGroup: 'chest' },
+  ]);
+  const [kept, renamed] = keepIdentity(before, after).exercises;
+  assert.deepEqual(kept, { name: 'Chin-Up', muscleGroup: 'back', sets: 4, exerciseId: 'chin-up', match: 'sure', said: 'chin ups' });
+  assert.deepEqual(renamed, { name: 'Incline Bench Press', muscleGroup: 'chest' });
+});
+
+test('body-part entries from a low-detail log are not flagged', () => {
+  const p = parsed([
+    { name: 'Leg Workout', muscleGroup: 'quads' },
+    { name: 'Core Workout', muscleGroup: 'core' },
+  ]);
+  assert.deepEqual(flagGuesses(p, 'leg day and some abs').unsure, []);
+});
+
+test('spelled-out numbers count as typed values', () => {
+  const p = parsed([
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 4, reps: 12 },
+    { name: 'Squat', muscleGroup: 'quads', sets: 1, reps: 2, weight: 315, unit: 'lbs' },
+  ]);
+  assert.deepEqual(flagGuesses(p, 'bench four sets of twelve, squat 315 lbs for a double').unsure, []);
 });

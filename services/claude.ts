@@ -5,7 +5,7 @@ import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, type ParseOptions } from '../server/src/parse';
 import { draftToText } from './format';
-import { flagGuesses } from './draft';
+import { flagGuesses, keepIdentity } from './draft';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
@@ -65,7 +65,8 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
   const input = `${draftToText(draft.exercises, draft.notes)}\nCorrection: ${fix}`;
   try {
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, draft, fix });
-    return finalizeParse(text, options.unit);
+    const updated = finalizeParse(text, options.unit);
+    return updated && keepIdentity(draft, updated);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     console.error('Error correcting workout:', error);

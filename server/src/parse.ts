@@ -160,7 +160,7 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const singular = (s: string) => s.replace(/s$/, '');
 
 // Exact name, then alias, then the same ignoring a trailing "s"
-function canonical(name: string) {
+export function canonical(name: string) {
   for (const key of [norm, (s: string) => singular(norm(s))]) {
     const k = key(name);
     const hit = exerciseList.find((e) => key(e.name) === k) ?? exerciseList.find((e) => e.aliases.some((a) => key(a) === k));
