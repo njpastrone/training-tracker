@@ -196,21 +196,26 @@ const NOTE_WORDS = /\b(paused?|tempo|deficit|box|wide|narrow|grip|belt(ed)?|stra
 function markersAgree(said: string, pick: Candidate, candidates: Candidate[]) {
   const entry = catalogById.get(pick.id);
   if (namedBy(said, pick)) return true;
+  // Markers the name itself carries must be said, except the implement of the user's only exercise
+  // in this family ("bench" for the one dumbbell bench they always do)
+  const onlyOneOfYours = !!entry && pick.yours && !candidates.some((c) => c.yours && c.id !== pick.id && c.family && c.family === entry.family);
+  // Words that are another exercise's own name mean that one ("chin ups" is never Pull-up), unless
+  // that one differs only by the implement the user's only exercise in the family needn't say
+  const otherIds = [catalogNameKeys.get(exerciseKey(said)), ...candidates.filter((c) => namedBy(said, c)).map((c) => c.id)];
+  const implementOnly = (o?: CatalogExercise) =>
+    onlyOneOfYours && !!o && o.family === entry!.family && o.equipment !== entry!.equipment && IMPLEMENTS.has(o.equipment) && IMPLEMENTS.has(entry!.equipment);
+  if (otherIds.some((id) => id && id !== pick.id && !implementOnly(catalogById.get(id)))) return false;
   const saidMarkers = markersIn(said);
   if (!entry) {
-    // The user's own exercise: its name is all we know, and words naming another listed exercise mean that one
+    // The user's own exercise: its name is all we know
     const named = markersIn(pick.name);
-    return [...saidMarkers].every((m) => named.has(m)) && [...named].every((m) => saidMarkers.has(m) || IMPLICIT.has(m)) &&
-      !candidates.some((c) => c.id !== pick.id && namedBy(said, c));
+    return [...saidMarkers].every((m) => named.has(m)) && [...named].every((m) => saidMarkers.has(m) || IMPLICIT.has(m));
   }
 
   const fits = exerciseMarkers(entry);
   for (const n of [entry.name, ...entry.aliases]) for (const m of markersIn(n)) fits.add(m);
   if ([...saidMarkers].some((m) => !fits.has(m))) return false;
 
-  // Markers the name itself carries must be said, except the implement of the user's only exercise
-  // in this family ("bench" for the one dumbbell bench they always do)
-  const onlyOneOfYours = pick.yours && !candidates.some((c) => c.yours && c.id !== pick.id && c.family && c.family === entry.family);
   for (const m of markersIn(entry.name)) {
     if (saidMarkers.has(m) || IMPLICIT.has(m)) continue;
     if (IMPLEMENTS.has(m) && onlyOneOfYours) continue;

@@ -28,6 +28,13 @@ test('a pick whose variant the words contradict or leave out is unsure', () => {
   assert.equal(pick('pull ups 3x8', { said: 'pull ups', ex: 'assisted-pull-up' }), 'assisted-pull-up unsure');
 });
 
+test('words that are another exercise\'s own name never confirm a lookalike pick', () => {
+  assert.equal(pick('chin ups 3x8', { said: 'chin ups', ex: 'pull-up' }), 'pull-up unsure');
+  assert.equal(pick('pull ups 3x8', { said: 'pull ups', ex: 'chin-up' }), 'chin-up unsure');
+  assert.equal(pick('pull ups 3x8', { said: 'pull ups', ex: 'chin-up' }, yours(['chin-up', 'Chin-up', 'back', 'pull-up'])), 'chin-up unsure'); // even the user's only one
+  assert.equal(pick('chin ups 3x8', { said: 'chin ups', ex: 'chin-up' }), 'chin-up sure');
+});
+
 test('made-up keys and words not in the log are never trusted', () => {
   assert.equal(pick('bench 3x5', { said: 'bench', ex: 'e99' }), 'bench-press sure'); // falls back to the words
   assert.equal(pick('bench 3x5', { said: 'squat', ex: 'squat' }), 'squat unsure'); // not in the log
