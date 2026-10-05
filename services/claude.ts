@@ -3,7 +3,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
-import { buildParseRequest, buildCorrectionRequest, finalizeParse, modelNames, type ParseOptions } from '../server/src/parse';
+import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildCandidates } from '../server/src/identity';
 import { yourExercises } from './exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -77,8 +77,8 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
     const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
     const req = buildCorrectionRequest(draft, fix, { ...options, exercises });
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises, draft, fix });
-    const updated = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
-    return updated && keepIdentity(draft, updated, modelNames(text));
+    const updated = finalizeWithNames(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
+    return updated && keepIdentity(draft, updated.parsed, updated.names);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     console.error('Error correcting workout:', error);

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { editDraft, removeFromDraft, flagGuesses, keepIdentity } from './draft';
 import type { ParsedWorkoutResponse } from '../types/workout';
-import { finalizeParse, modelNames } from '../server/src/parse';
+import { finalizeWithNames } from '../server/src/parse';
 
 const draft = {
   exercises: [
@@ -120,8 +120,8 @@ test('a typed fix keeps identity only for exercises the model returned under the
     { name: 'Bench Press', muscleGroup: 'chest', exerciseId: 'bench-press', match: 'sure' },
   ]);
   const fixed = (reply: object) => {
-    const text = JSON.stringify(reply);
-    return keepIdentity(before, finalizeParse(text)!, modelNames(text)).exercises;
+    const { parsed: after, names } = finalizeWithNames(JSON.stringify(reply))!;
+    return keepIdentity(before, after, names).exercises;
   };
 
   const [kept, renamed] = fixed({ exercises: [{ name: 'chin-up', muscleGroup: 'back', sets: 4 }, { name: 'Incline Bench Press', muscleGroup: 'chest' }] });
@@ -133,6 +133,22 @@ test('a typed fix keeps identity only for exercises the model returned under the
   assert.equal(pullUps.name, 'Pull-ups');
   assert.equal(pullUps.exerciseId, undefined);
   assert.equal(pullUps.match, undefined);
+});
+
+test('a typed fix that merges split sets keeps the identity of the exercises after them', () => {
+  const before = parsed([
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 1, reps: 10, weight: 135, exerciseId: 'bench-press', match: 'sure' },
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 1, reps: 8, weight: 135, exerciseId: 'bench-press', match: 'sure' },
+    { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 10, exerciseId: 'barbell-row', match: 'sure' },
+  ], [{ exercise: 1, field: 'reps' }]);
+  const { parsed: after, names } = finalizeWithNames(JSON.stringify({ exercises: [
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 1, reps: 10, weight: 135 },
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 1, reps: 10, weight: 135 },
+    { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 10 },
+  ] }))!;
+  const fixed = keepIdentity(before, after, names);
+  assert.deepEqual(fixed.exercises.map(e => [e.name, e.exerciseId, e.sets]), [['Bench Press', 'bench-press', 2], ['Barbell Row', undefined, 3]]);
+  assert.deepEqual(fixed.unsure, []);
 });
 
 test('body-part entries from a low-detail log are not flagged', () => {
@@ -157,11 +173,11 @@ test('a typed fix keeps earlier flags only on values it left unchanged', () => {
     { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 8, weight: 135 },
   ], [{ exercise: 1, field: 'weight' }]);
   const fixed = (rowWeight: number) => {
-    const text = JSON.stringify({ exercises: [
+    const { parsed: after, names } = finalizeWithNames(JSON.stringify({ exercises: [
       { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 10 },
       { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 8, weight: rowWeight },
-    ], unsure: [] });
-    return keepIdentity(before, finalizeParse(text)!, modelNames(text)).unsure;
+    ], unsure: [] }))!;
+    return keepIdentity(before, after, names).unsure;
   };
   assert.deepEqual(fixed(135), [{ exercise: 1, field: 'weight' }]);
   assert.deepEqual(fixed(155), []);

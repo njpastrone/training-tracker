@@ -184,6 +184,12 @@ const weightUnit = (v: unknown) => (typeof v === 'string' ? UNITS[v.trim().toLow
 // candidates it was sent with), every exercise gets a validated exerciseId and match; see
 // identity.ts. Returns null when the text holds no usable JSON object.
 export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], identity?: IdentityContext): ParsedWorkoutResponse | null {
+  return finalizeWithNames(text, defaultUnit, identity)?.parsed ?? null;
+}
+
+// finalizeParse plus, for each exercise it returns, the name exactly as the model wrote it (its name,
+// else the user's words), taken from the first of any sets merged into it
+export function finalizeWithNames(text: string, defaultUnit?: ParseOptions['unit'], identity?: IdentityContext): { parsed: ParsedWorkoutResponse; names: string[] } | null {
   let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown; unsure?: unknown };
   try {
     raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
@@ -198,6 +204,7 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
   const kept = all.flatMap((e, i) => (e && (str(e.name) || str(e.said) || str(e.ex)) ? [i] : []));
   const listed = kept.map((i) => all[i]);
   const outIndex = new Map<number, number>(); // model's exercise index → index in the result, for unsure
+  const names: string[] = [];
   const namesOnly = !listed.some((e) => str(e.said) || str(e.ex));
   const exercises = listed
     .map((e) => {
@@ -239,19 +246,23 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
         const notes = [...new Set([prev.notes, e.notes].filter(Boolean))].join('; ');
         out[out.length - 1] = { ...prev, sets: prev.sets + e.sets, ...(notes ? { notes } : {}) };
         outIndex.set(kept[k], out.length - 1);
-      } else out.push(e);
+      } else {
+        out.push(e);
+        names.push(str(listed[k].name) ?? str(listed[k].said) ?? '');
+      }
       return out;
     }, []);
 
   // Groups beyond the exercises' own only come with a body-part session ("legs" → quads, hamstrings, glutes)
   const extraGroups = Array.isArray(raw.muscleGroups) && exercises.some((e) => isBodyPartSession(e.exerciseId, e.name)) ? raw.muscleGroups.filter(isGroup) : [];
-  return {
+  const parsed = {
     exercises,
     muscleGroups: exercises.length ? [...new Set([...exercises.map((e) => e.muscleGroup), ...extraGroups])] : [],
     notes: str(raw.notes),
     confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.5,
     unsure: unsureFields(raw.unsure, outIndex),
   };
+  return { parsed, names };
 }
 
 const UNSURE_FIELDS = ['name', 'sets', 'reps', 'weight', 'duration', 'distance'] as const;
@@ -266,14 +277,4 @@ function unsureFields(value: unknown, outIndex: Map<number, number>): NonNullabl
     if (exercise !== undefined && field && !out.some((f) => f.exercise === exercise && f.field === field)) out.push({ exercise, field });
   }
   return out;
-}
-
-// The exercise names exactly as the model wrote them (its name, else the user's words), in the order finalizeParse keeps them
-export function modelNames(text: string): string[] {
-  try {
-    const raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
-    return Array.isArray(raw?.exercises) ? raw.exercises.flatMap((e: Record<string, unknown>) => (e && (str(e.name) || str(e.said) || str(e.ex)) ? [str(e.name) ?? str(e.said) ?? ''] : [])) : [];
-  } catch {
-    return [];
-  }
 }
