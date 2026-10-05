@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-native';
 import { Text, Menu } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -39,6 +39,12 @@ export default function WorkoutEditScreen() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [fixing, setFixing] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
+  // Distance and Notes show for exercises that have them, and stay while being emptied and retyped
+  const extraFields = useRef(new Set<string>()).current;
+  const showExtra = (id: string, field: 'distance' | 'notes', value: unknown) => {
+    if (value !== undefined) extraFields.add(`${id}:${field}`);
+    return extraFields.has(`${id}:${field}`);
+  };
 
   useEffect(() => {
     if (!workout) {
@@ -267,28 +273,26 @@ export default function WorkoutEditScreen() {
                 keyboardType="numeric"
                 containerStyle={styles.smallInput}
               />
-              <Field
+              <DecimalField
                 label="Weight"
-                value={exercise.weight?.toString() || ''}
-                onChangeText={(text) => updateExercise(exercise.id, 'weight', text ? parseFloat(text) : undefined)}
-                keyboardType="numeric"
+                value={exercise.weight}
+                onChange={(n) => updateExercise(exercise.id, 'weight', n)}
                 containerStyle={styles.mediumInput}
               />
             </View>
 
-            {exercise.distance !== undefined && (
-              <Field
+            {showExtra(exercise.id, 'distance', exercise.distance) && (
+              <DecimalField
                 label={`Distance${exercise.distanceUnit ? ` (${exercise.distanceUnit})` : ''}`}
-                value={exercise.distance?.toString() || ''}
-                onChangeText={(text) => updateExercise(exercise.id, 'distance', text ? parseFloat(text) : undefined)}
-                keyboardType="decimal-pad"
+                value={exercise.distance}
+                onChange={(n) => updateExercise(exercise.id, 'distance', n)}
                 containerStyle={styles.extraField}
               />
             )}
-            {exercise.notes !== undefined && (
+            {showExtra(exercise.id, 'notes', exercise.notes) && (
               <Field
                 label="Notes"
-                value={exercise.notes}
+                value={exercise.notes ?? ''}
                 onChangeText={(text) => updateExercise(exercise.id, 'notes', text || undefined)}
                 containerStyle={styles.extraField}
                 style={styles.quiet}
@@ -326,6 +330,25 @@ export default function WorkoutEditScreen() {
         onDismiss={() => setPickerFor(null)}
       />
     </SkyScreen>
+  );
+}
+
+// A decimal field that keeps what's typed ("3.") and stores the number it parses to; empty clears it
+function DecimalField({ label, value, onChange, containerStyle }: { label: string; value?: number; onChange: (n: number | undefined) => void; containerStyle: object }) {
+  const [text, setText] = useState(value?.toString() ?? '');
+  useEffect(() => setText(t => (parseFloat(t) === value || (t === '' && value === undefined) ? t : value?.toString() ?? '')), [value]);
+  return (
+    <Field
+      label={label}
+      value={text}
+      onChangeText={(t) => {
+        setText(t);
+        const n = parseFloat(t.replace(',', '.'));
+        onChange(t.trim() === '' || !(n > 0) ? undefined : n);
+      }}
+      keyboardType="decimal-pad"
+      containerStyle={containerStyle}
+    />
   );
 }
 
