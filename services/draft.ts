@@ -22,7 +22,7 @@ export function removeFromDraft(draft: Draft, index: number): Draft {
   };
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w => w.replace(/s$/, ''));
 const UNIT_WORDS = /(kgs?|kilos?|kilograms?|lbs?|pounds?)\b/i;
 const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur|sun)day|\b(mon|tue|wed|thu|fri|sat|sun)\b/i;
 
@@ -31,19 +31,18 @@ const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur
 // rows"), a weight with no unit given, a day not named. Kept alongside any flags the model returned.
 export function flagGuesses(draft: Draft, input: string): Draft {
   const numbers = new Set((input.match(/\d+(?:[.,]\d+)?/g) ?? []).flatMap(n => [parseFloat(n.replace(',', '.')), ...n.split(',').map(Number)]));
-  const text = norm(input);
+  const logWords = words(input);
   const flags: UnsureField[] = [...(draft.unsure ?? [])];
   const flag = (exercise: number, field: UnsureField['field']) => {
     if (!flags.some(u => u.exercise === exercise && u.field === field)) flags.push({ exercise, field });
   };
 
   draft.exercises.forEach((e, i) => {
-    // The exercise counts as named when the log has its name, an alias, or one of their words ("rows" →
-    // Barbell Row). Cardio is left alone: "ran" or "jog" for Running isn't ambiguous.
+    // The exercise counts as named when the log has its full name or an alias as whole words, plural s
+    // allowed ("barbell rows"); a lone generic word like "rows" or "press" doesn't. Cardio is left alone:
+    // "ran" or "jog" for Running isn't ambiguous.
     const ref = exerciseList.find(r => r.name === e.name);
-    const phrases = [e.name, ...(ref?.aliases ?? [])];
-    const words = phrases.flatMap(n => n.split(/[\s-]+/));
-    const named = [...phrases, ...words].map(n => norm(n).replace(/s$/, '')).some(n => n.length >= 3 && text.includes(n));
+    const named = [e.name, ...(ref?.aliases ?? [])].map(words).some(p => logWords.some((_, k) => p.every((w, j) => logWords[k + j] === w)));
     if ((!named && e.muscleGroup !== 'cardio') || (e.dayOffset && !DAY_WORDS.test(input))) flag(i, 'name');
     // Sets of 1 and time or distance conversions ("6:30", "5k") follow the parsing rules, so they aren't guesses
     for (const field of ['reps', 'weight'] as const) {
