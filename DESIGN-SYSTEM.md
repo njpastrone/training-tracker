@@ -73,7 +73,6 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 - **`SkyScreen`**: the sky background plus a top safe area. Native tabs inset the scroll view for the tab bar, so content scrolls under the glass.
 - **`LargeTitle`**: the screen's large rounded title and an optional subtitle, as the first item in the scroll view.
-- **`SkyCard`**: a content card (material over the sky, solid under Reduce Transparency).
 - **Tab bar**: native tabs (`expo-router/unstable-native-tabs`) with SF Symbols, tinted sunrise, minimising on scroll.
 - **Icons**: SF Symbols (`expo-symbols`) for UI icons. No emoji as icons.
 - **Glass controls**: `expo-glass-effect` (`GlassView`) for the composer and floating buttons.
@@ -95,4 +94,4 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 - Text on the sky and on cards meets 4.5:1 in both modes; check new colour pairs.
 - Never rely on colour alone: logged is a filled circle, planned an outlined ring, today a ring around the date.
-- Respect Reduce Motion and Reduce Transparency (`useTheme().reduceTransparency`).
+- Respect Reduce Motion and Reduce Transparency.

@@ -46,6 +46,8 @@ test('a week that can no longer be completed is dusk', () => {
   assert.deepEqual(sky.stops, SKY.dusk);
   // Sunday, 3 of 4 done, still possible today
   assert.equal(weekSky(w('2026-10-05', '2026-10-06', '2026-10-08'), PLAN, SUN).phase, 'dawn');
+  // Sunday, 3 of 4 done with one of them today, so no day is left
+  assert.equal(weekSky(w('2026-10-05', '2026-10-06', '2026-10-11'), PLAN, SUN).phase, 'dusk');
 });
 
 test('last week and next week do not count', () => {

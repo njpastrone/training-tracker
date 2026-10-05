@@ -1,10 +1,10 @@
-import { StyleSheet, View, ViewProps } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
 import { SKY } from '../services/sky';
-import { radius, spacing } from '../constants/theme';
+import { spacing } from '../constants/theme';
 
 // A screen on the sky. Light mode tracks the training week (services/sky.ts); Dark Mode is night.
 // Native tabs inset the scroll view for the tab bar, so only the top edge is padded by default.
@@ -29,23 +29,6 @@ export function SkyScreen({ children, edges = ['top'] }: { children: React.React
   );
 }
 
-// Content card: standard material over the sky, solid under Reduce Transparency
-export function SkyCard({ style, ...props }: ViewProps) {
-  const { colors, reduceTransparency } = useTheme();
-  return (
-    <View
-      {...props}
-      style={[
-        styles.card,
-        reduceTransparency
-          ? { backgroundColor: colors.surface, borderColor: colors.border }
-          : { backgroundColor: colors.card, borderColor: colors.cardLine },
-        style,
-      ]}
-    />
-  );
-}
-
 // The large rounded title at the top of a screen, with an optional subtitle
 export function LargeTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   const { colors } = useTheme();
@@ -65,13 +48,6 @@ export function LargeTitle({ title, subtitle }: { title: string; subtitle?: stri
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  card: {
-    borderRadius: radius.card,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    paddingVertical: spacing.md,
-    paddingHorizontal: 18,
-    marginBottom: spacing.gap,
-  },
   titleBlock: {
     marginTop: spacing.gap,
     marginBottom: spacing.md,

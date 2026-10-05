@@ -44,11 +44,12 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
   const today = ymd(now);
   const inWeek = (d: string) => d >= first && d <= last;
 
-  const done = new Set(workouts.map(w => w.date).filter(d => inWeek(d) && d <= today)).size;
+  const trained = new Set(workouts.map(w => w.date).filter(d => inWeek(d) && d <= today));
+  const done = trained.size;
   const plannedDays = new Set(schedule.map(s => s.date).filter(inWeek)).size;
   const target = plannedDays || usualWeeklyCount(workouts.map(w => w.date), weekStart);
   const progress = Math.min(1, done / target);
-  const daysLeft = 7 - differenceInCalendarDays(now, weekStart); // today through Sunday
+  const daysLeft = 7 - differenceInCalendarDays(now, weekStart) - (trained.has(today) ? 1 : 0); // open days through Sunday
 
   const phase: SkyPhase = progress >= 1 ? 'day' : target - done > daysLeft ? 'dusk' : 'dawn';
   const stops = phase === 'dusk' ? SKY.dusk : mixStops(SKY.dawn, SKY.day, progress);
