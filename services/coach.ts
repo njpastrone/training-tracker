@@ -1,24 +1,32 @@
 import { Workout, MuscleGroup } from '../types/workout';
 import { getExercisesByCategory } from '../data/exercises';
 import { catalogById } from '../data/catalog';
-import { addWeeks, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
+import { trainingWindow, usualPerWeek, reportDays, perWeekRate, onPace, expectedSoFar, TrainingWindow } from './pace';
 import { callClaude, ApiError } from './claude';
 
 export interface CoachAnalysis {
-  weeklyVolume: Record<MuscleGroup, number>;
   recommendations: string[];
   splitQuality: 'poor' | 'fair' | 'good' | 'excellent';
   recoveryIssues: string[];
   volumeIssues: string[];
   frequencyIssues: string[];
   confidence: number;
-  analyzedWeek?: Date;
+  weeklyVolume: Record<MuscleGroup, number>; // sets per week over the window
+  window: ReportWindow;
+}
+
+export interface ReportWindow {
+  first: string; // yyyy-MM-dd
+  last: string;
+  days: number;
+  elapsed: number; // days counted so far (services/pace.ts)
 }
 
 export interface WeeklyMuscleData {
   muscleGroup: MuscleGroup;
-  totalSets: number;
-  frequency: number; // sessions per week
+  totalSets: number; // in the window
+  frequency: number; // sessions in the window
   lastTrained: string | null; // date
   daysRestBetweenSessions: number[];
 }
@@ -116,10 +124,7 @@ Provide coaching advice in this JSON structure:
 - Educational: Explain the "why" behind recommendations
 </coaching_style>`;
 
-export function analyzeWeeklyVolume(workouts: Workout[], weekStartDate: Date): Record<MuscleGroup, WeeklyMuscleData> {
-  const weekStart = startOfWeek(weekStartDate, { weekStartsOn: 1 }); // Monday start
-  const weekEnd = endOfWeek(weekStartDate, { weekStartsOn: 1 });
-  
+export function analyzeWeeklyVolume(workouts: Workout[], win: TrainingWindow): Record<MuscleGroup, WeeklyMuscleData> {
   const weeklyData: Record<MuscleGroup, WeeklyMuscleData> = {} as Record<MuscleGroup, WeeklyMuscleData>;
   
   // Initialize all muscle groups
@@ -138,11 +143,7 @@ export function analyzeWeeklyVolume(workouts: Workout[], weekStartDate: Date): R
     };
   });
 
-  // Filter workouts for this week
-  const weekWorkouts = workouts.filter(workout => {
-    const workoutDate = parseISO(workout.date);
-    return isWithinInterval(workoutDate, { start: weekStart, end: weekEnd });
-  });
+  const weekWorkouts = workouts.filter(w => w.date >= win.first && w.date <= win.last);
 
   // Calculate volume and frequency per muscle group
   const sessionDates: Record<MuscleGroup, string[]> = {} as Record<MuscleGroup, string[]>;
@@ -183,61 +184,42 @@ export function analyzeWeeklyVolume(workouts: Workout[], weekStartDate: Date): R
   return weeklyData;
 }
 
-function getIntelligentWeekToAnalyze(workouts: Workout[], requestedWeek: Date): Date {
-  const today = new Date();
-  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const lastWeekStart = addWeeks(currentWeekStart, -1);
-  
-  // If requested week is not current week, use as requested
-  if (requestedWeek.getTime() !== currentWeekStart.getTime()) {
-    return requestedWeek;
-  }
-  
-  // Monday = 1, Tuesday = 2, Wednesday = 3
-  const isMondayToWednesday = dayOfWeek >= 1 && dayOfWeek <= 3;
-  
-  if (isMondayToWednesday) {
-    // Check if current week has 3+ workouts (exception rule)
-    const currentWeekWorkouts = workouts.filter(workout => {
-      const workoutDate = parseISO(workout.date);
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      return isWithinInterval(workoutDate, { start: currentWeekStart, end: weekEnd });
-    });
-    
-    if (currentWeekWorkouts.length >= 3) {
-      return currentWeekStart; // Use current week - has sufficient data
-    } else {
-      return lastWeekStart; // Use last week - current week too early
-    }
-  } else {
-    // Thursday-Sunday: use current week
-    return currentWeekStart;
-  }
+// The report card covers a rolling window sized to the user's usual frequency (services/pace.ts)
+export function reportWindow(workouts: Workout[], now: Date = new Date()): TrainingWindow {
+  const dates = workouts.map(w => w.date);
+  return trainingWindow(dates, reportDays(usualPerWeek(dates, now)), now);
 }
 
-export async function getCoachingAdvice(
-  workouts: Workout[], 
-  weekStartDate: Date
-): Promise<CoachAnalysis> {
-  const intelligentWeek = getIntelligentWeekToAnalyze(workouts, weekStartDate);
-  
+// What the coach is told: per-week rates over the window, and how the user is pacing
+function windowData(workouts: Workout[], win: TrainingWindow) {
+  const weeklyData = analyzeWeeklyVolume(workouts, win);
+  const perWeek = usualPerWeek(workouts.map(w => w.date), parseISO(win.last));
+  const rates = (pick: (d: WeeklyMuscleData) => number) =>
+    Object.fromEntries(Object.entries(weeklyData).map(([muscle, data]) => [muscle, perWeekRate(pick(data), win.elapsed)]));
+  return {
+    window: `the last ${win.days} days (${win.first} to ${win.last}); ${win.elapsed} of them count so far (today counts once trained; days before the first logged workout never count)`,
+    volumeCounting: 'sets per muscle per week over the window: each set counts 1 for the main muscle and 0.5 for each secondary muscle. A window shorter than a week is shown as it stands, so judge it by pace, not against a full week',
+    pace: {
+      workoutDays: win.trained.size,
+      usualPerWeek: perWeek,
+      expectedSoFar: Math.round(expectedSoFar(perWeek, win.elapsed) * 10) / 10,
+    },
+    weeklyVolume: rates(d => d.totalSets),
+    frequency: rates(d => d.frequency),
+    recoveryPatterns: Object.fromEntries(
+      Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.daysRestBetweenSessions])
+    ),
+    guidelines: TRAINING_GUIDELINES
+  };
+}
+
+const toReport = (win: TrainingWindow): ReportWindow => ({ first: win.first, last: win.last, days: win.days, elapsed: win.elapsed });
+
+export async function getCoachingAdvice(workouts: Workout[], now: Date = new Date()): Promise<CoachAnalysis> {
+  const win = reportWindow(workouts, now);
+
   try {
-    const weeklyData = analyzeWeeklyVolume(workouts, intelligentWeek);
-    // Prepare analysis data for Claude
-    const analysisData = {
-      volumeCounting: 'sets per muscle: each set counts 1 for the main muscle and 0.5 for each secondary muscle',
-      weeklyVolume: Object.fromEntries(
-        Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.totalSets])
-      ),
-      frequency: Object.fromEntries(
-        Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.frequency])
-      ),
-      recoveryPatterns: Object.fromEntries(
-        Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.daysRestBetweenSessions])
-      ),
-      guidelines: TRAINING_GUIDELINES
-    };
+    const analysisData = windowData(workouts, win);
 
     const text = await callClaude(`<role>
 You are an elite strength and hypertrophy coach with 15+ years experience analyzing training programs. Your expertise encompasses exercise science research, program design, and athlete development across all training levels.
@@ -317,6 +299,7 @@ ${JSON.stringify(analysisData, null, 2)}
 <analysis_instructions>
 Apply your systematic analysis framework to evaluate this training data:
 
+0. Judge by pace: compare workoutDays with expectedSoFar at the user's usual frequency; rest days and a window with few days counted are not shortfalls
 1. Assess volume against MEV/MAV ranges for each muscle group
 2. Evaluate training frequency patterns and recovery spacing
 3. Identify muscle group imbalances and weak points
@@ -354,7 +337,7 @@ Return only the JSON object as specified.`, 1500);
       volumeIssues: coachingAdvice.volumeIssues || [],
       frequencyIssues: coachingAdvice.frequencyIssues || [],
       confidence: coachingAdvice.confidence || 0.7,
-      analyzedWeek: intelligentWeek
+      window: toReport(win)
     };
 
   } catch (error) {
@@ -364,32 +347,19 @@ Return only the JSON object as specified.`, 1500);
     // If it's a JSON parse error, try without structured output
     if ((error as Error).message?.includes('JSON Parse') || (error as Error).message?.includes('structured-outputs')) {
       try {
-        return await getCoachingAdviceSimple(workouts, intelligentWeek);
+        return await getCoachingAdviceSimple(workouts, win);
       } catch (simpleError) {
         console.error('Fallback coaching also failed:', simpleError);
       }
     }
     
     // Ultimate fallback analysis
-    return generateFallbackAnalysis(intelligentWeek, workouts);
+    return generateFallbackAnalysis(win, workouts);
   }
 }
 
-async function getCoachingAdviceSimple(
-  workouts: Workout[], 
-  weekStartDate: Date
-): Promise<CoachAnalysis> {
-  const weeklyData = analyzeWeeklyVolume(workouts, weekStartDate);
-  const analysisData = {
-    volumeCounting: 'sets per muscle: each set counts 1 for the main muscle and 0.5 for each secondary muscle',
-    weeklyVolume: Object.fromEntries(
-      Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.totalSets])
-    ),
-    frequency: Object.fromEntries(
-      Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.frequency])
-    ),
-    guidelines: TRAINING_GUIDELINES
-  };
+async function getCoachingAdviceSimple(workouts: Workout[], win: TrainingWindow): Promise<CoachAnalysis> {
+  const analysisData = windowData(workouts, win);
 
   // Simplified but still optimized prompt for fallback
   const text = await callClaude(`You are an expert strength coach analyzing training data. Apply evidence-based training science principles:
@@ -436,19 +406,22 @@ Analyze volume and frequency against evidence-based standards. Provide specific,
     volumeIssues: coachingAdvice.volumeIssues || [],
     frequencyIssues: coachingAdvice.frequencyIssues || [],
     confidence: coachingAdvice.confidence || 0.6,
-    analyzedWeek: weekStartDate
+    window: toReport(win)
   };
 }
 
-function generateFallbackAnalysis(weekStartDate: Date, workouts: Workout[]): CoachAnalysis {
-  const weeklyData = analyzeWeeklyVolume(workouts, weekStartDate);
+export function generateFallbackAnalysis(win: TrainingWindow, workouts: Workout[]): CoachAnalysis {
+  const analysisData = windowData(workouts, win);
+  const { weeklyVolume, frequency } = analysisData;
   const recommendations: string[] = [];
   const volumeIssues: string[] = [];
   const frequencyIssues: string[] = [];
   const recoveryIssues: string[] = [];
 
   // Advanced volume and frequency analysis
-  Object.entries(weeklyData).forEach(([muscle, data]) => {
+  Object.keys(weeklyVolume).forEach(muscle => {
+    const sets = weeklyVolume[muscle];
+    const times = frequency[muscle];
     const guidelines = TRAINING_GUIDELINES;
     const mev = guidelines.MINIMUM_EFFECTIVE_VOLUME[muscle as keyof typeof guidelines.MINIMUM_EFFECTIVE_VOLUME] || 6;
     const optimal = guidelines.OPTIMAL_VOLUME_RANGE[muscle as keyof typeof guidelines.OPTIMAL_VOLUME_RANGE] || 16;
@@ -457,22 +430,22 @@ function generateFallbackAnalysis(weekStartDate: Date, workouts: Workout[]): Coa
     if (muscle === 'cardio' || muscle === 'full_body') return;
 
     // Volume assessment
-    if (data.totalSets < mev) {
-      volumeIssues.push(`${muscle}: ${data.totalSets} sets (below minimum effective volume of ${mev})`);
+    if (!onPace(sets, mev, win.elapsed)) {
+      volumeIssues.push(`${muscle}: ${sets} sets a week (below minimum effective volume of ${mev})`);
       recommendations.push(`Increase ${muscle} to ${mev}-${optimal} sets per week for optimal growth stimulus`);
-    } else if (data.totalSets > optimal * 1.3) {
-      volumeIssues.push(`${muscle}: ${data.totalSets} sets (potentially excessive volume)`);
+    } else if (sets > optimal * 1.3) {
+      volumeIssues.push(`${muscle}: ${sets} sets a week (potentially excessive volume)`);
       recommendations.push(`Consider reducing ${muscle} volume to ${optimal} sets to improve recovery`);
     }
 
     // Frequency assessment  
-    if (data.frequency < 2 && data.totalSets > 0) {
-      frequencyIssues.push(`${muscle}: only ${data.frequency}x per week (suboptimal frequency)`);
+    if (sets > 0 && !onPace(times, TRAINING_GUIDELINES.MINIMUM_FREQUENCY, win.elapsed)) {
+      frequencyIssues.push(`${muscle}: only ${times}x per week (suboptimal frequency)`);
       recommendations.push(`Train ${muscle} 2-3x per week to distribute volume and enhance protein synthesis`);
     }
 
     // Recovery pattern analysis
-    if (data.daysRestBetweenSessions.some(days => days < 2)) {
+    if (analysisData.recoveryPatterns[muscle].some(days => days < 2)) {
       recoveryIssues.push(`${muscle}: insufficient recovery time between sessions`);
       recommendations.push(`Allow 48-72 hours between ${muscle} training sessions for optimal adaptation`);
     }
@@ -489,16 +462,14 @@ function generateFallbackAnalysis(weekStartDate: Date, workouts: Workout[]): Coa
     criticalIssues <= 1 && totalIssues <= 4 ? 'fair' : 'poor';
 
   return {
-    weeklyVolume: Object.fromEntries(
-      Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.totalSets])
-    ) as Record<MuscleGroup, number>,
+    weeklyVolume: weeklyVolume as Record<MuscleGroup, number>,
     recommendations,
     splitQuality,
     recoveryIssues,
     volumeIssues,
     frequencyIssues,
     confidence: 0.75,
-    analyzedWeek: weekStartDate
+    window: toReport(win)
   };
 }
 
@@ -510,7 +481,7 @@ export async function askFollowUpQuestion(
   try {
     const contextData = {
       analysis,
-      recentWorkouts: workouts.slice(-10), // Last 10 workouts for context
+      recentWorkouts: [...workouts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10), // newest 10 for context
       guidelines: TRAINING_GUIDELINES
     };
 

@@ -303,7 +303,7 @@ export default function HistoryScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        <LargeTitle title="History" subtitle={`${sky.done} of ${sky.target} ${sky.planned ? 'planned workouts' : 'workouts'} this week`} />
+        <LargeTitle title="History" subtitle={`${sky.done} of ${sky.target} ${sky.planned ? 'planned workouts' : 'workouts'} in the last 7 days`} />
         {addedPlan && (
           <SkyCard style={styles.planBanner}>
             <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />

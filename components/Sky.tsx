@@ -6,7 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { SKY } from '../services/sky';
 import { fonts, radius, spacing } from '../constants/theme';
 
-// A screen on the sky. Light mode tracks the training week (services/sky.ts); Dark Mode is night.
+// A screen on the sky. Light mode tracks the last 7 days of training (services/sky.ts); Dark Mode is night.
 // Native tabs inset the scroll view for the tab bar, so only the top edge is padded by default.
 export function SkyScreen({ children, edges = ['top'] }: { children: React.ReactNode; edges?: Edge[] }) {
   const { isDarkMode, sky } = useTheme();

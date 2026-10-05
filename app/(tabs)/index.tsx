@@ -164,7 +164,7 @@ export default function LogScreen() {
                 </View>
                 <Ring size={74} stroke={6} progress={sky.progress}>
                   <Text style={[styles.ringValue, { color: colors.text }]}>{sky.done}/{sky.target}</Text>
-                  <Text style={[styles.ringLabel, { color: colors.textTertiary }]}>week</Text>
+                  <Text style={[styles.ringLabel, { color: colors.textTertiary }]}>7 days</Text>
                 </Ring>
               </View>
               <View style={styles.muscles}>

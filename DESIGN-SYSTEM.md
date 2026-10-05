@@ -4,20 +4,20 @@ LiftText is iOS-26-native: content sits on a soft sky, Liquid Glass is used for 
 
 ## Core Principles
 
-1. **The sky is your week.** It is dawn on Monday and gets brighter with each workout logged. A complete week ends in full daylight; a week that can no longer be completed turns dusky. Dark Mode is always night.
+1. **The sky is your last 7 days.** It starts at dawn and gets brighter with each workout logged. Your usual week's worth ends in full daylight; falling behind your usual pace turns it dusky. Dark Mode is always night.
 2. **Glass for controls, material for content.** Liquid Glass only on the tab bar, composer and floating buttons, never on content (HIG Materials). Content cards are a translucent material over the sky.
 3. **System first.** System fonts, SF Symbols, native tabs and sheets. Appearance follows the iPhone; there is no in-app theme setting.
 4. **Fluid and physical.** Morph, don't cut. Springs, not linear tweens. Reduce Motion gets crossfades; Reduce Transparency gets solid surfaces.
 
 ## The Sky
 
-`services/sky.ts` maps the current week (Monday to Sunday) to a sky. It is pure and unit-tested (`services/sky.test.mts`).
+`services/sky.ts` maps the last 7 days (a rolling window ending today, see `services/pace.ts`) to a sky. It is pure and unit-tested (`services/sky.test.mts`).
 
-- **Target:** distinct planned days this week from the schedule. With no plan, the usual weekly count: distinct training days in the 4 weeks before, divided by 4 and rounded (1–7; 3 with no recent history).
-- **Done:** distinct days with a logged workout this week, up to today.
+- **Target:** distinct planned days in the last 7 days from the schedule. With no plan, the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history).
+- **Done:** distinct days with a logged workout in the last 7 days.
 - **Phase:**
   - `day` when done ≥ target;
-  - `dusk` when the days left this week (today included unless you already trained today) are fewer than the workouts still needed;
+  - `dusk` when behind pace: with a plan, fewer done than planned days already gone by; without one, fewer than the usual weekly count expects for the days counted so far (today counts once trained, days before your first workout never count);
   - otherwise `dawn`, blended toward day by `done / target`.
 - **Gradients (top → middle → bottom):** dawn `#FFD3B8 → #FADCE6 → #E4E8FF`, day `#C9DFFF → #E4EEFF → #F6F8FF`, dusk `#FFC39C → #EFB0C8 → #BDB8F0`, night `#0A0F26 → #141938 → #1F1B44` with a `#2A2766` glow at the top right.
 - The sky is static per visit: it changes when data changes or the app returns on a new day. No ambient animation.

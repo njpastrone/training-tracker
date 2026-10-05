@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
-import { addDays, differenceInCalendarDays, format, getDay, isValid, parseISO, subDays, subWeeks } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, getDay, isValid, parseISO, subDays } from 'date-fns';
 import { callClaude } from './claude';
 import { analyzeWeeklyVolume } from './coach';
+import { trainingWindow } from './pace';
 import { templateService } from './templates';
 import { scheduleService } from './schedule';
 import { calculateStats } from '../stores/workoutStore';
@@ -58,10 +59,9 @@ export function summarizeHistory(
   const usualDays = busiest === 0 ? [] : DAY_NAMES.filter(d => (byDay[d] ?? 0) >= busiest / 2).map(d => d.slice(0, 3));
 
   const setsPerMuscleLast4w: Partial<Record<MuscleGroup, number>> = {};
-  for (let week = 0; week < 4; week++) {
-    for (const data of Object.values(analyzeWeeklyVolume(workouts, subWeeks(now, week)))) {
-      if (data.totalSets > 0) setsPerMuscleLast4w[data.muscleGroup] = (setsPerMuscleLast4w[data.muscleGroup] ?? 0) + data.totalSets;
-    }
+  const last4w = trainingWindow(workouts.map(w => w.date), 28, now);
+  for (const data of Object.values(analyzeWeeklyVolume(workouts, last4w))) {
+    if (data.totalSets > 0) setsPerMuscleLast4w[data.muscleGroup] = data.totalSets;
   }
 
   const lastTrained: Partial<Record<MuscleGroup, string>> = {};
