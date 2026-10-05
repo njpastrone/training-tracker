@@ -76,3 +76,25 @@ test('a planned session follows its workout through delete and Undo', async () =
   assert.equal(session()?.completed, true);
   assert.equal(session()?.completedWorkoutId, 'planned');
 });
+
+test('deleting one of two workouts on a planned day keeps the session completed', async () => {
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  const date = day(6);
+  await scheduleService.saveSchedule([{ id: 's2', date, templateId: 't', isRecurring: false, completed: false, planId: 'p' }]);
+  const session = () => store().schedule.find((s) => s.id === 's2');
+
+  store().addWorkout(workout('first', date));
+  await settle();
+  store().addWorkout(workout('second', date));
+  await settle();
+  assert.equal(session()?.completedWorkoutId, 'first');
+
+  store().deleteWorkouts(['first']);
+  await settle();
+  assert.equal(session()?.completed, true);
+  assert.equal(session()?.completedWorkoutId, 'second');
+
+  store().deleteWorkout('second');
+  await settle();
+  assert.equal(session()?.completed, false);
+});

@@ -198,6 +198,15 @@ async function backupV0() {
   }
 }
 
+// Links each workout to an open plan session on its date. Sequential, since each link rewrites the whole schedule.
+// Returns whether any session was linked.
+function linkToPlan(workouts: Workout[]): Promise<boolean> {
+  return workouts.reduce<Promise<boolean>>(
+    (prev, w) => prev.then(async (any) => (await scheduleService.linkLoggedWorkout(w.date, w.id)) || any),
+    Promise.resolve(false)
+  );
+}
+
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
   showStreakNotifications: true,
@@ -255,9 +264,15 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           workouts: state.workouts.filter((w) => !remove.has(w.id)),
         }));
+        const dates = new Set(removed.map((w) => w.date));
         scheduleService
           .unlinkDeletedWorkouts(removed.map((w) => w.id))
-          .then(changed => { if (changed) get().loadSchedule(); })
+          .then(async (changed) => {
+            if (!changed) return;
+            // A planned day stays completed while any workout is still logged on it
+            await linkToPlan(get().workouts.filter((w) => dates.has(w.date)));
+            get().loadSchedule();
+          })
           .catch(error => console.error('Error unlinking deleted workouts from plan:', error));
         return removed;
       },
@@ -272,12 +287,7 @@ export const useWorkoutStore = create<WorkoutState>()(
             ),
           };
         });
-        // Sequential, since each link rewrites the whole schedule
-        restored
-          .reduce<Promise<boolean>>(
-            (prev, w) => prev.then(async (any) => (await scheduleService.linkLoggedWorkout(w.date, w.id)) || any),
-            Promise.resolve(false)
-          )
+        linkToPlan(restored)
           .then(linked => { if (linked) get().loadSchedule(); })
           .catch(error => console.error('Error relinking restored workouts to plan:', error));
       },
