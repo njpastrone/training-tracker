@@ -59,10 +59,9 @@ export function keepIdentity(before: Draft, after: Draft, returnedNames: string[
 export const NOTHING_CHANGED = "I didn't change anything. Tell me what to fix.";
 
 // Same workout, ignoring row ids and identity bookkeeping: did a typed fix change anything?
-export function sameDraft(a: Pick<Draft, 'exercises' | 'muscleGroups' | 'notes'>, b: Pick<Draft, 'exercises' | 'muscleGroups' | 'notes'>): boolean {
+export function sameDraft(a: Pick<Draft, 'exercises' | 'notes'>, b: Pick<Draft, 'exercises' | 'notes'>): boolean {
   const fields = ['name', 'exerciseId', 'muscleGroup', 'sets', 'reps', 'weight', 'unit', 'duration', 'distance', 'distanceUnit', 'dayOffset', 'notes'] as const;
-  const groups = (d: Pick<Draft, 'muscleGroups'>) => [...new Set(d.muscleGroups)].sort().join();
-  return (a.notes ?? '') === (b.notes ?? '') && groups(a) === groups(b) && a.exercises.length === b.exercises.length &&
+  return (a.notes ?? '') === (b.notes ?? '') && a.exercises.length === b.exercises.length &&
     a.exercises.every((e, i) => fields.every(f => e[f] === b.exercises[i][f]));
 }
 

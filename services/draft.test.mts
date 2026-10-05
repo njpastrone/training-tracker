@@ -215,6 +215,6 @@ test('a fix that changed nothing is spotted, so the fix box never stays silent',
   assert.equal(sameDraft(before, editDraft(before, 0, 'reps', 12)), false);
   assert.equal(sameDraft(before, { ...before, notes: 'PR' }), false);
   assert.equal(sameDraft(before, removeFromDraft(before, 0)), false);
-  assert.equal(sameDraft(before, { ...before, muscleGroups: ['chest', 'core'] }), false);
-  assert.equal(sameDraft({ ...before, muscleGroups: ['chest', 'core'] }, { ...before, muscleGroups: ['core', 'chest'] }), true);
+  // A saved workout with older groups: the server re-derives them, which alone is no change
+  assert.equal(sameDraft({ ...before, muscleGroups: ['chest', 'triceps'] }, echoed), true);
 });
