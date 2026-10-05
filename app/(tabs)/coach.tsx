@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Text, Surface, Button, Card, Chip, ProgressBar, Divider, List, Badge, TextInput, IconButton, TouchableRipple } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SkyScreen, LargeTitle } from '../../components/Sky';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -215,8 +215,9 @@ export default function CoachScreen() {
 
   if (!workouts.length) {
     return (
-      <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
+      <SkyScreen>
         <View style={styles.emptyContent}>
+          <LargeTitle title="Coach" />
           <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
             <View style={[styles.iconContainer, { backgroundColor: colors.primary + '15' }]}>
               <Ionicons name="fitness" size={64} color={colors.primary} />
@@ -232,13 +233,14 @@ export default function CoachScreen() {
             </Text>
           </Surface>
         </View>
-      </SafeAreaView>
+      </SkyScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
+    <SkyScreen>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <LargeTitle title="Coach" />
         {/* Report Card Header */}
         <View style={styles.header}>
           <Text variant="headlineLarge" style={[styles.title, { color: colors.text }]}>
@@ -455,7 +457,7 @@ export default function CoachScreen() {
           </Button>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 
@@ -506,7 +508,6 @@ const styles = StyleSheet.create({
   emptyContent: {
     flex: 1,
     padding: spacing.md,
-    justifyContent: 'center',
   },
   card: {
     padding: spacing.xl,

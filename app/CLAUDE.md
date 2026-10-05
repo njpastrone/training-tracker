@@ -18,5 +18,5 @@ This directory contains all routes using Expo Router's file-based routing.
 - `index.tsx` is the default route for a directory
 
 ## Tab Navigation
-Uses `@react-navigation/bottom-tabs` via Expo Router.
-Tab icons from `react-native-paper` or `@expo/vector-icons`.
+Uses native tabs (`expo-router/unstable-native-tabs`): the iOS Liquid Glass tab bar.
+Tab icons are SF Symbols.

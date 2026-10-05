@@ -1,6 +1,6 @@
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Text, Surface, Button, Chip, Icon } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SkyScreen, LargeTitle } from '../../components/Sky';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import WorkoutInput from '../../components/WorkoutInput';
@@ -112,7 +112,7 @@ export default function LogScreen() {
   };
 
   return (
-    <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
+    <SkyScreen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -122,6 +122,7 @@ export default function LogScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <LargeTitle title="LiftText" />
           <Surface style={[styles.inputSection, { backgroundColor: colors.surface }]} elevation={1}>
             <Text variant="headlineSmall" style={[styles.greeting, { color: colors.text }]}>
               What'd you hit today?
@@ -239,7 +240,7 @@ export default function LogScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 

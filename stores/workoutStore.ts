@@ -179,7 +179,6 @@ export function calculateStats(workouts: Workout[]): WorkoutStats {
 
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
-  theme: 'system',
   showStreakNotifications: true,
 };
 

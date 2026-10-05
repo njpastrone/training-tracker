@@ -1,15 +1,15 @@
 import { View, StyleSheet, Alert, ScrollView } from 'react-native';
 import { Text, Surface, List, Switch, Divider, Button } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SkyScreen, LargeTitle } from '../../components/Sky';
 import { useState } from 'react';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
-import { spacing, darkColors } from '../../constants/theme';
+import { spacing } from '../../constants/theme';
 import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
-  const { colors, themeMode, setThemeMode } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const [isClearing, setIsClearing] = useState(false);
 
@@ -39,54 +39,17 @@ export default function SettingsScreen() {
     });
   };
 
-  const toggleTheme = () => {
-    // Smart toggle: if in system mode, switch to opposite of current appearance
-    // Otherwise toggle between light and dark
-    let newMode: 'light' | 'dark';
-    
-    if (themeMode === 'system') {
-      // If system mode, toggle to opposite of current dark mode state
-      newMode = colors === darkColors ? 'light' : 'dark';
-    } else {
-      // Direct toggle between light and dark
-      newMode = themeMode === 'dark' ? 'light' : 'dark';
-    }
-    
-    setThemeMode(newMode);
-  };
-
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SkyScreen>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <LargeTitle title="Settings" />
         <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
           <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
             Preferences
           </Text>
-          <List.Item
-            title="Theme"
-            description="Switch between Light and Dark modes"
-            left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
-            right={() => {
-              // Show what the button will switch TO
-              let buttonText;
-              if (themeMode === 'system') {
-                buttonText = colors === darkColors ? 'LIGHT' : 'DARK';
-              } else {
-                buttonText = themeMode === 'dark' ? 'LIGHT' : 'DARK';
-              }
-              
-              return (
-                <Button mode="outlined" onPress={toggleTheme} compact>
-                  {buttonText}
-                </Button>
-              );
-            }}
-          />
-          <Divider />
           <List.Item
             title="Weight Unit"
             description={settings.weightUnit === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}
@@ -164,7 +127,7 @@ export default function SettingsScreen() {
           />
         </Surface>
       </ScrollView>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 

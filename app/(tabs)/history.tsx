@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
 import { Text, Surface, Chip, Portal, Dialog, List, Button, Switch, Icon, IconButton } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SkyScreen, LargeTitle } from '../../components/Sky';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
@@ -286,11 +286,12 @@ export default function HistoryScreen() {
   };
 
   return (
-    <SafeAreaView style={[{ flex: 1, backgroundColor: colors.background }]} edges={['bottom']}>
+    <SkyScreen>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
+        <LargeTitle title="History" />
         {addedPlan && (
           <Surface style={[styles.planBanner, { backgroundColor: colors.secondary + '20', borderColor: colors.secondary }]} elevation={0}>
             <Icon source="check-circle" size={20} color={colors.secondary} />
@@ -627,7 +628,7 @@ export default function HistoryScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 
