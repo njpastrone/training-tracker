@@ -1,12 +1,13 @@
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useWorkoutStore } from '../../stores/workoutStore';
+import { useWorkoutStore, DeletedWorkouts } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { format, parseISO, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { fonts, radius, spacing } from '../../constants/theme';
-import WorkoutList from '../../components/WorkoutList';
-import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
+import { SkyScreen, SkyCard, LargeTitle } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
 
 export default function DayDetailScreen() {
@@ -14,6 +15,7 @@ export default function DayDetailScreen() {
   const router = useRouter();
   const { getWorkoutsByDate } = useWorkoutStore();
   const { colors } = useTheme();
+  const [removed, setRemoved] = useState<DeletedWorkouts | null>(null);
 
   const workouts = getWorkoutsByDate(date);
   const dateObj = parseISO(date);
@@ -67,8 +69,7 @@ export default function DayDetailScreen() {
               ))}
             </View>
 
-            <SectionLabel style={styles.label}>Workouts</SectionLabel>
-            <WorkoutList workouts={workouts} groupByDate={false} />
+            <SelectableWorkoutList label="Workouts" workouts={workouts} groupByDate={false} enableSwipe onDeleted={setRemoved} />
           </>
         ) : (
           <SkyCard style={styles.empty}>
@@ -82,6 +83,7 @@ export default function DayDetailScreen() {
           </SkyCard>
         )}
       </ScrollView>
+      <UndoToast removed={removed} onClose={() => setRemoved(null)} />
     </SkyScreen>
   );
 }
@@ -109,11 +111,6 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
-  },
-  label: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
   },
   empty: {
     alignItems: 'center',

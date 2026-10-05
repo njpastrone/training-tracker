@@ -7,6 +7,8 @@ const SCHEDULE_STORAGE_KEY = '@training-tracker/schedule';
 
 export type RecurringPattern = 'weekly' | 'biweekly' | 'monthly' | 'custom';
 
+export type SessionLink = Pick<TemplateSchedule, 'id' | 'completed' | 'completedWorkoutId'>;
+
 // Helper function to compare arrays
 function arraysEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
@@ -222,6 +224,31 @@ export const scheduleService = {
     session.completedWorkoutId = workoutId;
     await this.saveSchedule(schedule);
     return true;
+  },
+
+  // Deleting logged workouts reopens the sessions they completed. Returns those sessions' prior state, for Undo.
+  async unlinkDeletedWorkouts(workoutIds: string[]): Promise<SessionLink[]> {
+    const ids = new Set(workoutIds);
+    const schedule = await this.getSchedule();
+    const linked = schedule.filter(s => s.completedWorkoutId && ids.has(s.completedWorkoutId));
+    if (linked.length === 0) return [];
+    const prior = linked.map(({ id, completed, completedWorkoutId }) => ({ id, completed, completedWorkoutId }));
+    for (const s of linked) {
+      s.completed = false;
+      s.completedWorkoutId = undefined;
+    }
+    await this.saveSchedule(schedule);
+    return prior;
+  },
+
+  // Undo for unlinkDeletedWorkouts
+  async restoreSessionLinks(links: SessionLink[]): Promise<void> {
+    const schedule = await this.getSchedule();
+    for (const link of links) {
+      const s = schedule.find(s => s.id === link.id);
+      if (s) Object.assign(s, link);
+    }
+    await this.saveSchedule(schedule);
   },
 
   // Mark workout as skipped

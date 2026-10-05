@@ -47,8 +47,10 @@ export default function WorkoutEditScreen() {
   };
 
   useEffect(() => {
+    // Gone (deleted, or a stale link): back to where it was opened, else home
     if (!workout) {
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace('/');
     }
   }, [workout]);
 
@@ -131,9 +133,8 @@ export default function WorkoutEditScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
+            // The !workout effect navigates back once it's gone
             deleteWorkout(id);
-            // Navigate back to home screen instead of using back()
-            router.replace('/');
           },
         },
       ]

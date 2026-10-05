@@ -5,9 +5,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
-import { scheduleService } from '../services/schedule';
+import { scheduleService, SessionLink } from '../services/schedule';
 import { emptyLibrary, migrateToV1, withIdentity } from '../services/exerciseIdentity';
 import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
+
+// Undo payload: the deleted workouts and the plan sessions their delete reopened
+export interface DeletedWorkouts {
+  workouts: Workout[];
+  sessions: Promise<SessionLink[]>;
+}
 
 interface WorkoutState {
   workouts: Workout[];
@@ -22,6 +28,8 @@ interface WorkoutState {
   addWorkout: (workout: Workout) => void;
   updateWorkout: (id: string, updates: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
+  deleteWorkouts: (ids: string[]) => DeletedWorkouts;
+  restoreWorkouts: (deleted: DeletedWorkouts) => void;
   getWorkoutsByDate: (date: string) => Workout[];
   getWorkoutDates: () => Set<string>;
   getStats: () => WorkoutStats;
@@ -244,9 +252,45 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       deleteWorkout: (id) => {
+        get().deleteWorkouts([id]);
+      },
+
+      deleteWorkouts: (ids) => {
+        const remove = new Set(ids);
+        const removed = get().workouts.filter((w) => remove.has(w.id));
         set((state) => ({
-          workouts: state.workouts.filter((w) => w.id !== id),
+          workouts: state.workouts.filter((w) => !remove.has(w.id)),
         }));
+        const sessions = scheduleService
+          .unlinkDeletedWorkouts(removed.map((w) => w.id))
+          .then(links => {
+            if (links.length) get().loadSchedule();
+            return links;
+          })
+          .catch(error => {
+            console.error('Error unlinking deleted workouts from plan:', error);
+            return [];
+          });
+        return { workouts: removed, sessions };
+      },
+
+      // Undo for deleteWorkouts. Stats, PRs and streaks derive from workouts, so they follow.
+      restoreWorkouts: ({ workouts: restored, sessions }) => {
+        set((state) => {
+          const present = new Set(state.workouts.map((w) => w.id));
+          return {
+            workouts: [...state.workouts, ...restored.filter((w) => !present.has(w.id))].sort((a, b) =>
+              b.date.localeCompare(a.date)
+            ),
+          };
+        });
+        sessions
+          .then(async (links) => {
+            if (!links.length) return;
+            await scheduleService.restoreSessionLinks(links);
+            get().loadSchedule();
+          })
+          .catch(error => console.error('Error restoring plan sessions:', error));
       },
 
       getWorkoutsByDate: (date) => {

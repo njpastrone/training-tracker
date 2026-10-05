@@ -98,7 +98,7 @@ export default function Calendar({ workouts, schedule = [], onDatePress, onDateS
           return (
             <Pressable
               key={dateStr}
-              style={styles.cell}
+              style={({ pressed }) => [styles.cell, { opacity: pressed ? 0.6 : 1 }]}
               onPress={handlePress}
               accessibilityRole="button"
               accessibilityLabel={`${format(day, 'EEEE, MMMM d')}${state ? `, ${state}` : ''}`}

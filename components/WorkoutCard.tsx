@@ -13,6 +13,7 @@ import ExerciseRows from './ExerciseRows';
 interface Props {
   workout: Workout;
   onPress?: () => void;
+  selected?: boolean; // set while selecting: a check circle replaces the chevron
 }
 
 export function dayLabel(date: string) {
@@ -20,7 +21,7 @@ export function dayLabel(date: string) {
   return isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'EEEE, MMM d');
 }
 
-export default function WorkoutCard({ workout, onPress }: Props) {
+export default function WorkoutCard({ workout, onPress, selected }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -35,8 +36,9 @@ export default function WorkoutCard({ workout, onPress }: Props) {
   return (
     <Pressable
       onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityHint="Opens the workout"
+      accessibilityRole={selected === undefined ? 'button' : 'checkbox'}
+      accessibilityState={selected === undefined ? undefined : { checked: selected }}
+      accessibilityHint={selected === undefined ? 'Opens the workout' : undefined}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
       <SkyCard style={styles.card} pointerEvents="box-only">
@@ -49,7 +51,11 @@ export default function WorkoutCard({ workout, onPress }: Props) {
               {workoutSummary(workout.exercises)}
             </Text>
           </View>
-          <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
+          {selected === undefined ? (
+            <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
+          ) : (
+            <SymbolView name={selected ? 'checkmark.circle.fill' : 'circle'} size={22} tintColor={selected ? colors.sunrise : colors.textTertiary} />
+          )}
         </View>
         <ExerciseRows exercises={workout.exercises} limit={3} />
         {workout.notes ? (
