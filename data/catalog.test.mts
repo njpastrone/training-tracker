@@ -15,7 +15,7 @@ dumbbell-bench-press incline-dumbbell-press decline-dumbbell-press dumbbell-floo
 incline-smith-machine-press machine-chest-press incline-machine-chest-press dumbbell-fly incline-dumbbell-fly cable-fly
 pec-deck dumbbell-pullover push-up incline-push-up decline-push-up kneeling-push-up diamond-push-up chest-dip deadlift
 sumo-deadlift trap-bar-deadlift snatch-grip-deadlift rack-pull romanian-deadlift dumbbell-romanian-deadlift
-single-leg-romanian-deadlift good-morning back-extension pull-up chin-up assisted-pull-up muscle-up lat-pulldown
+single-leg-romanian-deadlift good-morning back-extension pull-up chin-up assisted-pull-up assisted-chin-up muscle-up lat-pulldown
 single-arm-lat-pulldown straight-arm-pulldown barbell-row dumbbell-row chest-supported-dumbbell-row seated-cable-row
 single-arm-cable-row t-bar-row chest-supported-row machine-row inverted-row face-pull barbell-shrug dumbbell-shrug
 trap-bar-shrug overhead-press push-press dumbbell-shoulder-press arnold-press machine-shoulder-press
@@ -164,6 +164,10 @@ test('lookalikes the parser used to merge stay apart', () => {
   assert.equal(id('incline db bench'), 'incline-dumbbell-press');
   assert.equal(id('trap bar dl'), 'trap-bar-deadlift');
   assert.equal(id('assisted pull ups'), 'assisted-pull-up');
+  assert.equal(id('assisted chin ups'), 'assisted-chin-up');
+  assert.equal(id('decline bench'), '');
+  assert.equal(id('dip machine'), '');
+  assert.equal(id('seated dips'), '');
   assert.equal(id('rowed'), '');
   assert.equal(id('erg'), 'rowing-machine');
 });
