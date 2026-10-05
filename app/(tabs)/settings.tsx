@@ -1,18 +1,60 @@
 import { StyleSheet, Alert, ScrollView, Switch } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import Row from '../../components/Row';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
+import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
   const { colors } = useTheme();
   const router = useRouter();
   const [isClearing, setIsClearing] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [lastWeekly] = useState(lastWeeklyBackupDate);
+
+  const handleExport = () => {
+    shareBackup().catch((error) => Alert.alert("Couldn't export", error.message));
+  };
+
+  const handleRestore = async () => {
+    let picked;
+    try {
+      picked = await pickBackup();
+    } catch (error: any) {
+      Alert.alert("Couldn't restore", error.message);
+      return;
+    }
+    if (!picked) return;
+    const { backup, summary } = picked;
+    Alert.alert(
+      `Restore ${summary.workouts} workouts from ${format(parseISO(summary.createdAt), 'MMM d, yyyy')}?`,
+      `This replaces all workouts, plans, templates and your schedule on this phone. Your current data is saved first in ${BACKUP_FOLDER}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore',
+          style: 'destructive',
+          onPress: async () => {
+            setIsRestoring(true);
+            try {
+              const safety = await restoreBackup(backup);
+              Alert.alert('Restored', `Your previous data was saved as ${safety.name} in ${BACKUP_FOLDER}.`);
+            } catch (error: any) {
+              Alert.alert("Couldn't restore", error.message);
+            } finally {
+              setIsRestoring(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleClearData = () => {
     Alert.alert(
@@ -79,16 +121,33 @@ export default function SettingsScreen() {
           />
         </SkyCard>
 
-        <SectionLabel style={styles.label}>Data</SectionLabel>
+        <SectionLabel style={styles.label}>Backup</SectionLabel>
         <SkyCard style={styles.card}>
           <Row
             first
             icon="square.and.arrow.up"
-            title="Export data"
-            subtitle="Download your workout history as JSON"
-            onPress={() => Alert.alert('Coming Soon', 'Export functionality will be available in a future update.')}
+            title="Export backup"
+            subtitle="Save workouts, plans, templates and schedule to a file"
+            onPress={handleExport}
           />
           <Row
+            icon="arrow.counterclockwise"
+            title="Restore from backup"
+            subtitle="Replace this phone's data with a backup file"
+            onPress={handleRestore}
+            disabled={isRestoring}
+          />
+          <Row
+            icon="clock.arrow.circlepath"
+            title="Weekly backup"
+            subtitle={`${lastWeekly ? `Last saved ${format(parseISO(lastWeekly), 'MMM d')}` : 'Saves once a week'} to ${BACKUP_FOLDER}`}
+          />
+        </SkyCard>
+
+        <SectionLabel style={styles.label}>Data</SectionLabel>
+        <SkyCard style={styles.card}>
+          <Row
+            first
             icon="trash"
             title="Clear all data"
             subtitle="Delete all workouts and settings"

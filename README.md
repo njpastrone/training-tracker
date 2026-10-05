@@ -10,7 +10,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Streak Tracking** - Stay motivated with current and longest streak counters
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
-- **Local Storage** - Your data stays on your device
+- **Local Storage** - Your data stays on your device, with export/restore backups (see [Backing Up](#backing-up))
 
 ## Screenshots
 
@@ -147,6 +147,13 @@ The History tab shows:
 - Current streak
 - Weekly/monthly workout counts
 - Longest streak record
+
+### Backing Up
+
+All data lives on the phone. It is included in the iPhone's normal iCloud device backup, and **Settings › Backup** adds:
+- **Export backup** - saves workouts, plans, templates and schedule as one `.json` file via the share sheet (Files, iCloud Drive, AirDrop, ...)
+- **Restore from backup** - picks a LiftText backup file and replaces the data on this phone. The current data is saved first as a safety file.
+- **Weekly backup** - on app launch, saves a file at most once a week to Files › On My iPhone › LiftText › Backups (keeps the last 8). This folder is on the phone, not in iCloud Drive; it leaves the phone only through the iCloud device backup.
 
 ## Releasing to TestFlight
 
