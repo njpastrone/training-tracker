@@ -16,7 +16,7 @@ export default function TabLayout() {
         <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="coach">
-        <NativeTabs.Trigger.Icon sf={{ default: 'text.bubble', selected: 'text.bubble.fill' }} md="chat_bubble" />
+        <NativeTabs.Trigger.Icon src={require('../../assets/tab-logo.png')} renderingMode="template" />
         <NativeTabs.Trigger.Label>Coach</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">

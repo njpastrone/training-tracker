@@ -11,6 +11,7 @@ import { editDraft, removeFromDraft } from '../services/draft';
 import { ParsedWorkoutResponse, UnsureField } from '../types/workout';
 import { SkyCard } from './Sky';
 import { Pill } from './Glass';
+import LogoMark from './LogoMark';
 
 type Draft = ParsedWorkoutResponse;
 type DraftExercise = Draft['exercises'][number];
@@ -51,7 +52,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
     <Animated.View entering={FadeInDown.springify().damping(17)} layout={LinearTransition}>
       <SkyCard>
         <View style={styles.header}>
-          <SymbolView name="text.bubble" size={20} tintColor={colors.sunrise} />
+          <LogoMark size={20} color={colors.sunrise} />
           <Text variant="titleMedium" style={[styles.flex, { color: colors.text }]}>
             {title ?? 'Got it. Look right?'}
           </Text>

@@ -205,7 +205,7 @@ export default function TemplateEditScreen() {
                 multiline
               />
               <Pill
-                icon="text.bubble"
+                icon="logo"
                 label={isParsing ? 'Reading…' : 'Parse exercises'}
                 onPress={handleParseNaturalLanguage}
                 loading={isParsing}

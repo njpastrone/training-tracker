@@ -4,6 +4,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SymbolView, SFSymbol } from 'expo-symbols';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, radius, shadows } from '../constants/theme';
+import LogoMark from './LogoMark';
 
 const liquidGlass = isLiquidGlassAvailable();
 
@@ -30,7 +31,7 @@ export function GlassSurface({ style, interactive, ...props }: ViewProps & { int
 interface PillProps {
   label: string;
   onPress: () => void;
-  icon?: SFSymbol;
+  icon?: SFSymbol | 'logo'; // 'logo' is the LiftText mark, used for AI actions
   variant?: 'filled' | 'glass';
   disabled?: boolean;
   loading?: boolean;
@@ -48,6 +49,8 @@ export function Pill({ label, onPress, icon, variant = 'filled', disabled, loadi
     <View style={styles.pillContent}>
       {loading ? (
         <ActivityIndicator color={fg} />
+      ) : icon === 'logo' ? (
+        <LogoMark size={small ? 15 : 19} color={fg} />
       ) : icon ? (
         <SymbolView name={icon} size={small ? 14 : 18} weight="bold" tintColor={fg} />
       ) : null}

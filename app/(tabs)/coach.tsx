@@ -13,6 +13,7 @@ import { fonts, spacing } from '../../constants/theme';
 import { getCoachingAdvice, CoachAnalysis, TRAINING_GUIDELINES, askFollowUpQuestion } from '../../services/coach';
 import { ApiError } from '../../services/claude';
 import { startOfWeek, format, addDays } from 'date-fns';
+import LogoMark from '../../components/LogoMark';
 
 // How far round the gauge each letter grade sits
 const GRADE_FILL: Record<string, number> = { 'A+': 1, A: 0.92, 'B+': 0.82, B: 0.74, C: 0.55, D: 0.35 };
@@ -206,7 +207,7 @@ export default function CoachScreen() {
           <LargeTitle title="Coach" />
           <SkyCard style={styles.empty}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.dim }]}>
-              <SymbolView name="text.bubble" size={34} tintColor={colors.sunrise} />
+              <LogoMark size={34} color={colors.sunrise} />
             </View>
             <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>
               Your coach is ready

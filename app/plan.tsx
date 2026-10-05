@@ -17,6 +17,7 @@ import Field from '../components/Field';
 import { ApiError } from '../services/claude';
 import { getPlans, planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
 import { PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
+import LogoMark from '../components/LogoMark';
 
 // ponytail: ~8 AI turns per planning session keeps one user from draining the shared daily cap
 const MAX_TURNS = 8;
@@ -183,7 +184,7 @@ export default function PlanScreen() {
                 ))}
               </View>
               <Pill
-                icon="text.bubble"
+                icon="logo"
                 label={busy ? 'Planning…' : 'Plan it for me'}
                 onPress={() => send(input)}
                 loading={busy}
@@ -217,7 +218,7 @@ export default function PlanScreen() {
 
               {!!draft.reply && (
                 <View style={styles.coachLine}>
-                  <SymbolView name="text.bubble" size={16} tintColor={colors.sunrise} />
+                  <LogoMark size={16} color={colors.sunrise} />
                   <Text variant="bodyMedium" style={[styles.flex, { color: colors.text }]}>{draft.reply}</Text>
                 </View>
               )}

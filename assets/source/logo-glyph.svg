@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="82 112 860 860" width="860" height="860">
+<!-- The app icon's bubble and barbell as a one-colour glyph (components/LogoMark.tsx draws the same shapes) -->
+<path d="M240 266 h544 a124 124 0 0 1 124 124 v190 a124 124 0 0 1 -124 124 h-300 l-132 112 a12 12 0 0 1 -20 -9 v-103 h-92 a124 124 0 0 1 -124 -124 v-190 a124 124 0 0 1 124 -124z" fill="none" stroke="currentColor" stroke-width="72" stroke-linejoin="round"/>
+<g fill="currentColor">
+  <rect x="300" y="457" width="424" height="50" rx="20"/>
+  <rect x="314" y="368" width="76" height="228" rx="30"/>
+  <rect x="398" y="404" width="52" height="156" rx="22"/>
+  <rect x="634" y="368" width="76" height="228" rx="30"/>
+  <rect x="574" y="404" width="52" height="156" rx="22"/>
+</g>
+</svg>

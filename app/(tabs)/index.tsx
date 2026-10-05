@@ -18,6 +18,7 @@ import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { templateService } from '../../services/templates';
 import { getPlans } from '../../services/planner';
 import { TrainingPlan } from '../../types/plan';
+import LogoMark from '../../components/LogoMark';
 
 // Detail is optional: names alone are a complete log, numbers are welcome
 const EXAMPLES = ['chest and back today: bench, rows, pull-ups', 'legs: squats, RDLs, lunges, felt strong', 'ran 3 miles then some core', 'squats 5x5 at 225, then lunges'];
@@ -175,7 +176,7 @@ export default function LogScreen() {
               </View>
               {todaysSchedule.note && (
                 <View style={[styles.note, { backgroundColor: colors.sunrise + '17' }]}>
-                  <SymbolView name="text.bubble" size={16} tintColor={colors.sunrise} />
+                  <LogoMark size={16} color={colors.sunrise} />
                   <Text variant="bodyMedium" style={[styles.fill, { color: colors.text }]}>{todaysSchedule.note}</Text>
                 </View>
               )}
@@ -207,7 +208,7 @@ export default function LogScreen() {
               <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
                 Tell the coach what you want and it puts the workouts on your calendar.
               </Text>
-              <Pill icon="text.bubble" label="Plan it for me" onPress={() => router.push('/plan')} />
+              <Pill icon="logo" label="Plan it for me" onPress={() => router.push('/plan')} />
             </SkyCard>
           )}
 
@@ -273,7 +274,7 @@ function ReadingCard() {
     <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut}>
       <SkyCard>
         <View style={styles.readingTop}>
-          <SymbolView name="text.bubble" size={18} tintColor={colors.sunrise} />
+          <LogoMark size={18} color={colors.sunrise} />
           <Text variant="titleMedium" style={{ color: colors.text }}>Reading your workout…</Text>
         </View>
         {[0.88, 0.72, 0.8].map(w => (
