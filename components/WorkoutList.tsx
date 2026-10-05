@@ -4,6 +4,7 @@ import { Workout } from '../types/workout';
 import WorkoutCard from './WorkoutCard';
 import SwipeableWorkoutCard from './SwipeableWorkoutCard';
 import GroupedWorkoutCard from './GroupedWorkoutCard';
+import { spacing } from '../constants/theme';
 
 interface Props {
   workouts: Workout[];
@@ -86,6 +87,6 @@ export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = tr
 
 const styles = StyleSheet.create({
   container: {
-    gap: 8,
+    gap: spacing.gap,
   },
 });

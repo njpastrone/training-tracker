@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { finalizeParse } from './parse.ts';
+import { buildCorrectionRequest, buildParseRequest, finalizeParse } from './parse.ts';
 
 test('finalizeParse falls back to the default unit when the model omits or misspells it', () => {
   const text = JSON.stringify({
@@ -38,4 +38,40 @@ test('finalizeParse keeps any past dayOffset and treats others as today', () => 
     ],
   });
   assert.deepEqual(finalizeParse(text)!.exercises.map((e) => e.dayOffset), [-21, -1, undefined, undefined]);
+});
+
+test('finalizeParse keeps valid unsure fields and renumbers them past dropped exercises', () => {
+  const text = JSON.stringify({
+    exercises: [{ name: '' }, { name: 'Lat Pulldown', sets: 3, reps: 10, weight: 100 }, { name: 'Squat', weight: 225 }],
+    unsure: [
+      { exercise: 1, field: 'weight' },
+      { exercise: 2, field: 'sets' },
+      { exercise: 0, field: 'name' }, // dropped exercise
+      { exercise: 2, field: 'unit' }, // not a field the app highlights
+      { exercise: 9, field: 'reps' },
+      'weight',
+    ],
+  });
+  assert.deepEqual(finalizeParse(text)!.unsure, [{ exercise: 0, field: 'weight' }, { exercise: 1, field: 'sets' }]);
+  assert.deepEqual(finalizeParse(JSON.stringify({ exercises: [{ name: 'Squat' }] }))!.unsure, []);
+});
+
+test('buildCorrectionRequest sends the draft with nulls and without app-only fields', () => {
+  const draft = {
+    exercises: [{ name: 'Running', muscleGroup: 'cardio' as const, distance: 5, distanceUnit: 'km' as const, dayOffset: -1 }],
+    muscleGroups: ['cardio' as const],
+    confidence: 0.4,
+    unsure: [{ exercise: 0, field: 'distance' as const }],
+  };
+  const req = buildCorrectionRequest(draft, 'it was 6k', { date: '2026-10-03', unit: 'kg' });
+  const content = req.messages[0].content;
+  const sentDraft = JSON.parse(content.slice(content.indexOf('<draft>') + 7, content.indexOf('</draft>')));
+  assert.deepEqual(sentDraft, {
+    exercises: [{ name: 'Running', muscleGroup: 'cardio', sets: null, reps: null, weight: null, unit: null, duration: null, distance: 5, distanceUnit: 'km', dayOffset: -1, notes: null }],
+    muscleGroups: ['cardio'],
+    notes: null,
+  });
+  assert.match(content, /^Logging date: Saturday 2026-10-03[\s\S]*Default weight unit: kg\n<draft>/);
+  assert.match(content, /<fix>it was 6k<\/fix>$/);
+  assert.equal(req.model, buildParseRequest('x', { date: '2026-10-03', unit: 'kg' }).model);
 });

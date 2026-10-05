@@ -1,11 +1,12 @@
-import { Alert, View, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Swipeable } from 'react-native-gesture-handler';
-import { Text, IconButton } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { SymbolView } from 'expo-symbols';
 import WorkoutCard from './WorkoutCard';
 import { Workout } from '../types/workout';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing } from '../constants/theme';
+import { radius } from '../constants/theme';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -66,29 +67,19 @@ export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
 
   const renderLeftActions = () => {
     return (
-      <View style={[styles.leftAction, { backgroundColor: colors.success }]}>
-        <IconButton
-          icon="content-copy"
-          size={24}
-          iconColor="white"
-          onPress={handleDuplicate}
-        />
-        <Text style={styles.actionText}>Duplicate</Text>
-      </View>
+      <Pressable onPress={handleDuplicate} accessibilityRole="button" style={[styles.leftAction, { backgroundColor: colors.mint }]}>
+        <SymbolView name="plus.square.on.square" size={22} tintColor={colors.onSunrise} />
+        <Text style={[styles.actionText, { color: colors.onSunrise }]}>Duplicate</Text>
+      </Pressable>
     );
   };
 
   const renderRightActions = () => {
     return (
-      <View style={[styles.rightAction, { backgroundColor: colors.error }]}>
-        <IconButton
-          icon="delete"
-          size={24}
-          iconColor="white"
-          onPress={handleDelete}
-        />
-        <Text style={styles.actionText}>Delete</Text>
-      </View>
+      <Pressable onPress={handleDelete} accessibilityRole="button" style={[styles.rightAction, { backgroundColor: colors.error }]}>
+        <SymbolView name="trash" size={22} tintColor={colors.onSunrise} />
+        <Text style={[styles.actionText, { color: colors.onSunrise }]}>Delete</Text>
+      </Pressable>
     );
   };
 
@@ -112,23 +103,21 @@ const styles = StyleSheet.create({
   leftAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 100,
-    marginBottom: spacing.sm,
-    borderRadius: 12,
-    marginRight: -spacing.xs,
+    gap: 4,
+    width: 96,
+    borderRadius: radius.card,
+    marginRight: 8,
   },
   rightAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 100,
-    marginBottom: spacing.sm,
-    borderRadius: 12,
-    marginLeft: -spacing.xs,
+    gap: 4,
+    width: 96,
+    borderRadius: radius.card,
+    marginLeft: 8,
   },
   actionText: {
-    color: 'white',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    marginTop: -8,
   },
 });

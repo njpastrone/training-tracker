@@ -24,7 +24,16 @@ function AppContent() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="plan" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="plan"
+          options={{
+            headerShown: false,
+            presentation: 'formSheet',
+            sheetAllowedDetents: [1],
+            sheetGrabberVisible: true,
+            contentStyle: { backgroundColor: colors.surface },
+          }}
+        />
       </Stack>
     </PaperProvider>
   );

@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
-import { Text, Surface, TextInput, Button, IconButton, Chip, Icon, HelperText } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { format, parseISO, subDays } from 'date-fns';
+import { SymbolView } from 'expo-symbols';
+import * as Haptics from 'expo-haptics';
+import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing } from '../constants/theme';
+import { fonts, muscleGroupColors, spacing } from '../constants/theme';
+import { SectionLabel } from '../components/Sky';
+import { Pill } from '../components/Glass';
+import { UserBubble } from '../components/Chat';
+import { FixBox } from '../components/ParsedCard';
+import Field from '../components/Field';
 import { ApiError } from '../services/claude';
 import { getPlans, planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
 import { PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
@@ -65,12 +72,13 @@ export default function PlanScreen() {
   const preview = draft ? previewPlan(draft.plan, schedule) : null;
   const unit = settings.weightUnit === 'kg' ? 'kg' : 'lb';
 
+  // Returns whether the plan was updated
   const send = async (text: string) => {
     const message = text.trim();
-    if (!message || busy) return;
+    if (!message || busy) return false;
     if (turns >= MAX_TURNS) {
       setError('Start a new plan to keep going.');
-      return;
+      return false;
     }
     setBusy(true);
     setError(null);
@@ -79,15 +87,17 @@ export default function PlanScreen() {
       const result = await planWorkouts(message, draft?.plan ?? null, history, messages);
       if (!result) {
         setError(RETRY_MESSAGE);
-        return;
+        return false;
       }
       setPrevious(draft);
       setDraft(result);
       setMessages([...messages, message]);
       setInput('');
       setExpanded(result.plan.sessions[0].date);
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : RETRY_MESSAGE);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -114,6 +124,7 @@ export default function PlanScreen() {
     try {
       const plan = await savePlan(draft.plan, messages[0], settings.weightUnit);
       await Promise.all([loadSchedule(), loadTemplates()]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.navigate({ pathname: '/(tabs)/history', params: { planId: plan.id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save the plan.');
@@ -131,207 +142,179 @@ export default function PlanScreen() {
 
   const tags = draft ? draft.plan.sessions.map(s => rowTag(s, draft.plan, previous?.plan ?? null)) : [];
   const changedCount = previous ? tags.filter(Boolean).length : 0;
-  const tagColor = (tag: string) => (tag === 'suggested' ? colors.textSecondary : tag === 'yours' ? colors.secondary : colors.primary);
+  const tagColor = (tag: string) => (tag === 'suggested' ? colors.textSecondary : tag === 'yours' ? colors.cobalt : colors.sunrise);
+  // The first week as a strip of seven days, planned days filled
+  const weekStart = draft ? startOfWeek(parseISO(draft.plan.sessions[0].date), { weekStartsOn: 1 }) : null;
+  const plannedDates = new Set(draft?.plan.sessions.map(s => s.date));
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    // Presented as a form sheet (app/_layout.tsx); the grabber replaces a header
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surface }]} edges={['bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-        <View style={styles.titleRow}>
-          <IconButton icon="arrow-left" size={24} onPress={() => router.back()} style={styles.backButton} />
-          <Text variant="headlineSmall" style={[styles.title, { color: colors.text }]}>Plan</Text>
-          {draft && (
-            <Text variant="bodyMedium" numberOfLines={1} style={[styles.subtitle, { color: colors.textSecondary }]}>
-              {draft.plan.name}
-            </Text>
+        <View style={styles.sheetHead}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Close" style={[styles.round, { backgroundColor: colors.dim }]}>
+            <SymbolView name="xmark" size={14} weight="semibold" tintColor={colors.textSecondary} />
+          </Pressable>
+          <Text variant="titleMedium" style={{ color: colors.text }}>Plan</Text>
+          {draft ? (
+            <Pressable onPress={startOver} accessibilityRole="button" hitSlop={8}>
+              <Text variant="labelLarge" style={{ color: colors.sunrise }}>Start over</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.round} />
           )}
-          {draft && <Button compact onPress={startOver} textColor={colors.textSecondary}>Start over</Button>}
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           {!draft ? (
             <>
-              <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
-                <Text variant="titleMedium" style={[styles.cardTitle, { color: colors.text }]}>
-                  What should we plan?
-                </Text>
-                <TextInput
-                  mode="outlined"
-                  placeholder="e.g., Get me back in the gym this week"
-                  value={input}
-                  onChangeText={setInput}
-                  multiline
-                  style={{ backgroundColor: colors.background }}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  disabled={busy}
-                />
-                <View style={styles.chipRow}>
-                  {STARTERS.map(label => (
-                    <Chip key={label} compact mode="outlined" onPress={() => send(label)} disabled={busy}>
-                      {label}
-                    </Chip>
-                  ))}
-                </View>
-                <Button
-                  mode="contained"
-                  icon="creation"
-                  onPress={() => send(input)}
-                  loading={busy}
-                  disabled={busy || !input.trim()}
-                  contentStyle={styles.buttonContent}
-                >
-                  {busy ? 'Planning...' : 'Plan it for me'}
-                </Button>
-              </Surface>
-              <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
-                <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{context}</Text>
-              </Surface>
+              <Text style={[styles.bigTitle, { color: colors.text }]}>What should we plan?</Text>
+              <Field
+                placeholder="e.g., Get me back in the gym this week"
+                value={input}
+                onChangeText={setInput}
+                multiline
+                editable={!busy}
+                accessibilityLabel="What should we plan?"
+              />
+              <View style={styles.chipRow}>
+                {STARTERS.map(label => (
+                  <Pill key={label} variant="glass" size="small" label={label} onPress={() => send(label)} disabled={busy} />
+                ))}
+              </View>
+              <Pill
+                icon="sparkles"
+                label={busy ? 'Planning…' : 'Plan it for me'}
+                onPress={() => send(input)}
+                loading={busy}
+                disabled={!input.trim()}
+              />
+              <Text variant="bodySmall" style={[styles.context, { color: colors.textTertiary }]}>{context}</Text>
             </>
           ) : (
             <>
-              <Text variant="bodySmall" style={[styles.lastAsk, { color: colors.textSecondary }]}>
-                You: {messages[messages.length - 1]}
+              <UserBubble text={messages[messages.length - 1]} />
+              <Text style={[styles.bigTitle, styles.planTitle, { color: colors.text }]}>{draft.plan.name}</Text>
+              <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+                {dateRange(draft.plan)} · {draft.plan.sessions.length} workout{draft.plan.sessions.length === 1 ? '' : 's'}
               </Text>
-              <Surface style={[styles.card, { backgroundColor: colors.surface }]} elevation={1}>
-                <View style={styles.cardHeader}>
-                  <Text variant="titleMedium" style={[styles.cardTitleInline, { color: colors.text }]}>
-                    {draft.plan.name}
-                  </Text>
-                  <Chip compact style={styles.compactChip} textStyle={styles.compactChipText}>
-                    {dateRange(draft.plan)}
-                  </Chip>
+
+              {weekStart && (
+                <View style={styles.week}>
+                  {Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)).map(d => {
+                    const on = plannedDates.has(format(d, 'yyyy-MM-dd'));
+                    return (
+                      <View key={d.toISOString()} style={styles.weekDay} accessible accessibilityLabel={`${format(d, 'EEEE')}${on ? ', workout' : ''}`}>
+                        <View style={[styles.weekDot, on ? { backgroundColor: colors.cobalt } : { borderWidth: 1.5, borderColor: colors.dim }]}>
+                          <Text style={[styles.weekLetter, { color: on ? colors.onSunrise : colors.textTertiary }]}>{format(d, 'EEEEE')}</Text>
+                        </View>
+                        <Text style={[styles.weekNumber, { color: colors.textTertiary }]}>{format(d, 'd')}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
-                {!!draft.reply && (
-                  <View style={[styles.coachLine, { backgroundColor: colors.primary + '15' }]}>
-                    <Icon source="lightbulb-outline" size={16} color={colors.primary} />
-                    <Text variant="bodySmall" style={[styles.flex, { color: colors.text }]}>{draft.reply}</Text>
-                  </View>
-                )}
+              )}
 
-                {draft.plan.sessions.map((session, i) => {
-                  const day = draft.plan.days[session.day];
-                  const isOpen = expanded === session.date;
-                  const groups = [...new Set(day.exercises.map(e => e.muscleGroup))].slice(0, 3).join(', ');
-                  const tag = tags[i];
-                  return (
-                    <View key={session.date} style={[styles.dayRow, { borderTopColor: colors.border }]}>
-                      <TouchableOpacity
-                        style={styles.dayHeader}
-                        onPress={() => setExpanded(isOpen ? null : session.date)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${day.name} on ${format(parseISO(session.date), 'EEEE MMMM d')}`}
-                      >
-                        <View style={styles.dow}>
-                          <Text variant="bodyMedium" style={{ color: colors.text, fontWeight: '600' }}>
-                            {format(parseISO(session.date), 'EEE')}
-                          </Text>
-                          <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
-                            {format(parseISO(session.date), 'd')}
-                          </Text>
-                        </View>
-                        <View style={styles.flex}>
-                          <View style={styles.nameRow}>
-                            <Text variant="bodyLarge" style={{ color: colors.text, fontWeight: '600' }}>{day.name}</Text>
-                            {tag && (
-                              <Text style={[styles.tag, { color: tagColor(tag), borderColor: tagColor(tag) }]}>{tag}</Text>
-                            )}
-                          </View>
-                          <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
-                            {day.exercises.length} exercises · {groups}
-                          </Text>
-                        </View>
-                        <Icon source={isOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                      {isOpen && (
-                        <View style={styles.exerciseList}>
-                          {session.note && (
-                            <Text variant="bodySmall" style={[styles.note, { color: colors.primary }]}>{session.note}</Text>
+              {!!draft.reply && (
+                <View style={styles.coachLine}>
+                  <SymbolView name="sparkles" size={16} tintColor={colors.sunrise} />
+                  <Text variant="bodyMedium" style={[styles.flex, { color: colors.text }]}>{draft.reply}</Text>
+                </View>
+              )}
+
+              {draft.plan.sessions.map((session, i) => {
+                const day = draft.plan.days[session.day];
+                const isOpen = expanded === session.date;
+                const groups = [...new Set(day.exercises.map(e => e.muscleGroup))].slice(0, 3).join(', ');
+                const tag = tags[i];
+                return (
+                  <View key={session.date} style={[styles.dayRow, { borderTopColor: colors.dim }]}>
+                    <Pressable
+                      style={styles.dayHeader}
+                      onPress={() => setExpanded(isOpen ? null : session.date)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: isOpen }}
+                      accessibilityLabel={`${day.name} on ${format(parseISO(session.date), 'EEEE MMMM d')}`}
+                    >
+                      <View style={styles.dow}>
+                        <Text style={[styles.dowName, { color: colors.textTertiary }]}>{format(parseISO(session.date), 'EEE')}</Text>
+                        <Text style={[styles.dowNumber, { color: colors.text }]}>{format(parseISO(session.date), 'd')}</Text>
+                      </View>
+                      <View style={styles.flex}>
+                        <View style={styles.nameRow}>
+                          <Text variant="bodyLarge" style={{ color: colors.text, fontWeight: '600' }}>{day.name}</Text>
+                          {tag && (
+                            <Text style={[styles.tag, { color: tagColor(tag), backgroundColor: tagColor(tag) + '1A' }]}>{tag}</Text>
                           )}
-                          {day.exercises.map((e, j) => (
-                            <View key={j} style={styles.exerciseRow}>
-                              <Text variant="bodyMedium" style={[styles.flex, { color: colors.text }]}>{e.name}</Text>
-                              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
-                                {e.sets}×{e.reps}{e.weight ? ` · ${e.weight} ${unit}` : ''}
-                              </Text>
-                            </View>
-                          ))}
                         </View>
-                      )}
-                    </View>
-                  );
-                })}
-
-                {draft.plan.repeatWeeks > 1 && (
-                  <Text variant="bodySmall" style={[styles.meta, { color: colors.textSecondary }]}>
-                    Repeats every week for {draft.plan.repeatWeeks} weeks
-                  </Text>
-                )}
-                {previous && (
-                  <View style={styles.undoRow}>
-                    <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
-                      Changed {changedCount} day{changedCount === 1 ? '' : 's'}
-                    </Text>
-                    <Button compact onPress={undoTweak}>Undo</Button>
+                        <Text variant="bodySmall" style={{ color: colors.textTertiary }}>
+                          {day.exercises.length} exercises · {groups}
+                        </Text>
+                      </View>
+                      <SymbolView name={isOpen ? 'chevron.up' : 'chevron.down'} size={13} weight="semibold" tintColor={colors.textTertiary} />
+                    </Pressable>
+                    {isOpen && (
+                      <View style={styles.exerciseList}>
+                        {session.note && (
+                          <Text variant="bodySmall" style={[styles.note, { color: colors.sunrise }]}>{session.note}</Text>
+                        )}
+                        {day.exercises.map((e, j) => (
+                          <View key={j} style={styles.exerciseRow}>
+                            <View style={[styles.dot, { backgroundColor: muscleGroupColors[e.muscleGroup] }]} />
+                            <Text variant="bodyMedium" style={[styles.flex, { color: colors.text }]}>{e.name}</Text>
+                            <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
+                              {e.sets} × {e.reps}{e.weight ? ` · ${e.weight} ${unit}` : ''}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
-                )}
-              </Surface>
+                );
+              })}
 
-              <View style={styles.tweakLabel}>
-                <Icon source="lightbulb-outline" size={16} color={colors.primary} />
-                <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Tweak it</Text>
-              </View>
+              {draft.plan.repeatWeeks > 1 && (
+                <Text variant="bodySmall" style={[styles.meta, { color: colors.textSecondary }]}>
+                  Repeats every week for {draft.plan.repeatWeeks} weeks
+                </Text>
+              )}
+              {previous && (
+                <View style={styles.undoRow}>
+                  <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
+                    Changed {changedCount} day{changedCount === 1 ? '' : 's'}
+                  </Text>
+                  <Pill variant="glass" size="small" icon="arrow.uturn.backward" label="Undo" onPress={undoTweak} />
+                </View>
+              )}
+
+              <SectionLabel style={styles.tweakLabel}>Tweak it</SectionLabel>
               <View style={styles.chipRow}>
                 {(draft.chips.length ? draft.chips : DEFAULT_TWEAKS).map(label => (
-                  <Chip key={label} compact mode="outlined" onPress={() => send(label)} disabled={busy}>
-                    {label}
-                  </Chip>
+                  <Pill key={label} variant="glass" size="small" label={label} onPress={() => send(label)} disabled={busy} />
                 ))}
               </View>
-              <View style={styles.sendRow}>
-                <TextInput
-                  mode="outlined"
-                  placeholder="Or tell me what to change…"
-                  value={input}
-                  onChangeText={setInput}
-                  dense
-                  style={[styles.flex, { backgroundColor: colors.background }]}
-                  outlineColor={colors.border}
-                  activeOutlineColor={colors.primary}
-                  disabled={busy}
-                  onSubmitEditing={() => send(input)}
-                />
-                <IconButton
-                  icon="send"
-                  mode="contained"
-                  containerColor={colors.primary}
-                  iconColor="#FFFFFF"
-                  onPress={() => send(input)}
-                  disabled={busy || !input.trim()}
-                  loading={busy}
-                  accessibilityLabel="Send"
-                />
-              </View>
+              <FixBox onFix={send} busy={busy} disabled={busy} placeholder="Or tell me what to change…" />
             </>
           )}
-          {error && <HelperText type="error" visible>{error}</HelperText>}
+          {error && (
+            <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">{error}</Text>
+          )}
         </ScrollView>
 
         {draft && preview && (
-          <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+          <View style={styles.footer}>
             {preview.replaced > 0 && (
               <Text variant="bodySmall" style={[styles.replaced, { color: colors.textSecondary }]}>
                 Replaces {preview.replaced} scheduled workout{preview.replaced === 1 ? '' : 's'}
               </Text>
             )}
-            <Button
-              mode="contained"
+            <Pill
+              icon="calendar.badge.plus"
+              label={`Plan it · ${preview.sessions.length} workout${preview.sessions.length === 1 ? '' : 's'}`}
               onPress={planIt}
               loading={saving}
-              disabled={saving || busy || preview.sessions.length === 0}
-              contentStyle={styles.buttonContent}
-            >
-              Plan it · {preview.sessions.length} workout{preview.sessions.length === 1 ? '' : 's'}
-            </Button>
+              disabled={busy || preview.sessions.length === 0}
+            />
           </View>
         )}
       </KeyboardAvoidingView>
@@ -346,83 +329,98 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  backButton: {
-    marginLeft: -8,
-  },
-  title: {
-    fontWeight: '600',
-  },
-  subtitle: {
-    flex: 1,
-    marginLeft: spacing.xs,
-  },
-  scrollContent: {
-    padding: spacing.md,
-  },
-  card: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    fontWeight: '600',
-    marginBottom: spacing.md,
-  },
-  cardHeader: {
+  sheetHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  cardTitleInline: {
-    fontWeight: '600',
-    flex: 1,
+  round: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  compactChip: {
-    height: 24,
+  scrollContent: {
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.lg,
   },
-  compactChipText: {
-    fontSize: 11,
+  bigTitle: {
+    fontFamily: fonts.rounded,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '900',
+    marginBottom: spacing.gap,
+  },
+  planTitle: {
+    marginBottom: 2,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginVertical: spacing.md,
+    gap: 6,
+    marginVertical: spacing.gap,
   },
-  buttonContent: {
-    paddingVertical: spacing.xs,
+  context: {
+    marginTop: spacing.md,
   },
-  lastAsk: {
-    marginBottom: spacing.sm,
+  week: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: spacing.gap,
+  },
+  weekDay: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  weekDot: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekLetter: {
+    fontFamily: fonts.rounded,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  weekNumber: {
+    fontFamily: fonts.rounded,
+    fontSize: 11,
+    fontWeight: '600',
   },
   coachLine: {
     flexDirection: 'row',
     gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 8,
     marginBottom: spacing.sm,
   },
   dayRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
   },
   dayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 48,
+    gap: spacing.sm,
+    paddingVertical: 10,
+    minHeight: 52,
   },
   dow: {
-    width: 36,
+    width: 44,
     alignItems: 'center',
+  },
+  dowName: {
+    fontFamily: fonts.rounded,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  dowNumber: {
+    fontFamily: fonts.rounded,
+    fontSize: 18,
+    fontWeight: '800',
   },
   nameRow: {
     flexDirection: 'row',
@@ -430,22 +428,27 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   tag: {
-    fontSize: 10,
+    fontSize: 11.5,
     fontWeight: '600',
-    textTransform: 'uppercase',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 4,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   exerciseList: {
-    paddingLeft: 36 + spacing.md,
+    paddingLeft: 44 + spacing.sm,
     paddingBottom: spacing.sm,
-    gap: spacing.xs,
+    gap: 6,
   },
   exerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   note: {
     fontWeight: '500',
@@ -460,18 +463,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   tweakLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+    marginTop: spacing.lg,
   },
-  sendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  error: {
+    marginTop: spacing.sm,
   },
   footer: {
-    padding: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   replaced: {
     textAlign: 'center',
