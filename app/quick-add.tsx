@@ -40,6 +40,7 @@ export default function QuickAddScreen() {
               onFix={log.fix}
               busy={log.busy}
               error={log.error}
+              reply={log.reply}
             />
           ) : (
             <>

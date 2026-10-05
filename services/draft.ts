@@ -55,6 +55,16 @@ export function keepIdentity(before: Draft, after: Draft, returnedNames: string[
   return { ...after, exercises, unsure };
 }
 
+// What the fix box says when a fix came back with no change and no answer
+export const NOTHING_CHANGED = "I didn't change anything. Tell me what to fix.";
+
+// Same workout, ignoring row ids and identity bookkeeping: did a typed fix change anything?
+export function sameDraft(a: Pick<Draft, 'exercises' | 'notes'>, b: Pick<Draft, 'exercises' | 'notes'>): boolean {
+  const fields = ['name', 'exerciseId', 'muscleGroup', 'sets', 'reps', 'weight', 'unit', 'duration', 'distance', 'distanceUnit', 'dayOffset', 'notes'] as const;
+  return (a.notes ?? '') === (b.notes ?? '') && a.exercises.length === b.exercises.length &&
+    a.exercises.every((e, i) => fields.every(f => e[f] === b.exercises[i][f]));
+}
+
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
   'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
 const MULTIPLES: Record<string, number> = { double: 2, triple: 3 };

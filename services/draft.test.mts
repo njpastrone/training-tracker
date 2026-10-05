@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { editDraft, removeFromDraft, flagGuesses, keepIdentity } from './draft';
+import { editDraft, removeFromDraft, flagGuesses, keepIdentity, sameDraft } from './draft';
 import type { ParsedWorkoutResponse } from '../types/workout';
 import { finalizeWithNames } from '../server/src/parse';
 
@@ -206,4 +206,16 @@ test('with exercise identity, its unsure verdict decides the name flag', () => {
     { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, match: 'sure' },
   ] as ParsedWorkoutResponse['exercises']);
   assert.deepEqual(flagGuesses(p, 'chins 3x8, flat bb 3x8').unsure, [{ exercise: 0, field: 'name' }]);
+});
+
+test('a fix that changed nothing is spotted, so the fix box never stays silent', () => {
+  const before: ParsedWorkoutResponse = { exercises: [{ name: 'Pec Deck', exerciseId: 'pec-deck', match: 'sure', said: 'machine flys', muscleGroup: 'chest', sets: 3, reps: 10 }], muscleGroups: ['chest'], confidence: 0.9 };
+  const echoed = { ...before, exercises: [{ muscleGroup: 'chest' as const, name: 'Pec Deck', reps: 10, sets: 3, exerciseId: 'pec-deck', match: 'unsure' as const }], unsure: [] };
+  assert.equal(sameDraft(before, echoed), true);
+  assert.equal(sameDraft(before, editDraft(before, 0, 'reps', 12)), false);
+  assert.equal(sameDraft(before, { ...before, notes: 'PR' }), false);
+  assert.equal(sameDraft(before, removeFromDraft(before, 0)), false);
+  // A saved workout with older groups: the server re-derives them, which alone is no change
+  const legacy: ParsedWorkoutResponse = { ...before, muscleGroups: ['chest', 'triceps'] };
+  assert.equal(sameDraft(legacy, echoed), true);
 });

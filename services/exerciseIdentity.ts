@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { AMBIGUOUS_WORDS, CATALOG, LEGACY_NAMES, catalogById, exerciseKey, normalizeWords } from '../data/catalog';
-import { aliasFor, type Candidate } from '../server/src/identity';
+import { aliasFor, exerciseWords, fitsPrompt, saidInLog, type Candidate } from '../server/src/identity';
 import type { CustomExercise, Exercise, ExerciseLibrary, MuscleGroup, Workout } from '../types/workout';
 
 export const emptyLibrary = (): ExerciseLibrary => ({ custom: [], renames: {}, aliases: {}, merged: {} });
@@ -208,4 +208,39 @@ export function yourExercises(workouts: Workout[], library: ExerciseLibrary): Om
     }
   }
   return [...seen.values()];
+}
+
+export const sentenceCase = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
+
+// Offer to call a catalog exercise by the user's words only when they typed them, it isn't
+// already called that, and the words don't mean another exercise
+export function offersName(words: string, exerciseId: string, fix: string, library: ExerciseLibrary) {
+  const id = resolveId(exerciseId, library);
+  const known = knownIdFor(words, library);
+  return catalogById.has(id) && fitsPrompt(words) && saidInLog(words, fix) &&
+    (known ? known === id : !ambiguousKeys.has(exerciseKey(words))) &&
+    exerciseKey(words) !== exerciseKey(displayName(id, library) ?? '');
+}
+
+// "Call it 'Machine flys' from now on": the words become its display name and an alias, so later
+// logs pick it by those words and cards show them
+export function rememberName(library: ExerciseLibrary, exerciseId: string, words: string): ExerciseLibrary {
+  const id = resolveId(exerciseId, library);
+  return {
+    ...library,
+    renames: { ...library.renames, [id]: sentenceCase(words.trim()) },
+    aliases: { ...library.aliases, [normalizeWords(words)]: id },
+  };
+}
+
+// How an exercise reads on a card: the user's own name for it when they have one (a remembered name,
+// or the words they logged that their aliases map to it), with the catalog name as secondary when it
+// differs. Otherwise the name it was logged under.
+export function shownName(e: Pick<Exercise, 'name' | 'exerciseId' | 'said'>, library: ExerciseLibrary): { name: string; catalog?: string } {
+  const id = e.exerciseId && resolveId(e.exerciseId, library);
+  const entry = id ? catalogById.get(id) : undefined;
+  const said = e.said ? exerciseWords(e.said) : '';
+  const own = id && (library.renames[id] ?? (said && aliasFor(said, library.aliases) === id ? sentenceCase(said) : undefined));
+  if (!entry || !own) return { name: e.name };
+  return { name: own, ...(exerciseKey(own) !== exerciseKey(entry.name) ? { catalog: entry.name } : {}) };
 }

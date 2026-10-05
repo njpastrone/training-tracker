@@ -5,7 +5,7 @@ import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildCandidates } from '../server/src/identity';
-import { yourExercises } from './exerciseIdentity';
+import { offersName, yourExercises } from './exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
@@ -65,10 +65,19 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
   }
 }
 
-// Applies a typed fix ("actually 3x10, not 3x8") to the draft under review and returns the whole
-// updated draft, or null when the reply is unusable. Workers without correction mode parse `input`,
-// the draft written back as a log plus the fix; Workers older than parse mode send system/messages.
-export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, options: ParseOptions): Promise<ParsedWorkoutResponse | null> {
+// What a typed fix came back with: the whole updated draft, the answer when the fix asked a question,
+// and the user's own words for an exercise when the question showed they call it something else
+export interface Correction {
+  draft: ParsedWorkoutResponse;
+  reply?: string;
+  callIt?: { exerciseId: string; words: string };
+}
+
+// Applies a typed fix ("actually 3x10, not 3x8") or answers a question about the draft ("is pec deck
+// machine flys?"), or null when the reply is unusable. A question alone keeps the draft as it was.
+// Workers without correction mode parse `input`, the draft written back as a log plus the fix;
+// Workers older than parse mode send system/messages. Neither replies.
+export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, options: ParseOptions): Promise<Correction | null> {
   const input = `${draftToText(draft.exercises, draft.notes)}\nCorrection: ${fix}`;
   try {
     // The model picks from the exercises the draft and the fix name, as in a parse
@@ -78,7 +87,12 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
     const req = buildCorrectionRequest(draft, fix, { ...options, exercises });
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises, draft, fix });
     const updated = finalizeWithNames(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
-    return updated && keepIdentity(draft, updated.parsed, updated.names);
+    if (!updated) return null;
+    const { reply, callIt } = updated;
+    // A question can come back as "not a workout"; it never empties the draft
+    const next = reply && updated.parsed.exercises.length === 0 ? draft : keepIdentity(draft, updated.parsed, updated.names);
+    const exerciseId = callIt && next.exercises[callIt.exercise]?.exerciseId;
+    return { draft: next, reply, ...(exerciseId && offersName(callIt.words, exerciseId, fix, exerciseLibrary) ? { callIt: { exerciseId, words: callIt.words } } : {}) };
   } catch (error) {
     if (error instanceof ApiError) throw error;
     console.error('Error correcting workout:', error);

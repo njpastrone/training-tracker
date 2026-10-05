@@ -158,3 +158,30 @@ test('a template made from a workout keeps an unsure match unsure', async () => 
   assert.equal(logged.exerciseId, workout.exercises[0].exerciseId);
   assert.equal(logged.match, 'unsure');
 });
+
+test('"Call it Machine flys" names a catalog exercise in the user\'s words and cards show both', async () => {
+  const { rememberName, shownName, offersName, yourExercises } = await import('./exerciseIdentity');
+  const fix = "is pec deck machine flys? i've never heard it called that";
+  assert.equal(offersName('machine flys', 'pec-deck', fix, emptyLibrary()), true);
+  assert.equal(offersName('butterfly', 'pec-deck', fix, emptyLibrary()), false); // not in the fix
+  assert.equal(offersName('pec deck', 'pec-deck', fix, emptyLibrary()), false); // already its name
+  assert.equal(offersName('machine flys', 'custom-1', fix, emptyLibrary()), false); // not a catalog exercise
+  const other = 'is pec deck the same as a cable fly? or a chest fly?';
+  assert.equal(offersName('cable fly', 'pec-deck', other, emptyLibrary()), false); // names another exercise
+  assert.equal(offersName('chest fly', 'pec-deck', other, emptyLibrary()), false); // could mean another exercise
+
+  const lib = rememberName(emptyLibrary(), 'pec-deck', 'machine flys');
+  assert.equal(lib.renames['pec-deck'], 'Machine flys');
+  assert.equal(lib.aliases['machine flys'], 'pec-deck');
+  assert.equal(offersName('machine flys', 'pec-deck', fix, lib), false); // already called that
+
+  // Logged before the rename, logged under the alias, and an exercise with no name of its own
+  assert.deepEqual(shownName({ name: 'Pec Deck', exerciseId: 'pec-deck' }, lib), { name: 'Machine flys', catalog: 'Pec Deck' });
+  const aliasOnly = { ...emptyLibrary(), aliases: { 'bb bench': 'bench-press' } };
+  assert.deepEqual(shownName({ name: 'Bench Press', exerciseId: 'bench-press', said: 'BB bench 3x5' }, aliasOnly), { name: 'Bb bench', catalog: 'Bench Press' });
+  assert.deepEqual(shownName({ name: 'Bench Press', exerciseId: 'bench-press', said: 'bench' }, lib), { name: 'Bench Press' });
+
+  // The parser's candidate list now offers it by the user's words
+  const workouts = [{ id: 'w', date: '2026-10-03', rawInput: '', muscleGroups: ['chest' as const], createdAt: 't', exercises: [ex('e', 'Pec Deck', { exerciseId: 'pec-deck', match: 'sure' })] }];
+  assert.deepEqual(yourExercises(workouts, lib)[0], { id: 'pec-deck', name: 'Machine flys', muscleGroup: 'chest', also: ['machine flys'], family: 'fly' });
+});

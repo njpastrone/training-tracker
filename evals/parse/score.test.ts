@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { scoreCase } from './score.ts';
+import { scoreCase, scoreReply } from './score.ts';
 import type { Case } from './cases.ts';
 
 const c: Case = {
@@ -41,4 +41,14 @@ test('non-workouts pass only with no exercises', () => {
   const none: Case = { id: 'n', category: 'n', input: '', exercises: [] };
   assert.equal(scoreCase(none, { exercises: [], muscleGroups: [] }).score, 1);
   assert.equal(scoreCase(none, right()).score, 0);
+});
+
+test('a correction reply scores an answer only for questions and the name offer only when shown', () => {
+  const exercises = [{ name: 'Bench Press' }, { name: 'Pec Deck' }];
+  const want = { reply: true, callIt: { exercise: 'Pec Deck', words: 'machine flys' } };
+  assert.equal(scoreReply(want, { reply: 'Yes, same exercise.', callIt: { exercise: 1, words: 'Machine flys' }, exercises }).points, 2);
+  assert.equal(scoreReply(want, { reply: 'Yes.', callIt: { exercise: 0, words: 'machine flys' }, exercises }).points, 1);
+  assert.equal(scoreReply({}, { reply: 'Done!', exercises }).points, 1);
+  assert.equal(scoreReply({}, { exercises }).points, 2);
+  assert.equal(scoreReply(want, null).points, 0);
 });

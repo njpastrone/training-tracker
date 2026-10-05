@@ -8,6 +8,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { fonts, muscleGroupColors, spacing } from '../constants/theme';
 import { workoutSummary } from '../services/format';
 import { editDraft, removeFromDraft } from '../services/draft';
+import { sentenceCase, shownName } from '../services/exerciseIdentity';
+import { useWorkoutStore } from '../stores/workoutStore';
 import { ParsedWorkoutResponse, UnsureField } from '../types/workout';
 import { SkyCard } from './Sky';
 import { Pill } from './Glass';
@@ -26,12 +28,14 @@ interface Props {
   onFix: (fix: string) => Promise<boolean>;
   busy: 'parse' | 'fix' | 'save' | null;
   error?: string | null;
+  reply?: FixReplyState | null;
 }
 
 // The parsed workout, reviewed before anything is saved: tap a number to change it, type a fix, Save.
 // Values the parse guessed or a typed fix left uncertain are highlighted; a low parse confidence shows a banner.
-export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error }: Props) {
+export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error, reply }: Props) {
   const { colors } = useTheme();
+  const library = useWorkoutStore(s => s.exerciseLibrary);
   const unsure = draft.unsure ?? [];
   const isUnsure = (exercise: number, field: UnsureField['field']) => unsure.some(u => u.exercise === exercise && u.field === field);
   const lowConfidence = draft.confidence < 0.6;
@@ -75,13 +79,15 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
           </View>
         )}
 
-        {draft.exercises.map((e, i) => (
+        {draft.exercises.map((e, i) => {
+          const shown = shownName(e, library);
+          return (
           <View key={i} style={[styles.row, { borderTopColor: colors.dim }]}>
             <View style={[styles.dot, { backgroundColor: muscleGroupColors[e.muscleGroup] }]} />
             <View style={styles.flex}>
               <View style={styles.nameRow}>
                 <TextInput
-                  value={e.name}
+                  value={shown.name}
                   onChangeText={name => update(i, 'name', name)}
                   accessibilityLabel="Exercise name"
                   style={[
@@ -90,6 +96,9 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
                     isUnsure(i, 'name') && [styles.unsure, { backgroundColor: colors.warning + '22', borderColor: colors.warning }],
                   ]}
                 />
+                {shown.catalog ? (
+                  <Text variant="bodySmall" style={[styles.catalogName, { color: colors.textTertiary }]} numberOfLines={1}>· {shown.catalog}</Text>
+                ) : null}
                 {dayTag(e.dayOffset) && (
                   <Text variant="labelSmall" style={[styles.dayTag, { color: colors.cobalt, backgroundColor: colors.cobalt + '1A' }]}>
                     {dayTag(e.dayOffset)}
@@ -124,7 +133,8 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
               <SymbolView name="xmark.circle.fill" size={20} tintColor={colors.textTertiary} />
             </Pressable>
           </View>
-        ))}
+          );
+        })}
 
         {draft.notes ? (
           <Text variant="bodyMedium" style={[styles.notes, { color: colors.textSecondary }]}>{draft.notes}</Text>
@@ -136,6 +146,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
         </View>
 
         <FixBox onFix={onFix} busy={busy === 'fix'} disabled={!!busy} />
+        {reply ? <FixReply reply={reply} /> : null}
         {error ? (
           <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">{error}</Text>
         ) : null}
@@ -191,8 +202,8 @@ function toNumber(text: string) {
   return text.trim() === '' || !(n > 0) ? undefined : n;
 }
 
-// "Fix something" box: a typed correction re-parses the draft
-export function FixBox({ onFix, busy, disabled, placeholder = 'Fix it: "it was rows, not pulldowns"' }: { onFix: (fix: string) => Promise<boolean>; busy: boolean; disabled?: boolean; placeholder?: string }) {
+// "Fix something" box: a typed correction re-parses the draft; a question gets a FixReply
+export function FixBox({ onFix, busy, disabled, placeholder = 'Fix or ask: "it was rows, not pulldowns"' }: { onFix: (fix: string) => Promise<boolean>; busy: boolean; disabled?: boolean; placeholder?: string }) {
   const { colors } = useTheme();
   const [fix, setFix] = useState('');
   const send = async () => {
@@ -208,7 +219,7 @@ export function FixBox({ onFix, busy, disabled, placeholder = 'Fix it: "it was r
         placeholderTextColor={colors.textTertiary}
         editable={!disabled}
         multiline
-        accessibilityLabel="Type a fix"
+        accessibilityLabel="Type a fix or a question"
         style={[styles.fixInput, { color: colors.text }]}
       />
       <Pressable
@@ -220,6 +231,41 @@ export function FixBox({ onFix, busy, disabled, placeholder = 'Fix it: "it was r
       >
         {busy ? <ActivityIndicator color={colors.onSunrise} size="small" /> : <SymbolView name="arrow.up" size={15} weight="bold" tintColor={colors.onSunrise} />}
       </Pressable>
+    </View>
+  );
+}
+
+// What the fix box said back: the answer to a question, or that nothing changed
+export interface FixReplyState {
+  text: string;
+  callIt?: { exerciseId: string; words: string }; // offer to call the exercise by the user's words
+}
+
+// The fix box's reply, with a one-tap "Call it 'Machine flys' from now on" when the question showed
+// the user knows an exercise by other words. Cards then show their words, the catalog name beside it.
+export function FixReply({ reply }: { reply: FixReplyState }) {
+  const { colors } = useTheme();
+  const rememberName = useWorkoutStore(s => s.rememberName);
+  const [named, setNamed] = useState(false);
+  useEffect(() => setNamed(false), [reply]);
+  const words = reply.callIt && sentenceCase(reply.callIt.words);
+  return (
+    <View style={[styles.reply, { backgroundColor: colors.cobalt + '14' }]} accessibilityLiveRegion="polite">
+      <Text variant="bodyMedium" style={{ color: colors.text }}>{reply.text}</Text>
+      {reply.callIt && !named ? (
+        <Pressable
+          onPress={() => {
+            rememberName(reply.callIt!.exerciseId, reply.callIt!.words);
+            setNamed(true);
+          }}
+          accessibilityRole="button"
+          hitSlop={6}
+          style={[styles.callIt, { borderColor: colors.cobalt }]}
+        >
+          <Text variant="labelLarge" style={{ color: colors.cobalt }}>Call it "{words}" from now on</Text>
+        </Pressable>
+      ) : null}
+      {named ? <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Done. It's "{words}" from now on.</Text> : null}
     </View>
   );
 }
@@ -356,5 +402,21 @@ const styles = StyleSheet.create({
   },
   error: {
     marginTop: spacing.sm,
+  },
+  catalogName: {
+    flexShrink: 1,
+  },
+  reply: {
+    gap: spacing.sm,
+    borderRadius: 14,
+    padding: spacing.gap,
+    marginTop: spacing.sm,
+  },
+  callIt: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
 });

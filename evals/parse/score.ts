@@ -211,3 +211,19 @@ export function identityCounts(c: Case, pred: Predicted | null) {
   }
   return counts;
 }
+
+// A correction's reply: an answer exactly when the fix asked a question, and the offer to call an
+// exercise by the user's words exactly when the question showed them. One point each.
+export function scoreReply(
+  c: { reply?: boolean; callIt?: { exercise: string; words: string } },
+  got: { reply?: string; callIt?: { exercise: number; words: string }; exercises: Record<string, unknown>[] } | null,
+): Omit<CaseScore, 'score'> {
+  const misses: string[] = [];
+  if (!!got?.reply !== !!c.reply) misses.push(c.reply ? 'reply: missing' : `reply: want none got ${JSON.stringify(got?.reply)}`);
+  const callIt = got?.callIt && { exercise: String(got.exercises[got.callIt.exercise]?.name), words: got.callIt.words };
+  const callOk = c.callIt
+    ? !!callIt && normName(callIt.exercise) === normName(c.callIt.exercise) && normName(callIt.words) === normName(c.callIt.words)
+    : !callIt;
+  if (!callOk) misses.push(`callIt: want ${JSON.stringify(c.callIt ?? null)} got ${JSON.stringify(callIt ?? null)}`);
+  return { points: 2 - misses.length, total: 2, misses };
+}

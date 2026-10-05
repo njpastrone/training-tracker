@@ -13,7 +13,7 @@ npm run eval:parse -- --set holdout                 # 20 cases never used for tu
 npm run eval:parse -- --set identity                # which exercise each lift is, given a library
 npm run eval:parse -- --model claude-sonnet-5-5 --effort low
 npm run eval:parse -- --compat                      # what a Worker deployed before parse mode sends
-npm run eval:parse -- --set corrections             # typed fixes applied to a draft (correction mode)
+npm run eval:parse -- --set corrections             # typed fixes and questions about a draft (correction mode)
 npm run eval:parse -- --against evals/parse/results/<earlier run>.json   # list regressions
 node --test evals/parse/score.test.ts               # scorer self-check
 node --test evals/parse/recall.test.ts              # offline, free: is the right exercise a candidate?
@@ -101,6 +101,9 @@ These rules are what the expected results encode. The prompt states them too.
   (`buildCorrectionRequest`). The model returns the whole workout with only the fix applied, scored
   like a parse against the expected full result. A correction also returns `unsure`, the values it
   couldn't be sure of, as `{ exercise, field }`; the review card highlights them (not scored).
+  A fix can be a question ("is pec deck the same as machine flys?"): the draft must come back
+  unchanged with a `reply`, and `callIt` names the exercise the user knows by other words. Each
+  case scores a point for a reply exactly when it asks, and one for `callIt` exactly when expected.
   The parse prompt doesn't ask for `unsure`: every wording tried cost 0.003 to 0.007 on the main
   set (3 runs each), so the app flags genuine ambiguity in code instead (`flagGuesses` in
   `services/draft.ts`: an exercise the log doesn't name, a weight or rep count not in the log, a
