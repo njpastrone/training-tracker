@@ -14,6 +14,7 @@ export interface WorkoutTemplate {
 
 export interface TemplateExercise {
   exerciseId?: string; // set when the name names one catalog exercise, or copied from a logged workout
+  match?: 'sure' | 'unsure'; // copied with exerciseId so an unsure match stays unsure
   name: string;
   muscleGroup: MuscleGroup;
   sets: number;

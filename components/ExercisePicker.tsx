@@ -3,7 +3,7 @@ import { FlatList, Modal, StyleSheet, View } from 'react-native';
 import { Button, List, Searchbar, Text } from 'react-native-paper';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useColors } from '../contexts/ThemeContext';
-import { searchExercises } from '../services/exerciseIdentity';
+import { knownIdFor, searchExercises } from '../services/exerciseIdentity';
 import { muscleGroupColors, spacing } from '../constants/theme';
 import type { MuscleGroup } from '../types/workout';
 
@@ -28,7 +28,7 @@ export default function ExercisePicker({ visible, initialQuery = '', onPick, onD
   const [query, setQuery] = useState(initialQuery);
   const options = visible ? searchExercises(query, workouts, exerciseLibrary) : [];
   const typed = query.trim();
-  const exact = options.some((o) => o.name.toLowerCase() === typed.toLowerCase());
+  const exact = !!knownIdFor(typed, exerciseLibrary);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onShow={() => setQuery(initialQuery)} onRequestClose={onDismiss}>

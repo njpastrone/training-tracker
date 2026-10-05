@@ -100,6 +100,7 @@ export const templateService = {
   async createTemplateFromWorkout(workout: Workout, name: string, description?: string): Promise<WorkoutTemplate> {
     const exercises: TemplateExercise[] = workout.exercises.map(exercise => ({
       exerciseId: exercise.exerciseId,
+      match: exercise.match,
       name: exercise.name,
       muscleGroup: exercise.muscleGroup,
       sets: exercise.sets || 3, // Default to 3 if not specified
@@ -165,6 +166,7 @@ export const templateService = {
     const exercises = template.exercises.map(templateExercise => ({
       id: uuidv4(),
       exerciseId: templateExercise.exerciseId,
+      match: templateExercise.match,
       name: templateExercise.name,
       muscleGroup: templateExercise.muscleGroup,
       sets: templateExercise.sets,

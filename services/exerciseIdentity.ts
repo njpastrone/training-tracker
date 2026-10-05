@@ -57,6 +57,17 @@ export function displayName(id: string, library: ExerciseLibrary): string | unde
 // The catalog id a name means on its own, if it names exactly one catalog exercise
 export const catalogIdFor = (name: string) => catalogKeys.get(exerciseKey(name));
 
+const ownIdFor = (key: string, library: ExerciseLibrary) =>
+  library.custom.find((c) => exerciseKey(c.name) === key)?.id ??
+  Object.keys(library.renames).find((id) => exerciseKey(library.renames[id]) === key);
+
+// The id a name surely means: one of your aliases, a catalog name, or one of your exercises
+export function knownIdFor(name: string, library: ExerciseLibrary): string | undefined {
+  const key = exerciseKey(name);
+  const id = key ? library.aliases[key] ?? catalogKeys.get(key) ?? ownIdFor(key, library) : undefined;
+  return id && resolveId(id, library);
+}
+
 function editDistance(a: string, b: string) {
   if (Math.abs(a.length - b.length) > 2) return 3;
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -93,10 +104,8 @@ export function resolveExercise(name: string, muscleGroup: MuscleGroup, library:
   const catalogId = key ? catalogKeys.get(key) : undefined;
   if (catalogId) return LOSSY[catalogId]?.test(normalizeWords(rawInput)) ? unsure(catalogId) : sure(catalogId);
 
-  const ownId =
-    library.custom.find((c) => exerciseKey(c.name) === key)?.id ??
-    Object.keys(library.renames).find((id) => exerciseKey(library.renames[id]) === key);
-  if (key && ownId) return sure(ownId);
+  const ownId = key ? ownIdFor(key, library) : undefined;
+  if (ownId) return sure(ownId);
 
   const ambiguous = ambiguousKeys.get(key);
   if (ambiguous) return unsure(ambiguous[0]);
@@ -149,7 +158,7 @@ export interface PickerOption {
 }
 
 // The picker's list: the user's own exercises first (most logged first), then catalog matches.
-// A query matches any word sequence in a name or catalog alias.
+// A query matches any word sequence in a name or catalog alias, or names an exercise outright.
 export function searchExercises(query: string, workouts: Workout[], library: ExerciseLibrary, limit = 50): PickerOption[] {
   const q = normalizeWords(query);
   const counts = new Map<string, number>();
@@ -171,5 +180,7 @@ export function searchExercises(query: string, workouts: Workout[], library: Exe
 
   const yours = [...counts.keys()].filter(matches).sort((a, b) => counts.get(b)! - counts.get(a)!);
   const catalog = q ? CATALOG.filter((e) => !e.replacedBy && !counts.has(e.id) && matches(e.id)).map((e) => e.id) : [];
-  return [...yours, ...catalog].slice(0, limit).flatMap((id) => option(id) ?? []);
+  const known = knownIdFor(query, library);
+  const ids = known && !yours.includes(known) && !catalog.includes(known) ? [known, ...yours, ...catalog] : [...yours, ...catalog];
+  return ids.slice(0, limit).flatMap((id) => option(id) ?? []);
 }

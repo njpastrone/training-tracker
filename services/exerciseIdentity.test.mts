@@ -136,3 +136,25 @@ test('the picker lists your exercises first, then catalog matches by name or ali
   assert.ok(names('ssb').includes('Safety Bar Squat:0')); // alias
   assert.equal(searchExercises('press', logged, lib)[1].muscleGroup, 'shoulders');
 });
+
+test('the picker offers the known exercise for a spelling variant instead of a new one', async () => {
+  const { knownIdFor } = await import('./exerciseIdentity');
+  const lib = { ...emptyLibrary(), custom: [{ id: 'custom-lp', name: 'Landmine Press', muscleGroup: 'shoulders' as const, metric: 'weight-reps' as const, createdAt: 't' }] };
+  assert.equal(knownIdFor('pushups', lib), resolveExercise('push up', 'chest', lib).exerciseId);
+  assert.equal(searchExercises('pushups', [], lib)[0].exerciseId, knownIdFor('pushups', lib));
+  assert.equal(knownIdFor('landmine-press', lib), 'custom-lp');
+  assert.equal(searchExercises('LANDMINE  press', [], lib)[0].exerciseId, 'custom-lp');
+  assert.equal(knownIdFor('zercher carry walk', lib), undefined);
+});
+
+test('a template made from a workout keeps an unsure match unsure', async () => {
+  const { templateService } = await import('./templates');
+  const lib = emptyLibrary();
+  const { workout } = withIdentity({ id: 'w', date: '2026-10-03', rawInput: 'pull-ups 3x10, then chins', muscleGroups: ['back'], createdAt: 't',
+    exercises: [ex('a', 'Pull-ups', { muscleGroup: 'back', sets: 3, reps: 10 })] }, lib);
+  assert.equal(workout.exercises[0].match, 'unsure');
+  const template = await templateService.createTemplateFromWorkout(workout, 'Back');
+  const logged = templateService.templateToWorkout(template).exercises[0];
+  assert.equal(logged.exerciseId, workout.exercises[0].exerciseId);
+  assert.equal(logged.match, 'unsure');
+});
