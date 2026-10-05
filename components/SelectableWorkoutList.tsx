@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Workout } from '../types/workout';
-import { useWorkoutStore } from '../stores/workoutStore';
+import { useWorkoutStore, DeletedWorkouts } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import { SectionLabel } from './Sky';
@@ -18,7 +18,7 @@ interface Props {
   workouts: Workout[];
   groupByDate?: boolean;
   enableSwipe?: boolean;
-  onDeleted: (removed: Workout[]) => void; // the screen shows <UndoToast> for these
+  onDeleted: (removed: DeletedWorkouts) => void; // the screen shows <UndoToast> for these
 }
 
 // A workout list with a Select mode for deleting several at once
@@ -91,7 +91,7 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
 }
 
 // Floats over the bottom of the screen for a few seconds after a delete
-export function UndoToast({ removed, onClose }: { removed: Workout[] | null; onClose: () => void }) {
+export function UndoToast({ removed, onClose }: { removed: DeletedWorkouts | null; onClose: () => void }) {
   const restoreWorkouts = useWorkoutStore(s => s.restoreWorkouts);
   const { colors } = useTheme();
 
@@ -101,12 +101,12 @@ export function UndoToast({ removed, onClose }: { removed: Workout[] | null; onC
     return () => clearTimeout(timer);
   }, [removed]);
 
-  if (!removed?.length) return null;
+  if (!removed?.workouts.length) return null;
   return (
     <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut} style={styles.toastWrap} pointerEvents="box-none">
       <View style={[styles.toast, { backgroundColor: colors.glass, borderColor: colors.glassLine }]} accessibilityLiveRegion="polite">
         <SymbolView name="trash" size={18} tintColor={colors.textSecondary} />
-        <Text variant="titleSmall" style={{ color: colors.text }}>Deleted {plural(removed.length)}</Text>
+        <Text variant="titleSmall" style={{ color: colors.text }}>Deleted {plural(removed.workouts.length)}</Text>
         <Pill
           variant="glass"
           size="small"

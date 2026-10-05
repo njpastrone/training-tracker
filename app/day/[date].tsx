@@ -2,12 +2,11 @@ import { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useWorkoutStore } from '../../stores/workoutStore';
+import { useWorkoutStore, DeletedWorkouts } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { format, parseISO, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { fonts, radius, spacing } from '../../constants/theme';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
-import { Workout } from '../../types/workout';
 import { SkyScreen, SkyCard, LargeTitle } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
 
@@ -16,7 +15,7 @@ export default function DayDetailScreen() {
   const router = useRouter();
   const { getWorkoutsByDate } = useWorkoutStore();
   const { colors } = useTheme();
-  const [removed, setRemoved] = useState<Workout[] | null>(null);
+  const [removed, setRemoved] = useState<DeletedWorkouts | null>(null);
 
   const workouts = getWorkoutsByDate(date);
   const dateObj = parseISO(date);

@@ -5,9 +5,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
-import { scheduleService } from '../services/schedule';
+import { scheduleService, SessionLink } from '../services/schedule';
 import { emptyLibrary, migrateToV1, withIdentity } from '../services/exerciseIdentity';
 import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
+
+// Undo payload: the deleted workouts and the plan sessions their delete reopened
+export interface DeletedWorkouts {
+  workouts: Workout[];
+  sessions: Promise<SessionLink[]>;
+}
 
 interface WorkoutState {
   workouts: Workout[];
@@ -22,8 +28,8 @@ interface WorkoutState {
   addWorkout: (workout: Workout) => void;
   updateWorkout: (id: string, updates: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
-  deleteWorkouts: (ids: string[]) => Workout[]; // returns the removed workouts, for Undo
-  restoreWorkouts: (workouts: Workout[]) => void;
+  deleteWorkouts: (ids: string[]) => DeletedWorkouts;
+  restoreWorkouts: (deleted: DeletedWorkouts) => void;
   getWorkoutsByDate: (date: string) => Workout[];
   getWorkoutDates: () => Set<string>;
   getStats: () => WorkoutStats;
@@ -198,15 +204,6 @@ async function backupV0() {
   }
 }
 
-// Links each workout to an open plan session on its date. Sequential, since each link rewrites the whole schedule.
-// Returns whether any session was linked.
-function linkToPlan(workouts: Workout[]): Promise<boolean> {
-  return workouts.reduce<Promise<boolean>>(
-    (prev, w) => prev.then(async (any) => (await scheduleService.linkLoggedWorkout(w.date, w.id)) || any),
-    Promise.resolve(false)
-  );
-}
-
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
   showStreakNotifications: true,
@@ -264,21 +261,21 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           workouts: state.workouts.filter((w) => !remove.has(w.id)),
         }));
-        const dates = new Set(removed.map((w) => w.date));
-        scheduleService
+        const sessions = scheduleService
           .unlinkDeletedWorkouts(removed.map((w) => w.id))
-          .then(async (changed) => {
-            if (!changed) return;
-            // A planned day stays completed while any workout is still logged on it
-            await linkToPlan(get().workouts.filter((w) => dates.has(w.date)));
-            get().loadSchedule();
+          .then(links => {
+            if (links.length) get().loadSchedule();
+            return links;
           })
-          .catch(error => console.error('Error unlinking deleted workouts from plan:', error));
-        return removed;
+          .catch(error => {
+            console.error('Error unlinking deleted workouts from plan:', error);
+            return [];
+          });
+        return { workouts: removed, sessions };
       },
 
       // Undo for deleteWorkouts. Stats, PRs and streaks derive from workouts, so they follow.
-      restoreWorkouts: (restored) => {
+      restoreWorkouts: ({ workouts: restored, sessions }) => {
         set((state) => {
           const present = new Set(state.workouts.map((w) => w.id));
           return {
@@ -287,9 +284,13 @@ export const useWorkoutStore = create<WorkoutState>()(
             ),
           };
         });
-        linkToPlan(restored)
-          .then(linked => { if (linked) get().loadSchedule(); })
-          .catch(error => console.error('Error relinking restored workouts to plan:', error));
+        sessions
+          .then(async (links) => {
+            if (!links.length) return;
+            await scheduleService.restoreSessionLinks(links);
+            get().loadSchedule();
+          })
+          .catch(error => console.error('Error restoring plan sessions:', error));
       },
 
       getWorkoutsByDate: (date) => {

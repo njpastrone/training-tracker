@@ -32,7 +32,7 @@ test('bulk delete removes only the picked workouts, stats follow, and Undo resto
   assert.equal(store().getStats().totalWorkouts, 5);
 
   const removed = store().deleteWorkouts(['t1', 't2', 'missing']);
-  assert.deepEqual(removed.map((w) => w.id).sort(), ['t1', 't2']);
+  assert.deepEqual(removed.workouts.map((w) => w.id).sort(), ['t1', 't2']);
   assert.deepEqual(store().workouts.map((w) => w.id).sort(), ['a', 'b', 'c']);
   assert.equal(store().getStats().totalWorkouts, 3);
   assert.equal(store().getStats().streak.current, 3);
@@ -77,24 +77,23 @@ test('a planned session follows its workout through delete and Undo', async () =
   assert.equal(session()?.completedWorkoutId, 'planned');
 });
 
-test('deleting one of two workouts on a planned day keeps the session completed', async () => {
+test('Undo restores a manually scheduled session exactly', async () => {
   const settle = () => new Promise((r) => setTimeout(r, 0));
   const date = day(6);
-  await scheduleService.saveSchedule([{ id: 's2', date, templateId: 't', isRecurring: false, completed: false, planId: 'p' }]);
+  await scheduleService.saveSchedule([{ id: 's2', date, templateId: 't', isRecurring: false, completed: false }]);
   const session = () => store().schedule.find((s) => s.id === 's2');
 
-  store().addWorkout(workout('first', date));
-  await settle();
-  store().addWorkout(workout('second', date));
-  await settle();
-  assert.equal(session()?.completedWorkoutId, 'first');
+  store().addWorkout(workout('manual', date));
+  await store().markWorkoutCompleted(date, 'manual');
+  assert.equal(session()?.completedWorkoutId, 'manual');
 
-  store().deleteWorkouts(['first']);
-  await settle();
-  assert.equal(session()?.completed, true);
-  assert.equal(session()?.completedWorkoutId, 'second');
-
-  store().deleteWorkout('second');
+  const removed = store().deleteWorkouts(['manual']);
   await settle();
   assert.equal(session()?.completed, false);
+  assert.equal(session()?.completedWorkoutId, undefined);
+
+  store().restoreWorkouts(removed);
+  await settle();
+  assert.equal(session()?.completed, true);
+  assert.equal(session()?.completedWorkoutId, 'manual');
 });

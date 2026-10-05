@@ -5,7 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
-import { useWorkoutStore } from '../../stores/workoutStore';
+import { useWorkoutStore, DeletedWorkouts } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
 import MuscleGroupBalance from '../../components/MuscleGroupBalance';
@@ -13,7 +13,6 @@ import WeeklyWorkoutPattern from '../../components/WeeklyWorkoutPattern';
 import WeekSelector from '../../components/WeekSelector';
 import InsightCards from '../../components/InsightCards';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
-import { Workout } from '../../types/workout';
 import { fonts, radius, spacing } from '../../constants/theme';
 import { format, isFuture, parseISO } from 'date-fns';
 import { WorkoutTemplate } from '../../types/template';
@@ -52,7 +51,7 @@ export default function HistoryScreen() {
   const addedPlan = plans.find(p => p.id === planId && p.status === 'active');
   const addedCount = schedule.filter(s => s.planId === planId).length;
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Start with current week
-  const [removed, setRemoved] = useState<Workout[] | null>(null);
+  const [removed, setRemoved] = useState<DeletedWorkouts | null>(null);
   
   // Schedule workout dialog state
   const [scheduleDialogVisible, setScheduleDialogVisible] = useState(false);
