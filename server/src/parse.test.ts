@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCorrectionRequest, buildParseRequest, finalizeParse } from './parse.ts';
+import { buildCorrectionRequest, buildParseRequest, finalizeParse, finalizeWithNames } from './parse.ts';
 
 test('finalizeParse falls back to the default unit when the model omits or misspells it', () => {
   const text = JSON.stringify({
@@ -109,4 +109,22 @@ test('finalizeParse maps unsure flags onto merged sets', () => {
     unsure: [{ exercise: 1, field: 'weight' }, { exercise: 0, field: 'weight' }, { exercise: 2, field: 'reps' }],
   });
   assert.deepEqual(finalizeParse(text)!.unsure, [{ exercise: 0, field: 'weight' }, { exercise: 1, field: 'reps' }]);
+});
+
+test('finalizeWithNames returns a correction reply and renumbers callIt past merged sets', () => {
+  const text = JSON.stringify({
+    exercises: [
+      { name: 'Bench Press', sets: 1, reps: 5, weight: 100 },
+      { name: 'Bench Press', sets: 1, reps: 5, weight: 100 },
+      { name: 'Pec Deck', sets: 3, reps: 10 },
+    ],
+    reply: ' Yes, a pec deck is the machine fly. ',
+    callIt: { exercise: 2, words: 'machine flys' },
+  });
+  const r = finalizeWithNames(text)!;
+  assert.equal(r.reply, 'Yes, a pec deck is the machine fly.');
+  assert.deepEqual(r.callIt, { exercise: 1, words: 'machine flys' });
+  const none = finalizeWithNames(JSON.stringify({ exercises: [{ name: 'Squat' }], reply: null, callIt: { exercise: 7, words: 'x' } }))!;
+  assert.equal(none.reply, undefined);
+  assert.equal(none.callIt, undefined);
 });

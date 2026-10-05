@@ -3,6 +3,8 @@ import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { parseWorkout, correctWorkout, workoutsFromParse, ApiError } from '../services/claude';
 import { ParsedWorkoutResponse } from '../types/workout';
+import { NOTHING_CHANGED, sameDraft } from '../services/draft';
+import type { FixReplyState } from '../components/ParsedCard';
 
 export type Draft = ParsedWorkoutResponse;
 
@@ -16,6 +18,7 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
   const [templateId, setTemplateId] = useState<string | undefined>();
   const [busy, setBusy] = useState<'parse' | 'fix' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reply, setReply] = useState<FixReplyState | null>(null); // the fix box's answer to a question
   const options = { date, unit: settings.weightUnit };
 
   const fail = (err: unknown, fallback: string) => {
@@ -31,6 +34,7 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
     setDraft(null);
     setTemplateId(undefined);
     setError(null);
+    setReply(null);
     setBusy('parse');
     try {
       const parsed = await parseWorkout(raw, options);
@@ -50,19 +54,23 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
     }
   };
 
-  // A typed correction ("actually 3x10, not 3x8") re-parses with the current draft as context
+  // A typed correction ("actually 3x10, not 3x8") re-parses with the current draft as context; a
+  // question ("is pec deck machine flys?") gets an answer. Something always shows.
   const fix = async (instruction: string) => {
     if (!draft || !instruction.trim() || busy) return false;
     setError(null);
+    setReply(null);
     setBusy('fix');
     try {
-      const updated = await correctWorkout(draft, instruction.trim(), options);
-      if (!updated || updated.exercises.length === 0) {
+      const result = await correctWorkout(draft, instruction.trim(), options);
+      if (!result || result.draft.exercises.length === 0) {
         setError("Couldn't apply that fix. Try saying it another way.");
         return false;
       }
-      setDraft(updated);
-      return true;
+      const changed = !sameDraft(draft, result.draft);
+      setDraft(result.draft);
+      if (result.reply || !changed) setReply({ text: result.reply ?? NOTHING_CHANGED, callIt: result.callIt });
+      return changed || !!result.reply;
     } catch (err) {
       fail(err, "Couldn't apply that fix. Please try again.");
       return false;
@@ -76,6 +84,7 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
     setSent(null);
     setError(null);
     setTemplateId(id);
+    setReply(null);
     setDraft({ exercises: workout.exercises, muscleGroups: workout.muscleGroups as Draft['muscleGroups'], notes: workout.notes, confidence: 1 });
   };
 
@@ -102,8 +111,9 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
     setDraft(null);
     setTemplateId(undefined);
     setError(null);
+    setReply(null);
     setBusy(null);
   };
 
-  return { text, setText, sent, draft, setDraft, templateId, busy, error, parse, fix, startFromTemplate, save, discard };
+  return { text, setText, sent, draft, setDraft, templateId, busy, error, reply, parse, fix, startFromTemplate, save, discard };
 }

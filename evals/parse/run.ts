@@ -5,13 +5,13 @@
 //   npm run eval:parse -- --only multi_day     # one category or case id (comma-separated)
 //   npm run eval:parse -- --model claude-sonnet-5-5 --repeat 3
 //   npm run eval:parse -- --against evals/parse/results/<earlier>.json   # list regressions
-//   npm run eval:parse -- --set corrections    # typed fixes applied to a draft (correction mode)
+//   npm run eval:parse -- --set corrections    # typed fixes and questions about a draft (correction mode)
 //
 // Needs ANTHROPIC_API_KEY in the environment (or in .env.eval.local). Never calls the Worker.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { identityCounts, scoreCase, type Predicted } from './score.ts';
+import { identityCounts, scoreCase, scoreReply, type Predicted } from './score.ts';
 import { identityFor } from './identity.ts';
 
 const { values: args } = parseArgs({
@@ -64,7 +64,7 @@ async function callAnthropic(body: Record<string, unknown>) {
   }
 }
 
-async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name: string }[] }; fix?: string }) {
+async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name: string }[] }; fix?: string; reply?: boolean; callIt?: { exercise: string; words: string } }) {
   // A correction picks from the exercises its draft and fix name, like the app does
   const identity = identityFor(c.fix ? { ...c, input: `${c.draft!.exercises.map((e) => e.name).join(', ')}\n${c.fix}` } : c);
   const exercises = identity.candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
@@ -93,14 +93,21 @@ async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name
     error = String(e);
   }
   const ms = Date.now() - started;
-  const parsed: Predicted | null = error ? null : parser.finalizeParse(text, c.unit ?? 'lbs', identity);
+  // A correction also returns its reply (an answer to a question in the fix), scored with the workout
+  const finalized = error ? null : parser.finalizeWithNames(text, c.unit ?? 'lbs', identity);
+  const parsed: Predicted | null = finalized?.parsed ?? null;
+  const replyScore = c.fix ? scoreReply(c, finalized && { ...finalized, exercises: finalized.parsed.exercises }) : undefined;
   const [pin, pout] = price(body.model);
   const cacheWrite = usage.cache_creation_input_tokens ?? 0;
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cost = ((usage.input_tokens + cacheWrite * 1.25 + cacheRead * 0.1) * pin + usage.output_tokens * pout) / 1e6;
   // What one live request costs (the Worker doesn't cache: real traffic is too sparse for a 5-minute cache).
   const liveCost = ((usage.input_tokens + cacheWrite + cacheRead) * pin + usage.output_tokens * pout) / 1e6;
-  return { id: c.id, category: c.category, model: body.model, ms, cost, liveCost, usage, error, text, parsed, identity: identityCounts(c, parsed), ...scoreCase(c, parsed) };
+  const s = scoreCase(c, parsed);
+  const scored = replyScore
+    ? { points: s.points + replyScore.points, total: s.total + replyScore.total, misses: [...s.misses, ...replyScore.misses] }
+    : s;
+  return { id: c.id, category: c.category, model: body.model, ms, cost, liveCost, usage, error, text, parsed, identity: identityCounts(c, parsed), ...scored, score: scored.points / scored.total };
 }
 
 async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {

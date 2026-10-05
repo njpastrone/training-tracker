@@ -10,7 +10,9 @@ import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { SkyScreen, SkyCard, SectionLabel } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
 import Field from '../../components/Field';
-import { FixBox } from '../../components/ParsedCard';
+import { FixBox, FixReply, FixReplyState } from '../../components/ParsedCard';
+import { NOTHING_CHANGED, sameDraft } from '../../services/draft';
+import { shownName } from '../../services/exerciseIdentity';
 import { correctWorkout, ApiError } from '../../services/claude';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -25,7 +27,7 @@ const muscleGroups: MuscleGroup[] = [
 export default function WorkoutEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate, settings } = useWorkoutStore();
+  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate, settings, exerciseLibrary } = useWorkoutStore();
   const { colors } = useTheme();
   
   const workout = workouts.find(w => w.id === id);
@@ -39,6 +41,7 @@ export default function WorkoutEditScreen() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [fixing, setFixing] = useState(false);
   const [fixError, setFixError] = useState<string | null>(null);
+  const [fixReply, setFixReply] = useState<FixReplyState | null>(null);
   // Distance and Notes show for exercises that have them, and stay while being emptied and retyped
   const extraFields = useRef(new Set<string>()).current;
   const showExtra = (id: string, field: 'distance' | 'notes', value: unknown) => {
@@ -163,17 +166,23 @@ export default function WorkoutEditScreen() {
     setHasChanges(true);
   };
 
-  // Typed fix ("the rows were 120"): re-parses the workout as it stands now; Save keeps it
+  // Typed fix ("the rows were 120"): re-parses the workout as it stands now; Save keeps it. A question
+  // ("is pec deck machine flys?") gets an answer and changes nothing. Something always shows.
   const handleFix = async (fix: string) => {
     setFixing(true);
     setFixError(null);
+    setFixReply(null);
     try {
       const draft = { exercises, muscleGroups: selectedMuscleGroups, notes: notes.trim() || undefined, confidence: 1 };
-      const updated = await correctWorkout(draft, fix.trim(), { date: format(workoutDate, 'yyyy-MM-dd'), unit: settings.weightUnit });
-      if (!updated || updated.exercises.length === 0) {
+      const result = await correctWorkout(draft, fix.trim(), { date: format(workoutDate, 'yyyy-MM-dd'), unit: settings.weightUnit });
+      if (!result || result.draft.exercises.length === 0) {
         setFixError("Couldn't apply that fix. Try saying it another way.");
         return false;
       }
+      const updated = result.draft;
+      const changed = !sameDraft(draft, updated);
+      if (result.reply || !changed) setFixReply({ text: result.reply ?? NOTHING_CHANGED, callIt: result.callIt });
+      if (!changed) return !!result.reply;
       setExercises(updated.exercises.map(({ dayOffset, ...e }) => ({ ...e, id: uuidv4() })));
       setSelectedMuscleGroups(updated.muscleGroups);
       setNotes(updated.notes ?? '');
@@ -232,22 +241,28 @@ export default function WorkoutEditScreen() {
           />
         )}
 
-        <FixBox onFix={handleFix} busy={fixing} disabled={fixing} placeholder={'Fix it by typing: "the rows were 120"'} />
+        <FixBox onFix={handleFix} busy={fixing} disabled={fixing} placeholder={'Fix or ask: "the rows were 120"'} />
         {fixError ? (
           <Text variant="bodySmall" style={[styles.fixError, { color: colors.error }]} accessibilityLiveRegion="polite">{fixError}</Text>
         ) : null}
+        {fixReply ? <FixReply reply={fixReply} /> : null}
 
         <SectionLabel style={[styles.label, styles.below]}>Exercises</SectionLabel>
-        {exercises.map((exercise) => (
+        {exercises.map((exercise) => {
+          const shown = shownName(exercise, exerciseLibrary);
+          return (
           <SkyCard key={exercise.id}>
             <View style={styles.exerciseHeader}>
               <Pressable
                 onPress={() => setPickerFor(exercise.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Exercise, ${exercise.name}. Change`}
+                accessibilityLabel={`Exercise, ${shown.name}. Change`}
                 style={styles.exerciseNameButton}
               >
-                <Text style={[styles.exerciseName, { color: colors.text }]}>{exercise.name}</Text>
+                <Text style={[styles.exerciseName, { color: colors.text }]}>
+                  {shown.name}
+                  {shown.catalog ? <Text variant="bodySmall" style={{ color: colors.textTertiary }}> · {shown.catalog}</Text> : null}
+                </Text>
               </Pressable>
               <Pressable
                 onPress={() => removeExercise(exercise.id)}
@@ -305,7 +320,8 @@ export default function WorkoutEditScreen() {
               onSelect={(group) => updateExercise(exercise.id, 'muscleGroup', group)}
             />
           </SkyCard>
-        ))}
+          );
+        })}
 
         <Pill variant="glass" icon="plus" label="Add exercise" onPress={() => setPickerFor('new')} style={styles.addButton} />
 

@@ -6,7 +6,7 @@ import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup, Exerci
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
-import { emptyLibrary, migrateToV1, withIdentity } from '../services/exerciseIdentity';
+import { emptyLibrary, migrateToV1, rememberName, withIdentity } from '../services/exerciseIdentity';
 import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
 
 // Undo payload: the deleted workouts and the plan sessions their delete reopened
@@ -35,6 +35,7 @@ interface WorkoutState {
   getStats: () => WorkoutStats;
   updateSettings: (settings: Partial<UserSettings>) => void;
   createCustomExercise: (name: string, muscleGroup: MuscleGroup) => string;
+  rememberName: (exerciseId: string, words: string) => void;
   clearAllData: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -314,6 +315,10 @@ export const useWorkoutStore = create<WorkoutState>()(
           },
         }));
         return id;
+      },
+
+      rememberName: (exerciseId, words) => {
+        set((state) => ({ exerciseLibrary: rememberName(state.exerciseLibrary, exerciseId, words) }));
       },
 
       updateSettings: (newSettings) => {

@@ -117,6 +117,9 @@ e7 Air Bike (cardio)
 const CORRECTION_RULES = `<correction>
 Instead of a log, the user message may hold <draft>, the workout as you parsed it earlier (JSON, possibly edited by the user since), and <fix>, the user's correction in their own words ("actually 3x10, not 3x8", "the rows were 120", "add 10 min on the bike", "drop the curls"). Return the whole workout with the fix applied, in the same output format, picking each exercise from <exercises> as usual. Every exercise needs said: the draft's name for an exercise from the draft, or the fix's words for one the fix adds or renames. Change only what the fix asks for, keep every other exercise, value and note exactly as in the draft, and follow the rules above for anything the fix adds or changes. If the fix names an exercise loosely, apply it to the closest match in the draft; a fix about everything ("all of it was 4 sets", "it was all kg") applies to every exercise in the draft, the last one included.
 Also return unsure: the values you could not be sure of, as [{"exercise": index in exercises, "field": "name", "sets", "reps", "weight", "duration" or "distance"}], such as a garbled number in the fix. Values the user did not give stay null and are not listed. Usually it is [].
+The fix can also be a question about the draft ("is pec deck the same as machine flys?", "what's an RDL?", "why is this 1 set?"), or a question and a fix together. A question changes nothing: return the draft exactly as it is, apart from any fix that comes with it.
+Also return reply: when the fix asks a question, a short plain answer to it (one or two sentences, e.g. "Yes, a pec deck is the machine fly. Same exercise."); null when it asks nothing.
+Also return callIt: when the question shows the user knows a draft exercise by other words than its name ("is pec deck machine flys?"), {"exercise": index in exercises, "words": those words copied exactly from the fix}; otherwise null.
 </correction>`;
 
 export interface ParseOptions {
@@ -187,10 +190,17 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
   return finalizeWithNames(text, defaultUnit, identity)?.parsed ?? null;
 }
 
+// What a correction says besides the workout: the answer to a question in the fix, and the user's
+// own words for one of the exercises (index into exercises) when the question shows them
+export interface CorrectionReply {
+  reply?: string;
+  callIt?: { exercise: number; words: string };
+}
+
 // finalizeParse plus, for each exercise it returns, the name exactly as the model wrote it (its name,
-// else the user's words), taken from the first of any sets merged into it
-export function finalizeWithNames(text: string, defaultUnit?: ParseOptions['unit'], identity?: IdentityContext): { parsed: ParsedWorkoutResponse; names: string[] } | null {
-  let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown; unsure?: unknown };
+// else the user's words), taken from the first of any sets merged into it, and a correction's reply
+export function finalizeWithNames(text: string, defaultUnit?: ParseOptions['unit'], identity?: IdentityContext): ({ parsed: ParsedWorkoutResponse; names: string[] } & CorrectionReply) | null {
+  let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown; unsure?: unknown; reply?: unknown; callIt?: { exercise?: unknown; words?: unknown } };
   try {
     raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
   } catch {
@@ -262,7 +272,14 @@ export function finalizeWithNames(text: string, defaultUnit?: ParseOptions['unit
     confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.5,
     unsure: unsureFields(raw.unsure, outIndex),
   };
-  return { parsed, names };
+  const callIndex = outIndex.get(raw.callIt?.exercise as number);
+  const words = str(raw.callIt?.words);
+  return {
+    parsed,
+    names,
+    ...(str(raw.reply) ? { reply: str(raw.reply) } : {}),
+    ...(callIndex !== undefined && words ? { callIt: { exercise: callIndex, words } } : {}),
+  };
 }
 
 const UNSURE_FIELDS = ['name', 'sets', 'reps', 'weight', 'duration', 'distance'] as const;

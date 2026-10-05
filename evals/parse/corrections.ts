@@ -1,5 +1,5 @@
-// Correction cases: a draft the user is reviewing plus the fix they typed under it, and the whole
-// workout expected back. Scored like cases.ts. Run with `npm run eval:parse -- --set corrections`.
+// Correction cases: a draft the user is reviewing plus the fix (or question) they typed under it, and
+// the whole workout expected back, with a reply when the fix asks a question. Scored like cases.ts. Run with `npm run eval:parse -- --set corrections`.
 // The draft is what the app sends (finalizeParse output, possibly hand-edited); `input` repeats the fix
 // so the results table reads well.
 
@@ -9,6 +9,8 @@ import type { ParsedWorkoutResponse } from '../../types/workout.ts';
 export interface CorrectionCase extends Case {
   draft: ParsedWorkoutResponse;
   fix: string;
+  reply?: boolean; // the fix asks a question, so an answer is expected (default: none)
+  callIt?: { exercise: string; words: string }; // the offer to call that exercise by the user's words
 }
 
 const upperA: ParsedWorkoutResponse = {
@@ -47,8 +49,26 @@ const legsExpected = () => [
   { name: 'Running', muscleGroup: 'cardio', duration: 20, distance: 3, distanceUnit: 'km' as const },
 ];
 
-const fixCase = (id: string, draft: ParsedWorkoutResponse, fix: string, rest: Omit<Case, 'id' | 'category' | 'input'>, unit: 'lbs' | 'kg' = 'lbs'): CorrectionCase => ({
-  id, category: 'correction', input: fix, draft, fix, unit, ...rest,
+// The owner's log: "machine flys" came back as Pec Deck, a name they had never heard
+const chest: ParsedWorkoutResponse = {
+  exercises: [
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, weight: 135, unit: 'lbs' },
+    { name: 'Pec Deck', muscleGroup: 'chest', sets: 3, reps: 12, weight: 90, unit: 'lbs' },
+    { name: 'Tricep Pushdown', muscleGroup: 'triceps', sets: 2, reps: 12, weight: 40, unit: 'lbs' },
+  ],
+  muscleGroups: ['chest', 'triceps'],
+  confidence: 0.9,
+};
+const chestExpected = () => [
+  { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, weight: 135, unit: 'lbs' as const },
+  { name: 'Pec Deck', muscleGroup: 'chest', sets: 3, reps: 12, weight: 90, unit: 'lbs' as const },
+  { name: 'Tricep Pushdown', muscleGroup: 'triceps', sets: 2, reps: 12, weight: 40, unit: 'lbs' as const },
+];
+const pecDeckIsMachineFlys = { exercise: 'Pec Deck', words: 'machine flys' };
+
+type Rest = Omit<CorrectionCase, 'id' | 'category' | 'input' | 'draft' | 'fix' | 'unit'>;
+const fixCase = (id: string, draft: ParsedWorkoutResponse, fix: string, rest: Rest, unit: 'lbs' | 'kg' = 'lbs'): CorrectionCase => ({
+  id, category: rest.reply ? 'question' : 'correction', input: fix, draft, fix, unit, ...rest,
 });
 
 export const cases: CorrectionCase[] = [
@@ -80,4 +100,20 @@ export const cases: CorrectionCase[] = [
     exercises: edit(legsExpected(), 2, { distance: 5 }), notes: ['knee'] }, 'kg'),
   fixCase('fix-keep-others', legs, 'rdl 3x10', {
     exercises: edit(legsExpected(), 1, { reps: 10 }), notes: ['knee'] }, 'kg'),
+  fixCase('fix-pec-deck-reps', chest, 'pec deck was 3x15', {
+    exercises: edit(chestExpected(), 1, { reps: 15 }) }),
+
+  // Questions: answered in reply, the draft unchanged; a question with a fix does both
+  fixCase('ask-pec-deck-same', chest, 'is pec deck the same as machine flys?', {
+    exercises: chestExpected(), reply: true, callIt: pecDeckIsMachineFlys }),
+  fixCase('ask-pec-deck-owner', chest, "is 'pec deck machine flys? ive never heard it called that.", {
+    exercises: chestExpected(), reply: true, callIt: pecDeckIsMachineFlys }),
+  fixCase('ask-what-is-rdl', legs, "what's a romanian deadlift?", {
+    exercises: legsExpected(), notes: ['knee'], reply: true }, 'kg'),
+  fixCase('ask-why-sets', upperA, 'why does the pushdown say 2 sets?', {
+    exercises: upperAExpected(), reply: true }),
+  fixCase('ask-and-fix-pec-deck', chest, 'is pec deck machine flys? also it was 4 sets not 3', {
+    exercises: edit(chestExpected(), 1, { sets: 4 }), reply: true, callIt: pecDeckIsMachineFlys }),
+  fixCase('ask-and-fix-rdl', legs, "what's a romanian deadlift? and the squats were 110", {
+    exercises: edit(legsExpected(), 0, { weight: 110 }), notes: ['knee'], reply: true }, 'kg'),
 ];
