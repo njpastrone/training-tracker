@@ -1,3 +1,5 @@
+import type { Metric } from '../data/catalog';
+
 // Muscle group categories
 export type MuscleGroup =
   | 'chest'
@@ -20,7 +22,10 @@ export type WeightUnit = 'lbs' | 'kg';
 // Individual exercise within a workout
 export interface Exercise {
   id: string;
-  name: string;
+  exerciseId?: string; // identity: a catalog id (data/catalog.ts) or 'custom-<uuid>'. The store fills it on save
+  name: string; // display name at log time; never rewritten
+  said?: string; // the user's own words for this exercise, verbatim
+  match?: 'sure' | 'unsure'; // 'unsure' until the user confirms it; PRs skip unsure entries
   muscleGroup: MuscleGroup;
   sets?: number;
   reps?: number;
@@ -43,6 +48,24 @@ export interface Workout {
   createdAt: string; // ISO timestamp
   updatedAt?: string; // ISO timestamp
   templateId?: string; // Reference to template if workout was created from one
+}
+
+// An exercise the catalog doesn't have, created from the user's own name for it
+export interface CustomExercise {
+  id: string; // 'custom-<uuid>'
+  name: string;
+  muscleGroup: MuscleGroup;
+  metric: Metric;
+  createdAt: string;
+}
+
+// The user's side of exercise identity, persisted with workouts. Their library of exercises is
+// derived from the ids in their workouts plus `custom`.
+export interface ExerciseLibrary {
+  custom: CustomExercise[];
+  renames: Record<string, string>; // display-name overrides for catalog ids
+  aliases: Record<string, string>; // exerciseKey(words) → exerciseId; written only by explicit answers
+  merged: Record<string, string>; // merged-away id → the id it now resolves to
 }
 
 // Exercise from the reference database

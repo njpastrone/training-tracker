@@ -1,13 +1,10 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CATALOG, AMBIGUOUS_WORDS, LEGACY_NAMES, catalogById, normalizeWords } from './catalog';
+import { CATALOG, AMBIGUOUS_WORDS, LEGACY_NAMES, catalogById, exerciseKey, normalizeWords, singularWords } from './catalog';
 import { exercises as legacyList } from './exercises';
 
-// Spelling-insensitive key: "Push-Ups", "push ups" and "pushup" all collide
-const singular = (w: string) =>
-  w.replace(/yes$/, 'y').replace(/ies$/, 'y').replace(/(ch|sh|x|ss)es$/, '$1').replace(/([^s])s$/, '$1');
-const loose = (s: string) => normalizeWords(s).split(' ').map(singular).join('');
+const loose = exerciseKey;
 
 // Every id ever shipped. Ids are permanent: this list only grows.
 const SHIPPED_IDS = `bench-press incline-bench-press decline-bench-press close-grip-bench-press floor-press
@@ -94,7 +91,7 @@ test('aliases are normalized and never an ambiguous word', () => {
 
 test('ambiguous words are normalized singular keys that list 2+ real exercises', () => {
   for (const [word, ids] of Object.entries(AMBIGUOUS_WORDS)) {
-    assert.equal(word, normalizeWords(word).split(' ').map(singular).join(' '), word);
+    assert.equal(word, singularWords(word), word);
     assert.ok(ids.length >= 2 && new Set(ids).size === ids.length, word);
     for (const id of ids) assert.ok(catalogById.has(id), `${word} → unknown ${id}`);
   }
@@ -132,18 +129,28 @@ test('aliases that name an implement name the entry\'s implement', () => {
   }
 });
 
-test('every entry except sessions carries free-exercise-db muscles', () => {
+test('secondary muscles are at most 2, distinct and never the primary', () => {
   for (const e of CATALOG) {
-    if (e.metric === 'session') continue;
-    assert.ok(e.primaryMuscles.length > 0, `${e.id} has no primary muscles`);
+    const secondary = e.secondary ?? [];
+    assert.ok(secondary.length <= 2 && new Set(secondary).size === secondary.length, e.id);
+    assert.ok(!secondary.includes(e.primary), `${e.id}: secondary repeats the primary`);
+    // Cardio, whole-body lifts and sessions count toward their one group only
+    if (e.metric === 'session' || e.primary === 'cardio' || e.primary === 'full_body') assert.deepEqual(secondary, [], e.id);
   }
+});
+
+test('close-grip bench and triceps dips are triceps-primary, their base lifts chest-primary', () => {
+  assert.equal(catalogById.get('close-grip-bench-press')!.primary, 'triceps');
+  assert.equal(catalogById.get('tricep-dip')!.primary, 'triceps');
+  assert.equal(catalogById.get('bench-press')!.primary, 'chest');
+  assert.equal(catalogById.get('chest-dip')!.primary, 'chest');
 });
 
 test('every old exercise-list name maps to an id with the same muscle group', () => {
   for (const old of legacyList) {
     const id = LEGACY_NAMES[old.name];
     assert.ok(id && catalogById.has(id), `${old.name} has no id`);
-    assert.equal(catalogById.get(id)!.muscleGroup, old.muscleGroup, old.name);
+    assert.equal(catalogById.get(id)!.primary, old.muscleGroup, old.name);
   }
   for (const [name, id] of Object.entries(LEGACY_NAMES)) assert.ok(catalogById.has(id), `${name} → unknown ${id}`);
 });
