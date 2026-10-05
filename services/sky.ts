@@ -1,8 +1,8 @@
-import { addDays, differenceInCalendarDays, format, startOfWeek, subWeeks } from 'date-fns';
+import { trainingWindow, usualPerWeek, onPace, perWeekRate } from './pace';
 
-// The Daylight sky tracks the training week, not the clock: dawn on Monday, brighter with
-// each workout logged, full daylight once the week is complete, dusk once it can't be.
-// Dark Mode is always night. Pure and deterministic so it can be unit-tested.
+// The Daylight sky tracks the last 7 days of training, not the clock: dawn when nothing's in,
+// brighter with each workout, full daylight once the usual week is in, dusk when behind pace
+// (services/pace.ts). Dark Mode is always night. Pure and deterministic so it can be unit-tested.
 
 export type SkyStops = [string, string, string]; // top, middle, bottom
 
@@ -17,43 +17,28 @@ export type SkyPhase = 'dawn' | 'day' | 'dusk';
 
 export interface WeekSky {
   phase: SkyPhase;
-  progress: number; // 0..1, share of this week's target done
-  done: number; // distinct days trained this week
-  target: number; // planned days this week, or the usual weekly count
+  progress: number; // 0..1, share of the target done
+  done: number; // distinct days trained in the last 7
+  target: number; // planned days in the last 7, or the usual weekly count
   planned: boolean; // target comes from the schedule
   stops: SkyStops; // light-mode gradient
 }
 
-const DEFAULT_WEEKLY = 3; // for someone with no recent history
-
-const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
-
-// Distinct training days in the 4 full weeks before this one, per week
-export function usualWeeklyCount(workoutDates: string[], weekStart: Date): number {
-  const from = ymd(subWeeks(weekStart, 4));
-  const to = ymd(weekStart);
-  const days = new Set(workoutDates.filter(d => d >= from && d < to)).size;
-  if (days === 0) return DEFAULT_WEEKLY;
-  return Math.min(7, Math.max(1, Math.round(days / 4)));
-}
-
 export function weekSky(workouts: { date: string }[], schedule: { date: string }[], now: Date = new Date()): WeekSky {
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const first = ymd(weekStart);
-  const last = ymd(addDays(weekStart, 6));
-  const today = ymd(now);
-  const inWeek = (d: string) => d >= first && d <= last;
-
-  const trained = new Set(workouts.map(w => w.date).filter(d => inWeek(d) && d <= today));
-  const done = trained.size;
-  const plannedDays = new Set(schedule.map(s => s.date).filter(inWeek)).size;
-  const target = plannedDays || usualWeeklyCount(workouts.map(w => w.date), weekStart);
+  const dates = workouts.map(w => w.date);
+  const win = trainingWindow(dates, 7, now);
+  const done = win.trained.size;
+  const plannedDates = [...new Set(schedule.map(s => s.date))].filter(d => d >= win.first && d <= win.last);
+  const planned = plannedDates.length > 0;
+  const target = planned ? plannedDates.length : usualPerWeek(dates, now);
   const progress = Math.min(1, done / target);
-  const daysLeft = 7 - differenceInCalendarDays(now, weekStart) - (trained.has(today) ? 1 : 0); // open days through Sunday
+  const behind = planned
+    ? done < plannedDates.filter(d => d < win.last).length // planned days already gone by
+    : !onPace(perWeekRate(done, win.elapsed), target, win.elapsed);
 
-  const phase: SkyPhase = progress >= 1 ? 'day' : target - done > daysLeft ? 'dusk' : 'dawn';
+  const phase: SkyPhase = progress >= 1 ? 'day' : behind ? 'dusk' : 'dawn';
   const stops = phase === 'dusk' ? SKY.dusk : mixStops(SKY.dawn, SKY.day, progress);
-  return { phase, progress, done, target, planned: plannedDays > 0, stops };
+  return { phase, progress, done, target, planned, stops };
 }
 
 function mixStops(a: SkyStops, b: SkyStops, t: number): SkyStops {

@@ -11,8 +11,9 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRouter } from 'expo-router';
 import { fonts, spacing } from '../../constants/theme';
 import { getCoachingAdvice, CoachAnalysis, TRAINING_GUIDELINES, askFollowUpQuestion } from '../../services/coach';
+import { onPace } from '../../services/pace';
 import { ApiError } from '../../services/claude';
-import { startOfWeek, format, addDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import LogoMark from '../../components/LogoMark';
 
 // How far round the gauge each letter grade sits
@@ -24,22 +25,15 @@ export default function CoachScreen() {
   const router = useRouter();
   const [analysis, setAnalysis] = useState<CoachAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
-  const [analyzedWeek, setAnalyzedWeek] = useState<Date | null>(null);
   const [chatMessages, setChatMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const currentWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const selectedWeek = new Date(currentWeek.getTime() + weekOffset * 7 * 24 * 60 * 60 * 1000);
-
   const analyzeCurrentWeek = async () => {
     setIsLoading(true);
     try {
-      const result = await getCoachingAdvice(workouts, selectedWeek);
-      setAnalysis(result);
-      setAnalyzedWeek(result.analyzedWeek || selectedWeek);
+      setAnalysis(await getCoachingAdvice(workouts));
     } catch (error) {
       Alert.alert('Analysis Error', error instanceof ApiError ? error.message : 'Failed to analyze your training. Please try again.');
       console.error('Coaching analysis error:', error);
@@ -103,11 +97,11 @@ export default function CoachScreen() {
   };
 
   useEffect(() => {
-    // Auto-analyze when component mounts or week changes
+    // Auto-analyze when component mounts or workouts change
     if (workouts.length > 0) {
       analyzeCurrentWeek();
     }
-  }, [workouts, weekOffset]);
+  }, [workouts]);
 
   const getLetterGrade = (quality: CoachAnalysis['splitQuality']) => {
     switch (quality) {
@@ -119,7 +113,7 @@ export default function CoachScreen() {
     }
   };
 
-  const getVolumeGrade = (weeklyVolume: Record<string, number>) => {
+  const getVolumeGrade = ({ weeklyVolume, window }: CoachAnalysis) => {
     const volumes = Object.entries(weeklyVolume).filter(([muscle, sets]) =>
       sets > 0 && muscle !== 'cardio' && muscle !== 'full_body'
     );
@@ -127,7 +121,7 @@ export default function CoachScreen() {
     let goodVolumes = 0;
     volumes.forEach(([muscle, sets]) => {
       const mev = TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME[muscle as keyof typeof TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME] || 6;
-      if (sets >= mev) goodVolumes++;
+      if (onPace(sets, mev, window.elapsed)) goodVolumes++;
     });
 
     const ratio = volumes.length > 0 ? goodVolumes / volumes.length : 0;
@@ -160,8 +154,8 @@ export default function CoachScreen() {
         const mev = TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME[muscle as keyof typeof TRAINING_GUIDELINES.MINIMUM_EFFECTIVE_VOLUME] || 6;
         const optimal = TRAINING_GUIDELINES.OPTIMAL_VOLUME_RANGE[muscle as keyof typeof TRAINING_GUIDELINES.OPTIMAL_VOLUME_RANGE] || 14;
 
-        if (sets >= mev && sets <= optimal) {
-          working.push(`Great ${muscle} volume (${sets} sets)`);
+        if (onPace(sets, mev, analysis.window.elapsed) && sets <= optimal) {
+          working.push(`Great ${muscle} volume (${sets} sets a week)`);
         }
       }
     });
@@ -224,13 +218,12 @@ export default function CoachScreen() {
     );
   }
 
-  const week = analyzedWeek ?? selectedWeek;
-  const isPastWeek = analyzedWeek && analyzedWeek.getTime() !== currentWeek.getTime();
-  const subtitle = `${isPastWeek ? "Last week's report" : "This week's report"} · ${format(week, 'MMM d')} – ${format(addDays(week, 6), 'MMM d')}`;
+  const span = analysis?.window;
+  const subtitle = span && `Last ${span.days} days · ${format(parseISO(span.first), 'MMM d')} – ${format(parseISO(span.last), 'MMM d')}`;
 
   const subGrades = analysis
     ? [
-        { label: 'Volume', grade: getVolumeGrade(analysis.weeklyVolume) },
+        { label: 'Volume', grade: getVolumeGrade(analysis) },
         { label: 'Frequency', grade: getFrequencyGrade(analysis.frequencyIssues) },
         { label: 'Balance', grade: getBalanceGrade(analysis.volumeIssues) },
       ]
