@@ -95,7 +95,7 @@ Server tests (Node 22.18+): `cd server && npm test`
 
 Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 
-Nothing is saved until you review the parsed workout. A typed fix under the review card ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, draft, fix } }`: correction mode returns the whole draft with the fix applied. A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
+Nothing is saved until you review the parsed workout. A typed fix under the review card ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, exercises, draft, fix } }`: correction mode returns the whole draft with the fix applied. A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
 
 ## Project Structure
 
