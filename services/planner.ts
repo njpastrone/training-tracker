@@ -6,7 +6,7 @@ import { analyzeWeeklyVolume } from './coach';
 import { templateService } from './templates';
 import { scheduleService } from './schedule';
 import { calculateStats } from '../stores/workoutStore';
-import { MuscleGroup, WeightUnit, Workout } from '../types/workout';
+import { Exercise, MuscleGroup, WeightUnit, Workout } from '../types/workout';
 import { TemplateExercise, TemplateSchedule } from '../types/template';
 import { PlanDay, PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
 
@@ -66,9 +66,11 @@ export function summarizeHistory(
 
   const lastTrained: Partial<Record<MuscleGroup, string>> = {};
   const frequency = new Map<string, number>();
+  // One lift = one exercise id, whatever it was called; names only for entries saved without one
+  const liftKey = (e: Exercise) => e.exerciseId ?? `name:${e.name.toLowerCase()}`;
   for (const w of workouts) {
     for (const g of w.muscleGroups) if (!lastTrained[g] || w.date > lastTrained[g]!) lastTrained[g] = w.date;
-    for (const e of w.exercises) frequency.set(e.name.toLowerCase(), (frequency.get(e.name.toLowerCase()) ?? 0) + 1);
+    for (const e of w.exercises) frequency.set(liftKey(e), (frequency.get(liftKey(e)) ?? 0) + 1);
   }
 
   // Top 8 most-logged exercises, with the heaviest set from the latest time each was done
@@ -77,9 +79,9 @@ export function summarizeHistory(
     .sort((a, b) => b[1] - a[1])
     .slice(0, 8)
     .flatMap(([key]) => {
-      const workout = newestFirst.find(w => w.exercises.some(e => e.name.toLowerCase() === key))!;
+      const workout = newestFirst.find(w => w.exercises.some(e => liftKey(e) === key))!;
       const best = workout.exercises
-        .filter(e => e.name.toLowerCase() === key)
+        .filter(e => liftKey(e) === key)
         .reduce((a, b) => ((b.weight ?? 0) > (a.weight ?? 0) ? b : a));
       if (!best.weight && !best.reps) return [];
       return [{ name: best.name, top: best.weight ? `${best.weight}x${best.reps ?? '?'}` : `${best.sets ?? 1}x${best.reps}`, date: workout.date }];

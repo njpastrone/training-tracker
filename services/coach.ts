@@ -1,5 +1,6 @@
 import { Workout, MuscleGroup } from '../types/workout';
 import { getExercisesByCategory } from '../data/exercises';
+import { catalogById } from '../data/catalog';
 import { addWeeks, startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { callClaude, ApiError } from './claude';
 
@@ -156,10 +157,13 @@ export function analyzeWeeklyVolume(workouts: Workout[], weekStartDate: Date): R
       weeklyData[muscle].lastTrained = workout.date;
     });
 
+    // A set counts 1 for the exercise's primary muscle and ½ for each secondary (fractional volume).
+    // Exercises without a catalog id count toward their stored muscle group only.
     workout.exercises.forEach(exercise => {
-      const muscle = exercise.muscleGroup;
+      const entry = exercise.exerciseId ? catalogById.get(exercise.exerciseId) : undefined;
       const sets = exercise.sets || 0;
-      weeklyData[muscle].totalSets += sets;
+      weeklyData[entry?.primary ?? exercise.muscleGroup].totalSets += sets;
+      for (const muscle of entry?.secondary ?? []) weeklyData[muscle].totalSets += sets / 2;
     });
   });
 
@@ -222,6 +226,7 @@ export async function getCoachingAdvice(
     const weeklyData = analyzeWeeklyVolume(workouts, intelligentWeek);
     // Prepare analysis data for Claude
     const analysisData = {
+      volumeCounting: 'sets per muscle: each set counts 1 for the main muscle and 0.5 for each secondary muscle',
       weeklyVolume: Object.fromEntries(
         Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.totalSets])
       ),
@@ -376,6 +381,7 @@ async function getCoachingAdviceSimple(
 ): Promise<CoachAnalysis> {
   const weeklyData = analyzeWeeklyVolume(workouts, weekStartDate);
   const analysisData = {
+    volumeCounting: 'sets per muscle: each set counts 1 for the main muscle and 0.5 for each secondary muscle',
     weeklyVolume: Object.fromEntries(
       Object.entries(weeklyData).map(([muscle, data]) => [muscle, data.totalSets])
     ),

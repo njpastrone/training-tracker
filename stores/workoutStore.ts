@@ -1,15 +1,18 @@
+import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup } from '../types/workout';
+import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService } from '../services/schedule';
+import { emptyLibrary, migrateToV1, withIdentity } from '../services/exerciseIdentity';
 import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
 
 interface WorkoutState {
   workouts: Workout[];
   settings: UserSettings;
+  exerciseLibrary: ExerciseLibrary;
   templates: WorkoutTemplate[];
   schedule: TemplateSchedule[];
   isLoading: boolean;
@@ -23,6 +26,7 @@ interface WorkoutState {
   getWorkoutDates: () => Set<string>;
   getStats: () => WorkoutStats;
   updateSettings: (settings: Partial<UserSettings>) => void;
+  createCustomExercise: (name: string, muscleGroup: MuscleGroup) => string;
   clearAllData: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -177,6 +181,21 @@ export function calculateStats(workouts: Workout[]): WorkoutStats {
   };
 }
 
+const STORAGE_KEY = '@training-tracker/storage';
+const V0_BACKUP_KEY = '@training-tracker/storage.v0-backup';
+
+// Copies the stored blob before the version 0 → 1 migration touches it. The migration only adds
+// fields, so a failed backup is logged and the migration still runs.
+// ponytail: the backup is never pruned; drop it once the exercise review sheet has shipped
+async function backupV0() {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (raw && !(await AsyncStorage.getItem(V0_BACKUP_KEY))) await AsyncStorage.setItem(V0_BACKUP_KEY, raw);
+  } catch (error) {
+    console.error('Error backing up workouts before migrating:', error);
+  }
+}
+
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
   showStreakNotifications: true,
@@ -187,6 +206,7 @@ export const useWorkoutStore = create<WorkoutState>()(
     (set, get) => ({
       workouts: [],
       settings: defaultSettings,
+      exerciseLibrary: emptyLibrary(),
       templates: [],
       schedule: [],
       isLoading: false,
@@ -196,11 +216,13 @@ export const useWorkoutStore = create<WorkoutState>()(
         return calculateStats(get().workouts);
       },
 
-      addWorkout: (workout) => {
+      addWorkout: (newWorkout) => {
+        const { workout, library } = withIdentity(newWorkout, get().exerciseLibrary);
         set((state) => ({
           workouts: [workout, ...state.workouts].sort((a, b) =>
             b.date.localeCompare(a.date)
           ),
+          exerciseLibrary: library,
           error: null,
         }));
         // Logging on a planned day completes that plan session
@@ -211,11 +233,14 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       updateWorkout: (id, updates) => {
-        set((state) => ({
-          workouts: state.workouts.map((w) =>
-            w.id === id ? { ...w, ...updates, updatedAt: new Date().toISOString() } : w
-          ),
-        }));
+        let library = get().exerciseLibrary;
+        const workouts = get().workouts.map((w) => {
+          if (w.id !== id) return w;
+          const r = withIdentity({ ...w, ...updates, updatedAt: new Date().toISOString() }, library);
+          library = r.library;
+          return r.workout;
+        });
+        set({ workouts, exerciseLibrary: library });
       },
 
       deleteWorkout: (id) => {
@@ -232,6 +257,21 @@ export const useWorkoutStore = create<WorkoutState>()(
         return new Set(get().workouts.map((w) => w.date));
       },
 
+      createCustomExercise: (name, muscleGroup) => {
+        const id = `custom-${uuidv4()}`;
+        set((state) => ({
+          exerciseLibrary: {
+            ...state.exerciseLibrary,
+            custom: [...state.exerciseLibrary.custom, {
+              id, name: name.trim(), muscleGroup,
+              metric: muscleGroup === 'cardio' ? 'distance-time' : 'weight-reps',
+              createdAt: new Date().toISOString(),
+            }],
+          },
+        }));
+        return id;
+      },
+
       updateSettings: (newSettings) => {
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
@@ -242,6 +282,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         set({
           workouts: [],
           settings: defaultSettings,
+          exerciseLibrary: emptyLibrary(),
           error: null,
         });
       },
@@ -387,11 +428,24 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
     }),
     {
-      name: '@training-tracker/storage',
+      name: STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
+      // 1: exercise identity (exerciseId and match on every logged exercise, plus the library)
+      version: 1,
+      migrate: async (persisted, version) => {
+        if (version === 0) await backupV0();
+        try {
+          return migrateToV1(persisted as Partial<WorkoutState>) as WorkoutState;
+        } catch (error) {
+          // Never fail hydration: that would leave the store empty and the next save would overwrite the data
+          console.error('Error migrating workouts:', error);
+          return persisted as WorkoutState;
+        }
+      },
       partialize: (state) => ({
         workouts: state.workouts,
         settings: state.settings,
+        exerciseLibrary: state.exerciseLibrary,
         // Templates and Schedule are stored separately via services
       }),
     }
