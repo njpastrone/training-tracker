@@ -38,6 +38,10 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
   const update = (i: number, field: keyof DraftExercise, value: unknown) => onChange(editDraft(draft, i, field, value));
   const remove = (i: number) => onChange(removeFromDraft(draft, i));
 
+  // An optional chip stays while it is being edited, even when emptied
+  const [focused, setFocused] = useState<string | null>(null);
+  const focus = (key: string) => ({ onFocus: () => setFocused(key), onBlur: () => setFocused(f => (f === key ? null : f)) });
+
   const dayTag = (offset?: number) =>
     !offset ? null : offset === -1 ? 'Yesterday' : format(addDays(parseISO(date), offset), 'EEE, MMM d');
 
@@ -92,14 +96,14 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
               <View style={styles.numbers}>
                 <NumberChip value={e.sets} suffix="sets" unsure={isUnsure(i, 'sets')} onChange={v => update(i, 'sets', v)} />
                 <NumberChip value={e.reps} suffix="reps" unsure={isUnsure(i, 'reps')} onChange={v => update(i, 'reps', v)} />
-                {(e.weight !== undefined || e.muscleGroup !== 'cardio') && (
-                  <NumberChip value={e.weight} suffix={e.unit === 'kg' ? 'kg' : 'lb'} unsure={isUnsure(i, 'weight')} onChange={v => update(i, 'weight', v)} />
+                {(e.weight !== undefined || e.muscleGroup !== 'cardio' || focused === `${i}:weight`) && (
+                  <NumberChip value={e.weight} suffix={e.unit === 'kg' ? 'kg' : 'lb'} unsure={isUnsure(i, 'weight')} onChange={v => update(i, 'weight', v)} {...focus(`${i}:weight`)} />
                 )}
-                {(e.duration !== undefined || e.muscleGroup === 'cardio') && (
-                  <NumberChip value={e.duration} suffix="min" unsure={isUnsure(i, 'duration')} onChange={v => update(i, 'duration', v)} />
+                {(e.duration !== undefined || e.muscleGroup === 'cardio' || focused === `${i}:duration`) && (
+                  <NumberChip value={e.duration} suffix="min" unsure={isUnsure(i, 'duration')} onChange={v => update(i, 'duration', v)} {...focus(`${i}:duration`)} />
                 )}
-                {e.distance !== undefined && (
-                  <NumberChip value={e.distance} suffix={e.distanceUnit ?? ''} unsure={isUnsure(i, 'distance')} onChange={v => update(i, 'distance', v)} />
+                {(e.distance !== undefined || focused === `${i}:distance`) && (
+                  <NumberChip value={e.distance} suffix={e.distanceUnit ?? ''} unsure={isUnsure(i, 'distance')} onChange={v => update(i, 'distance', v)} {...focus(`${i}:distance`)} />
                 )}
               </View>
               {e.notes ? (
@@ -131,7 +135,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
 }
 
 // A number you can tap to edit; empty clears it
-function NumberChip({ value, suffix, unsure, onChange }: { value?: number | string; suffix: string; unsure: boolean; onChange: (v: number | undefined) => void }) {
+function NumberChip({ value, suffix, unsure, onChange, onFocus, onBlur }: { value?: number | string; suffix: string; unsure: boolean; onChange: (v: number | undefined) => void; onFocus?: () => void; onBlur?: () => void }) {
   const { colors } = useTheme();
   const shown = value === undefined ? '' : String(value);
   const current = typeof value === 'string' ? parseFloat(value) : value;
@@ -141,12 +145,7 @@ function NumberChip({ value, suffix, unsure, onChange }: { value?: number | stri
   const edit = (t: string) => {
     setText(t);
     const next = toNumber(t);
-    if (next !== undefined && next !== current) onChange(next);
-  };
-
-  const endEdit = () => {
-    if (toNumber(text) === undefined && current !== undefined) onChange(undefined);
-    else setText(shown);
+    if (next !== current) onChange(next);
   };
 
   return (
@@ -160,7 +159,9 @@ function NumberChip({ value, suffix, unsure, onChange }: { value?: number | stri
       <TextInput
         value={text}
         onChangeText={edit}
-        onEndEditing={endEdit}
+        onEndEditing={() => setText(shown)}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder="–"
         placeholderTextColor={colors.textTertiary}
         keyboardType="decimal-pad"
