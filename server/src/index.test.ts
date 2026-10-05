@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { type Env } from './index.ts';
-import { buildParseRequest } from './parse.ts';
+import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 
 function makeEnv(cap = '2', count?: number) {
   const store = new Map<string, string>();
@@ -120,4 +120,25 @@ test('parse mode puts the app\'s exercise list in the prompt and rejects malform
   ]) {
     assert.equal((await call(req('pw', { parse: { ...parse, exercises: bad } }), env)).status, 400);
   }
+});
+
+test('correction mode sends the draft and fix with the correction rules', async () => {
+  const { env } = makeEnv();
+  const draft = { exercises: [{ name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const }], muscleGroups: ['chest' as const], confidence: 0.9 };
+  const parse = { input: 'Bench Press 3x8, 135 lb\nCorrection: actually 3x10', date: '2026-10-03', unit: 'lbs', draft, fix: 'actually 3x10' };
+  const res = await call(req('pw', { parse }), env);
+  assert.equal(res.status, 200);
+  const sent = JSON.parse(upstream[0].init.body as string);
+  assert.deepEqual(sent, buildCorrectionRequest(draft, 'actually 3x10', { date: '2026-10-03', unit: 'lbs' }));
+  assert.match(sent.system, /<correction>/);
+  assert.match(sent.messages[0].content, /<draft>\{"exercises":\[\{"name":"Bench Press"[\s\S]*<fix>actually 3x10<\/fix>/);
+});
+
+test('rejects a malformed correction before counting', async () => {
+  const { env, store } = makeEnv();
+  const base = { input: 'x', date: '2026-10-03', unit: 'lbs' };
+  for (const extra of [{ fix: ' ', draft: { exercises: [] } }, { fix: 'more reps' }, { fix: 'more reps', draft: { exercises: 'x' } }, { fix: 3, draft: { exercises: [] } }]) {
+    assert.equal((await call(req('pw', { parse: { ...base, ...extra } }), env)).status, 400);
+  }
+  assert.equal(store.size, 0);
 });

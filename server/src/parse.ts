@@ -113,6 +113,12 @@ e7 Air Bike (cardio)
 "muscleGroups":["quads","back","cardio"],"notes":"Front squat PR. Slept badly, felt slow","confidence":0.95}
 </example>`;
 
+// Correction mode: the app sends the draft the user is reviewing plus their typed fix
+const CORRECTION_RULES = `<correction>
+Instead of a log, the user message may hold <draft>, the workout as you parsed it earlier (JSON, possibly edited by the user since), and <fix>, the user's correction in their own words ("actually 3x10, not 3x8", "the rows were 120", "add 10 min on the bike", "drop the curls"). Return the whole workout with the fix applied, in the same output format: change only what the fix asks for, keep every other exercise, value and note exactly as in the draft, and follow the rules above for anything the fix adds or changes. If the fix names an exercise loosely, apply it to the closest match in the draft.
+Also return unsure: the values you could not be sure of, as [{"exercise": index in exercises, "field": "name", "sets", "reps", "weight", "duration" or "distance"}], such as a garbled number in the fix. Values the user did not give stay null and are not listed. Usually it is [].
+</correction>`;
+
 export interface ParseOptions {
   date: string; // logging date, YYYY-MM-DD
   unit: 'lbs' | 'kg'; // the user's default weight unit
@@ -121,12 +127,16 @@ export interface ParseOptions {
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function userMessage(input: string, { date, unit, exercises }: ParseOptions) {
+function context({ date, unit }: ParseOptions) {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay();
   const recent = [1, 2, 3, 4, 5, 6].map((n) => `${WEEKDAYS[(day - n + 7) % 7]} -${n}`).join(', ');
   return `Logging date: ${WEEKDAYS[day]} ${date} (${recent})
-Default weight unit: ${unit}
-<log>${input}</log>${exercises?.length ? `\n${formatCandidates(exercises)}` : ''}`;
+Default weight unit: ${unit}`;
+}
+
+function userMessage(input: string, options: ParseOptions) {
+  return `${context(options)}
+<log>${input}</log>${options.exercises?.length ? `\n${formatCandidates(options.exercises)}` : ''}`;
 }
 
 // The Anthropic Messages request for one log. The Worker sends exactly this.
@@ -137,6 +147,25 @@ export function buildParseRequest(input: string, options: ParseOptions) {
     temperature: 0,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user' as const, content: userMessage(input, options) }],
+  };
+}
+
+// The draft as the model sees it: the parse output fields, nulls included, without app-only fields
+function draftForModel(draft: ParsedWorkoutResponse) {
+  const fields = ['name', 'muscleGroup', 'sets', 'reps', 'weight', 'unit', 'duration', 'distance', 'distanceUnit', 'dayOffset', 'notes'] as const;
+  return {
+    exercises: draft.exercises.map((e) => Object.fromEntries(fields.map((f) => [f, (e as Record<string, unknown>)[f] ?? (f === 'dayOffset' ? 0 : null)]))),
+    muscleGroups: draft.muscleGroups,
+    notes: draft.notes ?? null,
+  };
+}
+
+// The Anthropic Messages request that applies a typed fix to a draft. Same output as a parse.
+export function buildCorrectionRequest(draft: ParsedWorkoutResponse, fix: string, options: ParseOptions) {
+  return {
+    ...buildParseRequest('', options),
+    system: `${SYSTEM_PROMPT}\n\n${CORRECTION_RULES}`,
+    messages: [{ role: 'user' as const, content: `${context(options)}\n<draft>${JSON.stringify(draftForModel(draft))}</draft>\n<fix>${fix}</fix>` }],
   };
 }
 
@@ -153,7 +182,7 @@ const weightUnit = (v: unknown) => (typeof v === 'string' ? UNITS[v.trim().toLow
 // candidates it was sent with), every exercise gets a validated exerciseId and match; see
 // identity.ts. Returns null when the text holds no usable JSON object.
 export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], identity?: IdentityContext): ParsedWorkoutResponse | null {
-  let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown };
+  let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown; unsure?: unknown };
   try {
     raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
   } catch {
@@ -163,8 +192,10 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
 
   const isGroup = (g: unknown): g is MuscleGroup => MUSCLE_GROUPS.includes(g as MuscleGroup);
   type Parsed = ParsedWorkoutResponse['exercises'][number];
-  const listed = (raw.exercises as Record<string, unknown>[]).filter((e) => e && (str(e.name) || str(e.said) || str(e.ex)));
+  const kept = (raw.exercises as Record<string, unknown>[]).flatMap((e, i) => (e && (str(e.name) || str(e.said) || str(e.ex)) ? [i] : []));
+  const listed = kept.map((i) => (raw.exercises as Record<string, unknown>[])[i]);
   const namesOnly = !listed.some((e) => str(e.said) || str(e.ex));
+  const at: number[] = []; // where each listed exercise ends up after merging
   const exercises = listed
     .map((e) => {
       const id = identity && (namesOnly ? resolveName(str(e.name), identity) : resolvePick({ said: str(e.said), ex: str(e.ex), alt: str(e.alt), name: str(e.name) }, identity));
@@ -204,6 +235,7 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
         const notes = [...new Set([prev.notes, e.notes].filter(Boolean))].join('; ');
         out[out.length - 1] = { ...prev, sets: prev.sets + e.sets, ...(notes ? { notes } : {}) };
       } else out.push(e);
+      at.push(out.length - 1);
       return out;
     }, []);
 
@@ -214,5 +246,20 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
     muscleGroups: exercises.length ? [...new Set([...exercises.map((e) => e.muscleGroup), ...extraGroups])] : [],
     notes: str(raw.notes),
     confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.5,
+    unsure: unsureFields(raw.unsure, kept, at),
   };
+}
+
+const UNSURE_FIELDS = ['name', 'sets', 'reps', 'weight', 'duration', 'distance'] as const;
+
+// Model indexes point into its own exercise list; renumber them for the exercises kept and merged
+function unsureFields(value: unknown, kept: number[], at: number[]): NonNullable<ParsedWorkoutResponse['unsure']> {
+  if (!Array.isArray(value)) return [];
+  const out: NonNullable<ParsedWorkoutResponse['unsure']> = [];
+  for (const u of value) {
+    const exercise = at[kept.indexOf(u?.exercise)];
+    const field = oneOf(u?.field, UNSURE_FIELDS);
+    if (exercise !== undefined && field && !out.some((f) => f.exercise === exercise && f.field === field)) out.push({ exercise, field });
+  }
+  return out;
 }

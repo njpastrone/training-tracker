@@ -5,6 +5,7 @@
 //   npm run eval:parse -- --only multi_day     # one category or case id (comma-separated)
 //   npm run eval:parse -- --model claude-sonnet-5-5 --repeat 3
 //   npm run eval:parse -- --against evals/parse/results/<earlier>.json   # list regressions
+//   npm run eval:parse -- --set corrections    # typed fixes applied to a draft (correction mode)
 //
 // Needs ANTHROPIC_API_KEY in the environment (or in .env.eval.local). Never calls the Worker.
 
@@ -16,7 +17,7 @@ import { identityFor } from './identity.ts';
 const { values: args } = parseArgs({
   options: {
     parser: { type: 'string', default: '../../server/src/parse.ts' },
-    set: { type: 'string', default: 'cases' }, // or 'holdout', 'identity'
+    set: { type: 'string', default: 'cases' }, // or 'holdout', 'identity', 'corrections'
     model: { type: 'string' },
     effort: { type: 'string' },
     compat: { type: 'boolean', default: false }, // send what the Worker deployed before the parse mode sends
@@ -63,10 +64,12 @@ async function callAnthropic(body: Record<string, unknown>) {
   }
 }
 
-async function runCase(c: (typeof cases)[number]) {
-  const identity = identityFor(c);
-  const exercises = identity.candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
-  let body = parser.buildParseRequest(c.input, { date: c.date ?? '2026-10-03', unit: c.unit ?? 'lbs', exercises });
+async function runCase(c: (typeof cases)[number] & { draft?: unknown; fix?: string }) {
+  // A fix is applied without the candidate list, as in the app; the exercises it renames resolve on save
+  const identity = c.fix ? undefined : identityFor(c);
+  const exercises = identity?.candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
+  const options = { date: c.date ?? '2026-10-03', unit: c.unit ?? 'lbs', exercises };
+  let body = c.fix ? parser.buildCorrectionRequest(c.draft, c.fix, options) : parser.buildParseRequest(c.input, options);
   if (args.model) body.model = args.model;
   if (args.effort) body.output_config = { ...body.output_config, effort: args.effort };
   if (args.compat) {

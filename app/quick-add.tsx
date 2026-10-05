@@ -1,56 +1,25 @@
-import { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { parseWorkout, workoutsFromParse, ApiError } from '../services/claude';
+import { useLogDraft } from '../hooks/useLogDraft';
 import { spacing } from '../constants/theme';
 import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, LargeTitle } from '../components/Sky';
 import { Pill } from '../components/Glass';
+import { UserBubble } from '../components/Chat';
+import ParsedCard from '../components/ParsedCard';
 import Field from '../components/Field';
 
+// Log a workout for a given day: type it, review the parsed card, Save
 export default function QuickAddScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
   const router = useRouter();
-  const { addWorkout, settings } = useWorkoutStore();
   const { colors } = useTheme();
-
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const targetDate = date || format(new Date(), 'yyyy-MM-dd');
   const dateLabel = date ? format(parseISO(date), 'EEEE, MMMM d') : 'Today';
-
-  const handleSubmit = async () => {
-    if (!input.trim()) {
-      setError('Please enter your workout');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const parsed = await parseWorkout(input.trim(), { date: targetDate, unit: settings.weightUnit });
-
-      if (!parsed || parsed.exercises.length === 0) {
-        setError('Could not understand the workout. Try being more specific.');
-        setIsLoading(false);
-        return;
-      }
-
-      workoutsFromParse(parsed, input.trim(), targetDate).forEach(addWorkout);
-      router.back();
-    } catch (err) {
-      console.error('Error parsing workout:', err);
-      setError(err instanceof ApiError ? err.message : 'Failed to log workout. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const log = useLogDraft({ date: targetDate, onLogged: () => router.back() });
 
   return (
     <SkyScreen edges={['bottom']}>
@@ -58,37 +27,52 @@ export default function QuickAddScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <LargeTitle title={dateLabel} />
-          <SkyCard>
-            <Field
-              placeholder="e.g., Bench press 3x10 @ 185lbs, incline dumbbell press 4x12..."
-              value={input}
-              onChangeText={(text) => {
-                setInput(text);
-                if (error) setError(null);
-              }}
-              multiline
-              editable={!isLoading}
-              autoFocus
-              accessibilityLabel="Your workout"
-            />
-            {error && (
-              <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">
-                {error}
-              </Text>
-            )}
-          </SkyCard>
 
-          <View style={styles.buttons}>
-            <Pill variant="glass" label="Cancel" onPress={() => router.back()} disabled={isLoading} style={styles.button} />
-            <Pill
-              icon="checkmark"
-              label={isLoading ? 'Reading…' : 'Log workout'}
-              onPress={handleSubmit}
-              loading={isLoading}
-              disabled={!input.trim()}
-              style={styles.button}
+          {log.sent && <UserBubble text={log.sent} />}
+
+          {log.draft ? (
+            <ParsedCard
+              draft={log.draft}
+              date={targetDate}
+              onChange={log.setDraft}
+              onSave={log.save}
+              onDiscard={log.discard}
+              onFix={log.fix}
+              busy={log.busy}
+              error={log.error}
             />
-          </View>
+          ) : (
+            <>
+              <SkyCard>
+                <Field
+                  placeholder="e.g., Bench press 3x10 @ 185lbs, incline dumbbell press 4x12..."
+                  value={log.text}
+                  onChangeText={log.setText}
+                  multiline
+                  editable={!log.busy}
+                  autoFocus
+                  accessibilityLabel="Your workout"
+                />
+                {log.error && (
+                  <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">
+                    {log.error}
+                  </Text>
+                )}
+              </SkyCard>
+
+              <View style={styles.buttons}>
+                <Pill variant="glass" label="Cancel" onPress={() => router.back()} disabled={!!log.busy} style={styles.button} />
+                <Pill
+                  icon="sparkles"
+                  label={log.busy === 'parse' ? 'Reading…' : 'Read it'}
+                  onPress={log.parse}
+                  loading={log.busy === 'parse'}
+                  disabled={!log.text.trim()}
+                  style={styles.button}
+                />
+              </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SkyScreen>

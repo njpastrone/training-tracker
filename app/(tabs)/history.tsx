@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
-import { Text, Surface, Chip, Portal, Dialog, List, Button, Switch, Icon, IconButton } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, AlertButton, Pressable } from 'react-native';
+import { Text, Chip, Portal, Dialog, List, Button } from 'react-native-paper';
+import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SkyScreen, LargeTitle } from '../../components/Sky';
+import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { Pill } from '../../components/Glass';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
@@ -10,7 +12,7 @@ import MuscleGroupBalance from '../../components/MuscleGroupBalance';
 import WeeklyWorkoutPattern from '../../components/WeeklyWorkoutPattern';
 import WeekSelector from '../../components/WeekSelector';
 import InsightCards from '../../components/InsightCards';
-import { spacing } from '../../constants/theme';
+import { fonts, radius, spacing } from '../../constants/theme';
 import { format, isFuture, parseISO } from 'date-fns';
 import { WorkoutTemplate } from '../../types/template';
 import { scheduleService } from '../../services/schedule';
@@ -38,7 +40,7 @@ export default function HistoryScreen() {
     cancelScheduledWorkout,
     deleteRecurringSeries
   } = useWorkoutStore();
-  const { colors } = useTheme();
+  const { colors, sky } = useTheme();
   const router = useRouter();
   const stats = getStats();
 
@@ -285,112 +287,85 @@ export default function HistoryScreen() {
     }
   };
 
+  const tiles = [
+    { value: stats.streak.current, label: 'Day streak' },
+    { value: stats.thisWeek, label: 'This week' },
+    { value: stats.thisMonth, label: 'This month' },
+    { value: stats.totalWorkouts, label: 'All time' },
+  ];
+
   return (
     <SkyScreen>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        <LargeTitle title="History" />
+        <LargeTitle title="History" subtitle={`${sky.done} of ${sky.target} ${sky.planned ? 'planned workouts' : 'workouts'} this week`} />
         {addedPlan && (
-          <Surface style={[styles.planBanner, { backgroundColor: colors.secondary + '20', borderColor: colors.secondary }]} elevation={0}>
-            <Icon source="check-circle" size={20} color={colors.secondary} />
+          <SkyCard style={styles.planBanner}>
+            <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />
             <Text variant="bodyMedium" style={[styles.planBannerText, { color: colors.text }]}>
               {addedPlan.name} added · {addedCount} workout{addedCount === 1 ? '' : 's'}
             </Text>
-            <Button compact onPress={() => planId && handleDeletePlan(planId)}>Undo</Button>
-            <IconButton icon="close" size={20} onPress={() => router.setParams({ planId: '' })} style={styles.planBannerClose} />
-          </Surface>
+            <Pill variant="glass" size="small" label="Undo" onPress={() => planId && handleDeletePlan(planId)} />
+            <Pressable onPress={() => router.setParams({ planId: '' })} accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={8}>
+              <SymbolView name="xmark" size={14} weight="semibold" tintColor={colors.textTertiary} />
+            </Pressable>
+          </SkyCard>
         )}
 
-        {/* Simplified Stats */}
-        <Surface style={[styles.statsCard, { backgroundColor: colors.surface }]} elevation={1}>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text variant="titleLarge" style={[styles.statNumber, { color: colors.text }]}>
-                {stats.streak.current}
-              </Text>
-              <Text variant="bodySmall" style={[styles.statLabel, { color: colors.textSecondary }]}>
-                Day Streak
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text variant="titleLarge" style={[styles.statNumber, { color: colors.text }]}>
-                {stats.thisWeek}
-              </Text>
-              <Text variant="bodySmall" style={[styles.statLabel, { color: colors.textSecondary }]}>
-                This Week
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text variant="titleLarge" style={[styles.statNumber, { color: colors.text }]}>
-                {stats.thisMonth}
-              </Text>
-              <Text variant="bodySmall" style={[styles.statLabel, { color: colors.textSecondary }]}>
-                This Month
-              </Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text variant="titleLarge" style={[styles.statNumber, { color: colors.text }]}>
-                {stats.totalWorkouts}
-              </Text>
-              <Text variant="bodySmall" style={[styles.statLabel, { color: colors.textSecondary }]}>
-                Total
-              </Text>
-            </View>
-          </View>
-        </Surface>
+        <View style={styles.tiles}>
+          {tiles.map(tile => (
+            <SkyCard key={tile.label} style={styles.tile}>
+              <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
+              <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{tile.label}</Text>
+            </SkyCard>
+          ))}
+        </View>
 
-        {/* Calendar - now with clickable days and schedule indicators */}
-        <Surface style={[styles.calendarCard, { backgroundColor: colors.surface }]} elevation={1}>
+        {/* Calendar: tap a day to view it; today and future days can be scheduled */}
+        <SkyCard>
           <View style={styles.calendarHeader}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-              Workout Calendar
-            </Text>
-            <Chip compact icon="creation" onPress={() => router.push('/plan')}>
-              Plan
-            </Chip>
+            <SectionLabel>Calendar</SectionLabel>
+            <Pill variant="glass" size="small" icon="sparkles" label="Plan" onPress={() => router.push('/plan')} />
           </View>
-          <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textSecondary }]}>
+          <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textTertiary }]}>
             Tap any day to view workouts or schedule future ones
           </Text>
-          <Calendar 
-            workouts={workouts} 
+          <Calendar
+            workouts={workouts}
             schedule={schedule}
             onDatePress={handleDatePress}
           />
-        </Surface>
+        </SkyCard>
 
-        {/* Weekly Analytics Section */}
-        <Surface style={[styles.analyticsCard, { backgroundColor: colors.surface }]} elevation={1}>
-          <WeekSelector 
+        {/* Weekly analytics */}
+        <SkyCard>
+          <WeekSelector
             selectedWeek={selectedWeek}
             onWeekChange={setSelectedWeek}
           />
-          <MuscleGroupBalance 
+          <MuscleGroupBalance
             workouts={workouts}
             selectedWeek={selectedWeek}
           />
-        </Surface>
+        </SkyCard>
 
-        <Surface style={[styles.analyticsCard, { backgroundColor: colors.surface }]} elevation={1}>
-          <WeeklyWorkoutPattern 
+        <SkyCard>
+          <WeeklyWorkoutPattern
             workouts={workouts}
             selectedWeek={selectedWeek}
           />
-        </Surface>
+        </SkyCard>
 
         <View style={styles.insightCardsContainer}>
           <InsightCards stats={stats} />
         </View>
 
-        {/* Longest Streak */}
         {stats.streak.longest > 0 && (
-          <Surface style={[styles.longestStreak, { backgroundColor: colors.primaryLight + '20' }]} elevation={0}>
-            <Text variant="bodyMedium" style={[styles.longestStreakText, { color: colors.primary }]}>
-              Longest streak: {stats.streak.longest} days • Total: {stats.totalWorkouts} workouts
-            </Text>
-          </Surface>
+          <Text variant="bodySmall" style={[styles.longestStreak, { color: colors.textTertiary }]}>
+            Longest streak: {stats.streak.longest} days · Total: {stats.totalWorkouts} workouts
+          </Text>
         )}
       </ScrollView>
 
@@ -420,11 +395,11 @@ export default function HistoryScreen() {
                   description={`${template.exercises.length} exercises • ${template.muscleGroups.join(', ')}`}
                   left={props => <List.Icon {...props} icon="clipboard-text-outline" />}
                   right={() => selectedTemplate === template.id ? (
-                    <List.Icon icon="check-circle" color={colors.primary} />
+                    <List.Icon icon="check-circle" color={colors.sunrise} />
                   ) : null}
                   onPress={() => setSelectedTemplate(template.id)}
                   style={{
-                    backgroundColor: selectedTemplate === template.id ? colors.primary + '20' : 'transparent',
+                    backgroundColor: selectedTemplate === template.id ? colors.sunrise + '20' : 'transparent',
                     borderRadius: 8,
                     marginBottom: 4,
                   }}
@@ -577,10 +552,10 @@ export default function HistoryScreen() {
                           }}
                           mode="outlined"
                           style={{ 
-                            backgroundColor: isSelected ? colors.primary + '20' : 'transparent'
+                            backgroundColor: isSelected ? colors.sunrise + '20' : 'transparent'
                           }}
                           textStyle={{
-                            color: isSelected ? colors.primary : colors.text,
+                            color: isSelected ? colors.sunrise : colors.text,
                             fontWeight: isSelected ? '600' : '400'
                           }}
                         >
@@ -594,12 +569,12 @@ export default function HistoryScreen() {
                   {selectedDays.length > 0 && (
                     <View style={{ 
                       padding: 10, 
-                      backgroundColor: colors.primary + '10', 
+                      backgroundColor: colors.sunrise + '10', 
                       borderRadius: 6,
                       borderLeftWidth: 2,
-                      borderLeftColor: colors.primary
+                      borderLeftColor: colors.sunrise
                     }}>
-                      <Text variant="bodySmall" style={{ color: colors.primary, fontWeight: '500' }}>
+                      <Text variant="bodySmall" style={{ color: colors.sunrise, fontWeight: '500' }}>
                         ✓ Will repeat every {selectedDays.join(', ')}
                       </Text>
                       <Text variant="bodySmall" style={{ color: colors.textSecondary, marginTop: 2 }}>
@@ -637,74 +612,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.xl,
   },
-  statsCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  statsRow: {
+  tiles: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
+    gap: spacing.sm,
+    marginBottom: spacing.gap,
   },
-  statItem: {
-    alignItems: 'center',
+  tile: {
+    flex: 1,
+    marginBottom: 0,
+    borderRadius: radius.tile,
+    paddingHorizontal: 10,
+    paddingVertical: spacing.gap,
   },
-  statNumber: {
-    fontWeight: '600',
-  },
-  statLabel: {
-    // color applied dynamically
-  },
-  analyticsCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  calendarCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+  tileValue: {
+    fontFamily: fonts.rounded,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   calendarHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  calendarHint: {
+    marginTop: 2,
+    marginBottom: spacing.gap,
+  },
   planBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingLeft: spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: spacing.md,
+    paddingVertical: 10,
   },
   planBannerText: {
     flex: 1,
     fontWeight: '500',
   },
-  planBannerClose: {
-    margin: 0,
-  },
-  calendarHint: {
-    marginBottom: spacing.md,
-  },
   insightCardsContainer: {
     marginBottom: spacing.md,
   },
   longestStreak: {
-    padding: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  longestStreakText: {
-    fontWeight: '500',
+    textAlign: 'center',
   },
 });

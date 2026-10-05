@@ -1,37 +1,49 @@
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Text, Surface, Button, Chip, Icon } from 'react-native-paper';
-import { SkyScreen, LargeTitle } from '../../components/Sky';
-import { useEffect, useState } from 'react';
+import { Text } from 'react-native-paper';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import WorkoutInput from '../../components/WorkoutInput';
+import { SymbolView } from 'expo-symbols';
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { format } from 'date-fns';
+import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { Composer, Pill } from '../../components/Glass';
+import { UserBubble } from '../../components/Chat';
+import ParsedCard from '../../components/ParsedCard';
+import Ring from '../../components/Ring';
 import WorkoutList from '../../components/WorkoutList';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
-import { spacing } from '../../constants/theme';
-import { format } from 'date-fns';
+import { useLogDraft } from '../../hooks/useLogDraft';
+import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { templateService } from '../../services/templates';
 import { getPlans } from '../../services/planner';
 import { TrainingPlan } from '../../types/plan';
 
+const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
+
 export default function LogScreen() {
-  const { 
-    workouts, 
+  const {
+    workouts,
     schedule,
-    isLoading, 
-    getTodaysScheduledWorkout, 
+    getTodaysScheduledWorkout,
     getTemplate,
     markWorkoutSkipped,
     markWorkoutCompleted,
     loadSchedule,
-    loadTemplates
+    loadTemplates,
   } = useWorkoutStore();
-  const { colors } = useTheme();
+  const { colors, sky } = useTheme();
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
+  const [logged, setLogged] = useState<string | null>(null); // toast after saving
+
+  const now = new Date();
+  const today = format(now, 'yyyy-MM-dd');
 
   // Get 5 most recent workouts
   const recentWorkouts = workouts.slice(0, 5);
-  
+
   // Get today's scheduled workout
   const todaysSchedule = getTodaysScheduledWorkout();
   const scheduledTemplate = todaysSchedule ? getTemplate(todaysSchedule.templateId) : null;
@@ -39,12 +51,22 @@ export default function LogScreen() {
   // "Re-entry week · 1 of 4" when today's session comes from a plan
   const todaysPlan = plans.find(p => p.id === todaysSchedule?.planId);
   const planSessions = todaysPlan ? schedule.filter(s => s.planId === todaysPlan.id).sort((a, b) => a.date.localeCompare(b.date)) : [];
-  const today = format(new Date(), 'yyyy-MM-dd');
   const hasUpcoming = schedule.some(s => s.date >= today && !s.completed && !s.skipped);
 
-  // State for template auto-population
-  const [templateWorkoutData, setTemplateWorkoutData] = useState<any>(null);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | undefined>();
+  const log = useLogDraft({
+    date: today,
+    onLogged: async (workoutId, templateId) => {
+      // Logged from today's scheduled template: mark the schedule completed
+      if (templateId && todaysSchedule && todaysSchedule.templateId === templateId) {
+        try {
+          await markWorkoutCompleted(todaysSchedule.date, workoutId);
+        } catch (error) {
+          console.log('Warning: Could not mark scheduled workout as completed:', error);
+        }
+      }
+      setLogged('Logged');
+    },
+  });
 
   useEffect(() => {
     loadSchedule();
@@ -55,287 +77,348 @@ export default function LogScreen() {
     getPlans().then(setPlans);
   }, [schedule]);
 
-  const handleStartScheduledWorkout = async () => {
+  useEffect(() => {
+    if (!logged) return;
+    const timer = setTimeout(() => setLogged(null), 2500);
+    return () => clearTimeout(timer);
+  }, [logged]);
+
+  const handleStartScheduledWorkout = () => {
     if (!scheduledTemplate) {
       Alert.alert('Error', 'No scheduled template found');
       return;
     }
-    
     try {
-      const workoutData = templateService.templateToWorkout(scheduledTemplate);
-      setTemplateWorkoutData(workoutData);
-      setActiveTemplateId(scheduledTemplate.id);
+      log.startFromTemplate(templateService.templateToWorkout(scheduledTemplate), scheduledTemplate.id);
     } catch (error) {
       console.error('Error in handleStartScheduledWorkout:', error);
       Alert.alert('Error', 'Failed to start scheduled workout');
     }
   };
 
-  const handleSkipScheduledWorkout = async () => {
+  const handleSkipScheduledWorkout = () => {
     if (!todaysSchedule) return;
-    
-    Alert.alert(
-      'Skip Workout',
-      'Are you sure you want to skip today\'s scheduled workout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Skip',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await markWorkoutSkipped(todaysSchedule.date, 'User skipped');
-              Alert.alert('Workout Skipped', 'Don\'t worry, you can reschedule it anytime!');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to skip workout.');
-            }
-          },
+    Alert.alert('Skip Workout', "Are you sure you want to skip today's scheduled workout?", [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Skip',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await markWorkoutSkipped(todaysSchedule.date, 'User skipped');
+            Alert.alert('Workout Skipped', "Don't worry, you can reschedule it anytime!");
+          } catch (error) {
+            Alert.alert('Error', 'Failed to skip workout.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleWorkoutLogged = async (workoutId: string) => {
-    // If workout was logged from today's scheduled template, mark schedule as completed
-    if (activeTemplateId && todaysSchedule && todaysSchedule.templateId === activeTemplateId) {
-      try {
-        await markWorkoutCompleted(todaysSchedule.date, workoutId);
-        console.log('Marked scheduled workout as completed');
-      } catch (error) {
-        console.log('Warning: Could not mark scheduled workout as completed:', error);
-      }
-    }
-    
-    // Clear template data after workout is logged
-    setTemplateWorkoutData(null);
-    setActiveTemplateId(undefined);
-  };
+  const reviewing = !!log.sent || !!log.draft;
 
   return (
-    <SkyScreen>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
+    // The composer sits above the tab bar, so pad the bottom edge too
+    <SkyScreen edges={['top', 'bottom']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          ref={scrollRef}
+          style={styles.fill}
+          contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => reviewing && scrollRef.current?.scrollToEnd({ animated: true })}
         >
-          <LargeTitle title="LiftText" />
-          <Surface style={[styles.inputSection, { backgroundColor: colors.surface }]} elevation={1}>
-            <Text variant="headlineSmall" style={[styles.greeting, { color: colors.text }]}>
-              What'd you hit today?
-            </Text>
-            <WorkoutInput 
-              templateExercises={templateWorkoutData}
-              templateId={activeTemplateId}
-              onWorkoutLogged={handleWorkoutLogged}
-            />
-          </Surface>
+          <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
 
-          {/* Today's Scheduled Workout Card */}
-          {todaysSchedule && scheduledTemplate && (
-            <Surface style={[styles.todaysWorkoutCard, { backgroundColor: colors.surface }]} elevation={1}>
-              <View style={styles.todaysWorkoutHeader}>
-                <View style={styles.todaysWorkoutInfo}>
-                  <View style={styles.todaysWorkoutTitleRow}>
-                    <Text variant="titleMedium" style={[styles.todaysWorkoutTitle, { color: colors.text }]}>
-                      📅 Today's Workout
-                    </Text>
-                    {todaysSchedule.isRecurring && (
-                      <Chip compact style={styles.recurringChip}>
-                        {todaysSchedule.recurringPattern}
-                      </Chip>
-                    )}
-                    {todaysPlan && (
-                      <Chip compact style={styles.recurringChip} textStyle={styles.compactChipText}>
-                        {`${todaysPlan.name} · ${planSessions.findIndex(s => s.id === todaysSchedule.id) + 1} of ${planSessions.length}`}
-                      </Chip>
-                    )}
-                  </View>
-                  <Text variant="titleLarge" style={[styles.templateName, { color: colors.primary }]}>
-                    {scheduledTemplate.name}
-                  </Text>
-                  <View style={styles.templateDetails}>
-                    <Text variant="bodyMedium" style={{ color: colors.text }}>
-                      {scheduledTemplate.exercises.length} exercises
-                    </Text>
-                    <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-                      • {scheduledTemplate.muscleGroups.join(', ')}
-                    </Text>
-                  </View>
-                  {todaysSchedule.note && (
-                    <View style={[styles.noteRow, { backgroundColor: colors.primary + '15' }]}>
-                      <Icon source="lightbulb-outline" size={16} color={colors.primary} />
-                      <Text variant="bodySmall" style={[styles.noteText, { color: colors.text }]}>
-                        {todaysSchedule.note}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+          {logged && (
+            <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut} style={styles.toastWrap}>
+              <View style={[styles.toast, { backgroundColor: colors.glass, borderColor: colors.glassLine }]} accessibilityLiveRegion="polite">
+                <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />
+                <Text variant="titleSmall" style={{ color: colors.text }}>{logged}</Text>
               </View>
-              
-              <View style={styles.todaysWorkoutActions}>
-                <Button
-                  mode="contained"
-                  onPress={() => {
-                    if (!scheduledTemplate) {
-                      Alert.alert('Error', 'No template found');
-                      return;
-                    }
-                    try {
-                      const workoutData = templateService.templateToWorkout(scheduledTemplate);
-                      setTemplateWorkoutData(workoutData);
-                      setActiveTemplateId(scheduledTemplate.id);
-                    } catch (error) {
-                      console.error('Error populating workout:', error);
-                      Alert.alert('Error', 'Failed to populate workout');
-                    }
-                  }}
-                  style={styles.startButton}
-                  icon="play-circle"
-                >
-                  Start Workout
-                </Button>
-                <Button
-                  mode="outlined"
-                  onPress={handleSkipScheduledWorkout}
-                  style={styles.skipButton}
-                  textColor={colors.textSecondary}
-                >
-                  Skip
-                </Button>
-              </View>
-            </Surface>
+            </Animated.View>
           )}
 
-          {!hasUpcoming && (
-            <Surface style={[styles.todaysWorkoutCard, { backgroundColor: colors.surface }]} elevation={1}>
-              <Text variant="titleMedium" style={[styles.todaysWorkoutTitle, { color: colors.text }]}>
-                Plan your week
+          {!reviewing && todaysSchedule && scheduledTemplate && (
+            <SkyCard style={styles.today}>
+              <View style={styles.todayTop}>
+                <SectionLabel>Today</SectionLabel>
+                {todaysPlan ? (
+                  <Tag icon="calendar" color={colors.cobalt}>
+                    {`${todaysPlan.name} · ${planSessions.findIndex(s => s.id === todaysSchedule.id) + 1} of ${planSessions.length}`}
+                  </Tag>
+                ) : todaysSchedule.isRecurring && todaysSchedule.recurringPattern ? (
+                  <Tag icon="repeat" color={colors.cobalt}>{todaysSchedule.recurringPattern}</Tag>
+                ) : null}
+              </View>
+              <View style={styles.todayMain}>
+                <View style={styles.fill}>
+                  <Text style={[styles.todayName, { color: colors.text }]}>{scheduledTemplate.name}</Text>
+                  <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+                    {scheduledTemplate.exercises.length} exercises
+                  </Text>
+                </View>
+                <Ring size={74} stroke={6} progress={sky.progress}>
+                  <Text style={[styles.ringValue, { color: colors.text }]}>{sky.done}/{sky.target}</Text>
+                  <Text style={[styles.ringLabel, { color: colors.textTertiary }]}>week</Text>
+                </Ring>
+              </View>
+              <View style={styles.muscles}>
+                {scheduledTemplate.muscleGroups.map(group => (
+                  <Tag key={group} dot={muscleGroupColors[group]} color={colors.textSecondary}>
+                    {group.replace('_', ' ')}
+                  </Tag>
+                ))}
+              </View>
+              {todaysSchedule.note && (
+                <View style={[styles.note, { backgroundColor: colors.sunrise + '17' }]}>
+                  <SymbolView name="sparkles" size={16} tintColor={colors.sunrise} />
+                  <Text variant="bodyMedium" style={[styles.fill, { color: colors.text }]}>{todaysSchedule.note}</Text>
+                </View>
+              )}
+              <View style={styles.actions}>
+                <Pill icon="play.fill" label="Start workout" onPress={handleStartScheduledWorkout} style={styles.primaryAction} />
+                <Pill variant="glass" label="Skip" onPress={handleSkipScheduledWorkout} style={styles.secondaryAction} />
+              </View>
+            </SkyCard>
+          )}
+
+          {!reviewing && !todaysSchedule && (
+            <SkyCard style={styles.hint}>
+              <SymbolView name="bubble.left.and.text.bubble.right" size={30} tintColor={colors.sunrise} />
+              <Text variant="titleMedium" style={{ color: colors.text }}>Just say what you did</Text>
+              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+                Type or dictate it. Sets, reps and weights in any format.
               </Text>
+            </SkyCard>
+          )}
+
+          {!reviewing && !hasUpcoming && (
+            <SkyCard>
+              <Text variant="titleMedium" style={{ color: colors.text }}>Plan your week</Text>
               <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
                 Tell the coach what you want and it puts the workouts on your calendar.
               </Text>
-              <Button mode="contained" icon="creation" onPress={() => router.push('/plan')}>
-                Plan it for me
-              </Button>
-            </Surface>
+              <Pill icon="sparkles" label="Plan it for me" onPress={() => router.push('/plan')} />
+            </SkyCard>
           )}
 
-          <View style={styles.recentSection}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-              Recent Workouts
-            </Text>
-            {recentWorkouts.length > 0 ? (
-              <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
-            ) : (
-              <Surface style={[styles.emptyState, { backgroundColor: colors.surface }]} elevation={0}>
-                <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textSecondary }]}>
-                  No workouts yet. Log your first workout above!
+          {log.sent && (
+            <Animated.View entering={FadeInDown.springify().damping(17)}>
+              <UserBubble text={log.sent} />
+            </Animated.View>
+          )}
+
+          {log.busy === 'parse' && <ReadingCard />}
+
+          {log.draft && (
+            <ParsedCard
+              draft={log.draft}
+              date={today}
+              title={log.templateId ? scheduledTemplate?.name : undefined}
+              onChange={log.setDraft}
+              onSave={log.save}
+              onDiscard={log.discard}
+              onFix={log.fix}
+              busy={log.busy}
+              error={log.error}
+            />
+          )}
+
+          {!reviewing && (
+            <View style={styles.recent}>
+              <SectionLabel style={styles.label}>Recent</SectionLabel>
+              {recentWorkouts.length > 0 ? (
+                <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
+              ) : (
+                <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+                  No workouts yet. Tell me your first one below.
                 </Text>
-              </Surface>
-            )}
-          </View>
+              )}
+            </View>
+          )}
         </ScrollView>
+
+        <View style={styles.composer}>
+          {log.error && !log.draft && (
+            <Animated.Text entering={FadeIn} style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">
+              {log.error}
+            </Animated.Text>
+          )}
+          <Composer
+            value={log.text}
+            onChangeText={log.setText}
+            onSend={log.parse}
+            placeholder={todaysSchedule && !reviewing ? 'Or tell me what you did…' : 'Tell me what you did…'}
+            busy={log.busy === 'parse'}
+          />
+        </View>
       </KeyboardAvoidingView>
     </SkyScreen>
   );
 }
 
+// Shown while the AI reads the log
+function ReadingCard() {
+  const { colors } = useTheme();
+  return (
+    <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut}>
+      <SkyCard>
+        <View style={styles.readingTop}>
+          <SymbolView name="sparkles" size={18} tintColor={colors.sunrise} />
+          <Text variant="titleMedium" style={{ color: colors.text }}>Reading your workout…</Text>
+        </View>
+        {[0.88, 0.72, 0.8].map(w => (
+          <View key={w} style={[styles.skeleton, { width: `${w * 100}%`, backgroundColor: colors.dim }]} />
+        ))}
+      </SkyCard>
+    </Animated.View>
+  );
+}
+
+function Tag({ children, color, icon, dot }: { children: React.ReactNode; color: string; icon?: 'calendar' | 'repeat'; dot?: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.tag, { backgroundColor: icon ? color + '1A' : colors.dim }]}>
+      {icon && <SymbolView name={icon} size={12} tintColor={color} />}
+      {dot && <View style={[styles.dot, { backgroundColor: dot }]} />}
+      <Text variant="labelMedium" style={[styles.tagText, { color }]}>{children}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  keyboardView: {
+  fill: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
+  content: {
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.lg,
   },
-  scrollContent: {
-    padding: spacing.md,
+  center: {
+    textAlign: 'center',
   },
-  inputSection: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.lg,
-  },
-  greeting: {
-    fontWeight: '600',
-    marginBottom: spacing.md,
-  },
-  todaysWorkoutCard: {
-    borderRadius: 16,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  todaysWorkoutHeader: {
-    marginBottom: spacing.md,
-  },
-  todaysWorkoutInfo: {
-    flex: 1,
-  },
-  todaysWorkoutTitleRow: {
-    flexDirection: 'row',
+  toastWrap: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  todaysWorkoutTitle: {
-    fontWeight: '600',
-  },
-  recurringChip: {
-    height: 24,
-  },
-  compactChipText: {
-    fontSize: 11,
-  },
-  noteRow: {
+  toast: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: 8,
-    marginTop: spacing.sm,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
   },
-  noteText: {
+  today: {
+    paddingVertical: 18,
+  },
+  todayTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  todayMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 6,
+  },
+  todayName: {
+    fontFamily: fonts.rounded,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+  },
+  ringValue: {
+    fontFamily: fonts.rounded,
+    fontSize: 17,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  ringLabel: {
+    fontFamily: fonts.rounded,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  muscles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginVertical: spacing.gap,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+  tagText: {
+    textTransform: 'capitalize',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  note: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.gap,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.gap,
+  },
+  primaryAction: {
+    flex: 2,
+  },
+  secondaryAction: {
     flex: 1,
+  },
+  hint: {
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 22,
   },
   planText: {
     marginTop: spacing.xs,
-    marginBottom: spacing.md,
+    marginBottom: spacing.gap,
   },
-  templateName: {
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  templateDetails: {
+  readingTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-  },
-  todaysWorkoutActions: {
-    flexDirection: 'row',
     gap: spacing.sm,
+    marginBottom: 4,
   },
-  startButton: {
-    flex: 2,
+  skeleton: {
+    height: 12,
+    borderRadius: 6,
+    marginTop: 10,
   },
-  skipButton: {
-    flex: 1,
+  recent: {
+    marginTop: spacing.sm,
   },
-  recentSection: {
-    flex: 1,
+  label: {
+    marginLeft: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: spacing.md,
+  composer: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
-  emptyState: {
-    padding: spacing.xl,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  emptyText: {
-    textAlign: 'center',
+  error: {
+    fontSize: 13,
+    marginBottom: 6,
+    marginLeft: 6,
   },
 });

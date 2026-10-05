@@ -10,6 +10,8 @@ import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { SkyScreen, SkyCard, SectionLabel } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
 import Field from '../../components/Field';
+import { FixBox } from '../../components/ParsedCard';
+import { correctWorkout, ApiError } from '../../services/claude';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -23,7 +25,7 @@ const muscleGroups: MuscleGroup[] = [
 export default function WorkoutEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate } = useWorkoutStore();
+  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate, settings } = useWorkoutStore();
   const { colors } = useTheme();
   
   const workout = workouts.find(w => w.id === id);
@@ -35,6 +37,8 @@ export default function WorkoutEditScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   // Which exercise the picker is choosing for: an exercise id, 'new' for Add Exercise, or closed
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workout) {
@@ -152,6 +156,30 @@ export default function WorkoutEditScreen() {
     setHasChanges(true);
   };
 
+  // Typed fix ("the rows were 120"): re-parses the workout as it stands now; Save keeps it
+  const handleFix = async (fix: string) => {
+    setFixing(true);
+    setFixError(null);
+    try {
+      const draft = { exercises, muscleGroups: selectedMuscleGroups, notes: notes.trim() || undefined, confidence: 1 };
+      const updated = await correctWorkout(draft, fix.trim(), { date: format(workoutDate, 'yyyy-MM-dd'), unit: settings.weightUnit });
+      if (!updated || updated.exercises.length === 0) {
+        setFixError("Couldn't apply that fix. Try saying it another way.");
+        return false;
+      }
+      setExercises(updated.exercises.map(({ dayOffset, ...e }) => ({ ...e, id: uuidv4() })));
+      setSelectedMuscleGroups(updated.muscleGroups);
+      setNotes(updated.notes ?? '');
+      setHasChanges(true);
+      return true;
+    } catch (error) {
+      setFixError(error instanceof ApiError ? error.message : "Couldn't apply that fix. Please try again.");
+      return false;
+    } finally {
+      setFixing(false);
+    }
+  };
+
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -197,7 +225,12 @@ export default function WorkoutEditScreen() {
           />
         )}
 
-        <SectionLabel style={styles.label}>Exercises</SectionLabel>
+        <FixBox onFix={handleFix} busy={fixing} disabled={fixing} placeholder={'Fix it by typing: "the rows were 120"'} />
+        {fixError ? (
+          <Text variant="bodySmall" style={[styles.fixError, { color: colors.error }]} accessibilityLiveRegion="polite">{fixError}</Text>
+        ) : null}
+
+        <SectionLabel style={[styles.label, styles.below]}>Exercises</SectionLabel>
         {exercises.map((exercise) => (
           <SkyCard key={exercise.id}>
             <View style={styles.exerciseHeader}>
@@ -242,6 +275,25 @@ export default function WorkoutEditScreen() {
                 containerStyle={styles.mediumInput}
               />
             </View>
+
+            {exercise.distance !== undefined && (
+              <Field
+                label={`Distance${exercise.distanceUnit ? ` (${exercise.distanceUnit})` : ''}`}
+                value={exercise.distance?.toString() || ''}
+                onChangeText={(text) => updateExercise(exercise.id, 'distance', text ? parseFloat(text) : undefined)}
+                keyboardType="decimal-pad"
+                containerStyle={styles.extraField}
+              />
+            )}
+            {exercise.notes !== undefined && (
+              <Field
+                label="Notes"
+                value={exercise.notes}
+                onChangeText={(text) => updateExercise(exercise.id, 'notes', text || undefined)}
+                containerStyle={styles.extraField}
+                style={styles.quiet}
+              />
+            )}
 
             <MuscleGroupSelector
               selected={exercise.muscleGroup}
@@ -329,7 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     marginTop: spacing.gap,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   date: {
     flex: 1,
@@ -385,5 +437,20 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginBottom: spacing.lg,
+  },
+  below: {
+    marginTop: spacing.lg,
+  },
+  fixError: {
+    marginTop: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  extraField: {
+    marginBottom: spacing.gap,
+  },
+  quiet: {
+    fontSize: 15,
+    minHeight: 38,
+    paddingVertical: 8,
   },
 });
