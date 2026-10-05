@@ -12,7 +12,7 @@ mock.module('@react-native-async-storage/async-storage', {
     removeItem: async (k: string) => void mem.delete(k),
   },
 });
-const { validatePlanResponse, parsePlannerText, savePlan, deletePlan, getPlans } = await import('./planner');
+const { validatePlanResponse, parsePlannerText, savePlan, deletePlan, getPlans, summarizeHistory } = await import('./planner');
 const { scheduleService } = await import('./schedule');
 const { templateService } = await import('./templates');
 const { useWorkoutStore } = await import('../stores/workoutStore');
@@ -177,4 +177,16 @@ test('logging a workout on a planned day completes that session and links the wo
   assert.equal(await scheduleService.linkLoggedWorkout(day(1), 'w43'), false);
   assert.equal(await scheduleService.linkLoggedWorkout(day(2), 'w44'), false);
   assert.equal(await scheduleService.linkLoggedWorkout(day(5), 'w45'), false);
+});
+
+test('recent lifts group by exercise id, whatever each log called the lift', () => {
+  const lift = (id: string, date: string, name: string, weight: number) => ({
+    id, date, rawInput: name, muscleGroups: ['chest' as const], createdAt: 't',
+    exercises: [{ id: `${id}e`, exerciseId: 'bench-press', name, muscleGroup: 'chest' as const, sets: 3, reps: 5, weight }],
+  });
+  const summary = summarizeHistory(
+    [lift('a', '2026-09-30', 'Bench', 205), lift('b', '2026-10-02', 'Bench Press', 225), lift('c', '2026-10-01', 'BB bench', 215)],
+    [], [], 'lbs', new Date('2026-10-04T12:00:00')
+  );
+  assert.deepEqual(summary.recentLifts, [{ name: 'Bench Press', top: '225x5', date: '2026-10-02' }]);
 });

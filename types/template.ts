@@ -13,6 +13,7 @@ export interface WorkoutTemplate {
 }
 
 export interface TemplateExercise {
+  exerciseId?: string; // set when the name names one catalog exercise, or copied from a logged workout
   name: string;
   muscleGroup: MuscleGroup;
   sets: number;

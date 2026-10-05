@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform, Pressable, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-native';
 import { Text, Menu } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
@@ -13,6 +13,7 @@ import Field from '../../components/Field';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ExercisePicker, { PickedExercise } from '../../components/ExercisePicker';
 
 const muscleGroups: MuscleGroup[] = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
@@ -32,6 +33,8 @@ export default function WorkoutEditScreen() {
   const [workoutDate, setWorkoutDate] = useState(workout ? parseISO(workout.date) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  // Which exercise the picker is choosing for: an exercise id, 'new' for Add Exercise, or closed
+  const [pickerFor, setPickerFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workout) {
@@ -134,13 +137,13 @@ export default function WorkoutEditScreen() {
     setHasChanges(true);
   };
 
-  const addExercise = () => {
-    const newExercise: Exercise = {
-      id: uuidv4(),
-      name: 'New Exercise',
-      muscleGroup: 'full_body',
-    };
-    setExercises([...exercises, newExercise]);
+  // An explicit pick is a confirmed identity
+  const pickExercise = ({ exerciseId, name, muscleGroup }: PickedExercise) => {
+    const picked = { exerciseId, name, muscleGroup, match: 'sure' as const };
+    setExercises(prev => pickerFor === 'new'
+      ? [...prev, { id: uuidv4(), ...picked }]
+      : prev.map(e => (e.id === pickerFor ? { ...e, ...picked } : e)));
+    setPickerFor(null);
     setHasChanges(true);
   };
 
@@ -198,14 +201,14 @@ export default function WorkoutEditScreen() {
         {exercises.map((exercise) => (
           <SkyCard key={exercise.id}>
             <View style={styles.exerciseHeader}>
-              <TextInput
-                value={exercise.name}
-                onChangeText={(text) => updateExercise(exercise.id, 'name', text)}
-                placeholder="Exercise name"
-                placeholderTextColor={colors.textTertiary}
-                accessibilityLabel="Exercise name"
-                style={[styles.exerciseName, { color: colors.text }]}
-              />
+              <Pressable
+                onPress={() => setPickerFor(exercise.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Exercise, ${exercise.name}. Change`}
+                style={styles.exerciseNameButton}
+              >
+                <Text style={[styles.exerciseName, { color: colors.text }]}>{exercise.name}</Text>
+              </Pressable>
               <Pressable
                 onPress={() => removeExercise(exercise.id)}
                 accessibilityRole="button"
@@ -247,7 +250,7 @@ export default function WorkoutEditScreen() {
           </SkyCard>
         ))}
 
-        <Pill variant="glass" icon="plus" label="Add exercise" onPress={addExercise} style={styles.addButton} />
+        <Pill variant="glass" icon="plus" label="Add exercise" onPress={() => setPickerFor('new')} style={styles.addButton} />
 
         <SectionLabel style={styles.label}>Notes</SectionLabel>
         <SkyCard>
@@ -263,6 +266,13 @@ export default function WorkoutEditScreen() {
           />
         </SkyCard>
       </ScrollView>
+
+      <ExercisePicker
+        visible={pickerFor !== null}
+        initialQuery={exercises.find(e => e.id === pickerFor)?.name ?? ''}
+        onPick={pickExercise}
+        onDismiss={() => setPickerFor(null)}
+      />
     </SkyScreen>
   );
 }
@@ -334,8 +344,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginBottom: spacing.gap,
   },
-  exerciseName: {
+  exerciseNameButton: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  exerciseName: {
     fontFamily: fonts.rounded,
     fontSize: 19,
     fontWeight: '700',

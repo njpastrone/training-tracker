@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WorkoutTemplate, TemplateExercise, CreateTemplateInput } from '../types/template';
 import { Workout } from '../types/workout';
 import { v4 as uuidv4 } from 'uuid';
+import { catalogIdFor } from './exerciseIdentity';
 
 const TEMPLATES_STORAGE_KEY = '@training-tracker/templates';
 
@@ -11,7 +12,12 @@ export const templateService = {
     try {
       const templatesJson = await AsyncStorage.getItem(TEMPLATES_STORAGE_KEY);
       if (!templatesJson) return [];
-      return JSON.parse(templatesJson);
+      // Templates saved before exercise ids get them as they load; names the catalog doesn't
+      // know get theirs when a workout made from the template is saved
+      return (JSON.parse(templatesJson) as WorkoutTemplate[]).map(t => ({
+        ...t,
+        exercises: t.exercises.map(e => (e.exerciseId || !catalogIdFor(e.name) ? e : { ...e, exerciseId: catalogIdFor(e.name) })),
+      }));
     } catch (error) {
       console.error('Error loading templates:', error);
       return [];
@@ -93,6 +99,7 @@ export const templateService = {
   // Create a template from an existing workout
   async createTemplateFromWorkout(workout: Workout, name: string, description?: string): Promise<WorkoutTemplate> {
     const exercises: TemplateExercise[] = workout.exercises.map(exercise => ({
+      exerciseId: exercise.exerciseId,
       name: exercise.name,
       muscleGroup: exercise.muscleGroup,
       sets: exercise.sets || 3, // Default to 3 if not specified
@@ -157,6 +164,7 @@ export const templateService = {
   templateToWorkout(template: WorkoutTemplate): { exercises: any[], muscleGroups: string[], notes?: string } {
     const exercises = template.exercises.map(templateExercise => ({
       id: uuidv4(),
+      exerciseId: templateExercise.exerciseId,
       name: templateExercise.name,
       muscleGroup: templateExercise.muscleGroup,
       sets: templateExercise.sets,
