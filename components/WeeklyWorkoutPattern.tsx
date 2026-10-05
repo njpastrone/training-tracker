@@ -1,8 +1,9 @@
 import { View, StyleSheet } from 'react-native';
-import { Text, Surface } from 'react-native-paper';
+import { Text } from 'react-native-paper';
+import { SectionLabel } from './Sky';
 import { Workout } from '../types/workout';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing } from '../constants/theme';
+import { fonts, spacing } from '../constants/theme';
 import { startOfWeek, endOfWeek, parseISO, isWithinInterval, format, isSameDay, eachDayOfInterval, getDay } from 'date-fns';
 
 interface Props {
@@ -42,16 +43,14 @@ export default function WeeklyWorkoutPattern({ workouts, selectedWeek }: Props) 
 
   return (
     <View style={styles.container}>
-      <Text variant="titleMedium" style={[styles.title, { color: colors.text }]}>
-        Week Overview
-      </Text>
+      <SectionLabel>Week overview</SectionLabel>
       
       {totalWorkouts > 0 ? (
-        <Text variant="bodySmall" style={[styles.summary, { color: colors.primary }]}>
+        <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
           {totalWorkouts} workout{totalWorkouts !== 1 ? 's' : ''} • {totalExercises} total exercises
         </Text>
       ) : (
-        <Text variant="bodySmall" style={[styles.emptyText, { color: colors.textSecondary }]}>
+        <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
           No workouts this week
         </Text>
       )}
@@ -62,41 +61,35 @@ export default function WeeklyWorkoutPattern({ workouts, selectedWeek }: Props) 
           const dayNumber = format(day.date, 'd');
           
           return (
-            <View key={index} style={styles.dayContainer}>
-              <Text variant="bodySmall" style={[styles.dayName, { color: colors.textSecondary }]}>
-                {dayName}
-              </Text>
-              <Surface 
+            <View
+              key={index}
+              style={styles.dayContainer}
+              accessible
+              accessibilityLabel={`${format(day.date, 'EEEE')}${day.hasWorkout ? `, ${day.exerciseCount} exercises` : ', rest'}`}
+            >
+              <Text style={[styles.dayName, { color: colors.textTertiary }]}>{dayName}</Text>
+              <View
                 style={[
                   styles.dayCircle,
-                  { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
-                  day.hasWorkout && [styles.workoutDay, { backgroundColor: colors.primary, borderColor: colors.primary }]
-                ]} 
-                elevation={day.hasWorkout ? 2 : 0}
+                  day.hasWorkout ? { backgroundColor: colors.sunrise } : { borderWidth: 1.5, borderColor: colors.dim },
+                ]}
               >
-                <Text 
-                  variant="bodySmall" 
-                  style={[
-                    styles.dayNumber,
-                    { color: colors.text },
-                    day.hasWorkout && [styles.workoutDayText, { color: 'white' }]
-                  ]}
-                >
+                <Text style={[styles.dayNumber, { color: day.hasWorkout ? colors.onSunrise : colors.textTertiary }]}>
                   {dayNumber}
                 </Text>
                 {day.exerciseCount > 0 && (
-                  <Text variant="bodySmall" style={[styles.exerciseCount, { backgroundColor: colors.secondary }]}>
+                  <Text style={[styles.exerciseCount, { backgroundColor: colors.cobalt, color: colors.onSunrise }]}>
                     {day.exerciseCount}
                   </Text>
                 )}
-              </Surface>
+              </View>
             </View>
           );
         })}
       </View>
       
       {totalWorkouts > 0 && (
-        <Text variant="bodySmall" style={[styles.hintText, { color: colors.textSecondary }]}>
+        <Text variant="bodySmall" style={[styles.hintText, { color: colors.textTertiary }]}>
           Numbers show exercise count per day
         </Text>
       )}
@@ -108,17 +101,6 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
-  title: {
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  summary: {
-    fontWeight: '500',
-    marginBottom: spacing.md,
-  },
-  emptyText: {
-    marginBottom: spacing.md,
-  },
   daysGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -127,42 +109,40 @@ const styles = StyleSheet.create({
   dayContainer: {
     alignItems: 'center',
     flex: 1,
+    gap: 4,
   },
   dayName: {
-    fontWeight: '500',
-    marginBottom: spacing.xs,
-  },
-  dayCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  workoutDay: {
-  },
-  dayNumber: {
+    fontFamily: fonts.rounded,
+    fontSize: 11,
     fontWeight: '600',
   },
-  workoutDayText: {
+  dayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayNumber: {
+    fontFamily: fonts.rounded,
+    fontSize: 13,
+    fontWeight: '700',
   },
   exerciseCount: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    color: 'white',
+    top: -5,
+    right: -5,
+    fontFamily: fonts.rounded,
     fontSize: 10,
-    fontWeight: '600',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    fontWeight: '700',
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 17,
     overflow: 'hidden',
   },
   hintText: {
     textAlign: 'center',
-    fontStyle: 'italic',
   },
 });

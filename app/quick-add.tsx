@@ -1,24 +1,26 @@
 import { useState } from 'react';
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, TextInput, Button, Appbar, HelperText } from 'react-native-paper';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Text } from 'react-native-paper';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { parseWorkout, workoutsFromParse, ApiError } from '../services/claude';
 import { spacing } from '../constants/theme';
 import { format, parseISO } from 'date-fns';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SkyScreen, SkyCard, LargeTitle } from '../components/Sky';
+import { Pill } from '../components/Glass';
+import Field from '../components/Field';
 
 export default function QuickAddScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
   const router = useRouter();
   const { addWorkout, settings } = useWorkoutStore();
   const { colors } = useTheme();
-  
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const targetDate = date || format(new Date(), 'yyyy-MM-dd');
   const dateLabel = date ? format(parseISO(date), 'EEEE, MMMM d') : 'Today';
 
@@ -51,104 +53,63 @@ export default function QuickAddScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Add Workout" />
-      </Appbar.Header>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <View style={styles.content}>
-          <View style={styles.dateInfo}>
-            <Text variant="bodyLarge" style={[styles.dateLabel, { color: colors.textSecondary }]}>
-              Adding workout for
-            </Text>
-            <Text variant="headlineSmall" style={[styles.date, { color: colors.primary }]}>
-              {dateLabel}
-            </Text>
-          </View>
-
-          <TextInput
-            mode="outlined"
-            placeholder="e.g., Bench press 3x10 @ 185lbs, incline dumbbell press 4x12..."
-            value={input}
-            onChangeText={(text) => {
-              setInput(text);
-              if (error) setError(null);
-            }}
-            multiline
-            numberOfLines={4}
-            style={[styles.input, { backgroundColor: colors.surface }]}
-            outlineColor={colors.border}
-            activeOutlineColor={colors.primary}
-            disabled={isLoading}
-            autoFocus
-          />
-          
-          {error && (
-            <HelperText type="error" visible={!!error}>
-              {error}
-            </HelperText>
-          )}
+    <SkyScreen edges={['bottom']}>
+      <Stack.Screen options={{ title: 'Add Workout' }} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <LargeTitle title={dateLabel} />
+          <SkyCard>
+            <Field
+              placeholder="e.g., Bench press 3x10 @ 185lbs, incline dumbbell press 4x12..."
+              value={input}
+              onChangeText={(text) => {
+                setInput(text);
+                if (error) setError(null);
+              }}
+              multiline
+              editable={!isLoading}
+              autoFocus
+              accessibilityLabel="Your workout"
+            />
+            {error && (
+              <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">
+                {error}
+              </Text>
+            )}
+          </SkyCard>
 
           <View style={styles.buttons}>
-            <Button
-              mode="outlined"
-              onPress={() => router.back()}
-              disabled={isLoading}
-              style={styles.button}
-            >
-              Cancel
-            </Button>
-            <Button
-              mode="contained"
+            <Pill variant="glass" label="Cancel" onPress={() => router.back()} disabled={isLoading} style={styles.button} />
+            <Pill
+              icon="checkmark"
+              label={isLoading ? 'Reading…' : 'Log workout'}
               onPress={handleSubmit}
               loading={isLoading}
-              disabled={isLoading || !input.trim()}
+              disabled={!input.trim()}
               style={styles.button}
-            >
-              {isLoading ? 'Processing...' : 'Log Workout'}
-            </Button>
+            />
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardView: {
+  fill: {
     flex: 1,
   },
   content: {
-    flex: 1,
-    padding: spacing.md,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.lg,
   },
-  dateInfo: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
-  },
-  dateLabel: {
-    // color applied dynamically
-  },
-  date: {
-    fontWeight: '600',
-    marginTop: spacing.xs,
-  },
-  input: {
-    marginBottom: spacing.sm,
+  error: {
+    marginTop: spacing.sm,
   },
   buttons: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.xs,
   },
   button: {
     flex: 1,

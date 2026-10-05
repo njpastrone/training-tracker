@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { 
-  Text, Surface, TextInput, Button, IconButton, List, 
-  Chip, Portal, Dialog, FAB, SegmentedButtons 
-} from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { View, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { Text, Portal, Dialog, Button } from 'react-native-paper';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { spacing } from '../constants/theme';
+import { muscleGroupColors, spacing } from '../constants/theme';
+import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../components/Sky';
+import { Pill, Segmented } from '../components/Glass';
+import Field from '../components/Field';
 import { TemplateExercise, WorkoutTemplate } from '../types/template';
 import { templateService } from '../services/templates';
 import { parseTemplateFromNL, ApiError } from '../services/claude';
@@ -163,193 +163,117 @@ export default function TemplateEditScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.header}>
-          <View style={styles.titleRow}>
-            <IconButton
-              icon="arrow-left"
-              size={24}
-              onPress={() => router.back()}
-              style={styles.backButton}
-            />
-            <Text variant="headlineSmall" style={[styles.title, { color: colors.text }]}>
-              {id ? 'Edit Template' : 'Create Template'}
-            </Text>
-          </View>
-        </View>
+    <SkyScreen edges={['bottom']}>
+      <Stack.Screen options={{ title: '' }} />
+      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <LargeTitle title={id ? 'Edit Template' : 'New Template'} />
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-          <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
-            <TextInput
-              label="Template Name"
+          <SkyCard style={styles.card}>
+            <Field
+              label="Name"
               value={name}
               onChangeText={setName}
-              mode="outlined"
-              style={styles.input}
               placeholder="e.g., Push Day, Leg Day"
             />
-            <TextInput
-              label="Description (Optional)"
+            <Field
+              label="Description (optional)"
               value={description}
               onChangeText={setDescription}
-              mode="outlined"
-              style={styles.input}
               placeholder="e.g., Heavy compound movements"
               multiline
-              numberOfLines={2}
+              style={styles.description}
             />
-          </Surface>
+          </SkyCard>
 
-          <Surface style={[styles.section, { backgroundColor: colors.surface }]} elevation={1}>
-            <SegmentedButtons
-              value={inputMode}
-              onValueChange={value => setInputMode(value as 'manual' | 'natural')}
-              buttons={[
-                { value: 'manual', label: 'Manual Entry' },
-                { value: 'natural', label: 'Natural Language' },
-              ]}
-              style={styles.segmentedButtons}
-            />
+          <Segmented
+            value={inputMode}
+            onChange={setInputMode}
+            options={[
+              { value: 'manual', label: 'Manual' },
+              { value: 'natural', label: 'Describe it' },
+            ]}
+          />
 
-            {inputMode === 'natural' ? (
-              <View>
-                <TextInput
-                  label="Describe Your Workout"
-                  value={naturalLanguageInput}
-                  onChangeText={setNaturalLanguageInput}
-                  mode="outlined"
-                  style={styles.input}
-                  placeholder="e.g., Bench press 5x5, OHP 4x8, dips 3x12"
-                  multiline
-                  numberOfLines={4}
-                />
-                <Button
-                  mode="contained"
-                  onPress={handleParseNaturalLanguage}
-                  loading={isParsing}
-                  disabled={isParsing || !naturalLanguageInput.trim()}
-                  style={styles.parseButton}
-                >
-                  Parse Exercises
-                </Button>
+          {inputMode === 'natural' ? (
+            <SkyCard style={[styles.card, styles.below]}>
+              <Field
+                label="Describe your workout"
+                value={naturalLanguageInput}
+                onChangeText={setNaturalLanguageInput}
+                placeholder="e.g., Bench press 5x5, OHP 4x8, dips 3x12"
+                multiline
+              />
+              <Pill
+                icon="sparkles"
+                label={isParsing ? 'Reading…' : 'Parse exercises'}
+                onPress={handleParseNaturalLanguage}
+                loading={isParsing}
+                disabled={!naturalLanguageInput.trim()}
+              />
+            </SkyCard>
+          ) : (
+            <View style={styles.below}>
+              <View style={styles.exercisesHeader}>
+                <SectionLabel>Exercises ({exercises.length})</SectionLabel>
+                <Pill variant="glass" size="small" icon="plus" label="Add" onPress={handleAddExercise} />
               </View>
-            ) : (
-              <View>
-                <View style={styles.exercisesHeader}>
-                  <Text variant="titleMedium" style={{ color: colors.text }}>
-                    Exercises ({exercises.length})
-                  </Text>
-                  <Button mode="text" onPress={handleAddExercise} icon="plus">
-                    Add Exercise
-                  </Button>
-                </View>
 
-                {exercises.map((exercise, index) => (
-                  <List.Item
-                    key={index}
-                    title={exercise.name}
-                    description={`${exercise.sets}x${exercise.reps}${exercise.weight ? ` @ ${exercise.weight}${exercise.weightUnit}` : ''}`}
-                    left={props => <List.Icon {...props} icon="dumbbell" />}
-                    right={() => (
-                      <View style={styles.exerciseActions}>
-                        <IconButton
-                          icon="pencil"
-                          size={20}
-                          onPress={() => handleEditExercise(index)}
-                        />
-                        <IconButton
-                          icon="delete"
-                          size={20}
-                          onPress={() => handleDeleteExercise(index)}
-                          iconColor={colors.error}
-                        />
-                      </View>
-                    )}
-                    style={styles.exerciseItem}
-                  />
-                ))}
-
-                {exercises.length === 0 && (
-                  <Text style={[styles.emptyText, { color: colors.text }]}>
-                    No exercises added yet. Tap "Add Exercise" to begin.
-                  </Text>
-                )}
-              </View>
-            )}
-          </Surface>
+              {exercises.length > 0 ? (
+                <SkyCard style={styles.list}>
+                  {exercises.map((exercise, index) => (
+                    <View key={index} style={[styles.exerciseRow, index > 0 && { borderTopWidth: 1, borderTopColor: colors.dim }]}>
+                      <View style={[styles.dot, { backgroundColor: muscleGroupColors[exercise.muscleGroup] }]} />
+                      <Pressable
+                        style={styles.exerciseText}
+                        onPress={() => handleEditExercise(index)}
+                        accessibilityRole="button"
+                        accessibilityHint="Edits this exercise"
+                      >
+                        <Text variant="bodyLarge" style={{ color: colors.text }}>{exercise.name}</Text>
+                        <Text variant="bodySmall" style={[styles.numbers, { color: colors.textSecondary }]}>
+                          {exercise.sets} × {exercise.reps}{exercise.weight ? ` · ${exercise.weight} ${exercise.weightUnit}` : ''}
+                        </Text>
+                      </Pressable>
+                      <Pressable onPress={() => handleDeleteExercise(index)} accessibilityRole="button" accessibilityLabel={`Remove ${exercise.name}`} hitSlop={8}>
+                        <SymbolView name="minus.circle.fill" size={22} tintColor={colors.error} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </SkyCard>
+              ) : (
+                <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No exercises added yet. Tap Add to begin.
+                </Text>
+              )}
+            </View>
+          )}
         </ScrollView>
 
         <View style={styles.footer}>
-          <Button
-            mode="outlined"
-            onPress={() => router.back()}
-            style={styles.footerButton}
-          >
-            Cancel
-          </Button>
-          <Button
-            mode="contained"
+          <Pill variant="glass" label="Cancel" onPress={() => router.back()} style={styles.footerButton} />
+          <Pill
+            label={id ? 'Update' : 'Create'}
             onPress={handleSaveTemplate}
             loading={isSaving}
-            disabled={isSaving || !name.trim() || exercises.length === 0}
+            disabled={!name.trim() || exercises.length === 0}
             style={styles.footerButton}
-          >
-            {id ? 'Update Template' : 'Create Template'}
-          </Button>
+          />
         </View>
 
         <Portal>
-          <Dialog visible={exerciseDialogVisible} onDismiss={() => setExerciseDialogVisible(false)}>
+          <Dialog visible={exerciseDialogVisible} onDismiss={() => setExerciseDialogVisible(false)} style={{ backgroundColor: colors.surface }}>
             <Dialog.Title>
               {editingExerciseIndex !== null ? 'Edit Exercise' : 'Add Exercise'}
             </Dialog.Title>
-            <Dialog.Content>
-              <TextInput
-                label="Exercise Name"
-                value={exerciseName}
-                onChangeText={setExerciseName}
-                mode="outlined"
-                style={styles.dialogInput}
-              />
+            <Dialog.Content style={styles.dialog}>
+              <Field label="Exercise name" value={exerciseName} onChangeText={setExerciseName} />
               <View style={styles.rowInputs}>
-                <TextInput
-                  label="Sets"
-                  value={exerciseSets}
-                  onChangeText={setExerciseSets}
-                  mode="outlined"
-                  keyboardType="numeric"
-                  style={[styles.dialogInput, styles.halfInput]}
-                />
-                <TextInput
-                  label="Reps"
-                  value={exerciseReps}
-                  onChangeText={setExerciseReps}
-                  mode="outlined"
-                  placeholder="e.g., 10 or 8-12"
-                  style={[styles.dialogInput, styles.halfInput]}
-                />
+                <Field label="Sets" value={exerciseSets} onChangeText={setExerciseSets} keyboardType="numeric" containerStyle={styles.halfInput} />
+                <Field label="Reps" value={exerciseReps} onChangeText={setExerciseReps} placeholder="e.g., 10 or 8-12" containerStyle={styles.halfInput} />
               </View>
-              <TextInput
-                label="Weight (Optional)"
-                value={exerciseWeight}
-                onChangeText={setExerciseWeight}
-                mode="outlined"
-                keyboardType="numeric"
-                placeholder="e.g., 135"
-                style={styles.dialogInput}
-              />
-              <TextInput
-                label="Notes (Optional)"
-                value={exerciseNotes}
-                onChangeText={setExerciseNotes}
-                mode="outlined"
-                multiline
-                style={styles.dialogInput}
-              />
+              <Field label="Weight (optional)" value={exerciseWeight} onChangeText={setExerciseWeight} keyboardType="numeric" placeholder="e.g., 135" />
+              <Field label="Notes (optional)" value={exerciseNotes} onChangeText={setExerciseNotes} multiline />
             </Dialog.Content>
             <Dialog.Actions>
               <Button onPress={() => setExerciseDialogVisible(false)}>Cancel</Button>
@@ -360,80 +284,70 @@ export default function TemplateEditScreen() {
           </Dialog>
         </Portal>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SkyScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  fill: {
     flex: 1,
-  },
-  header: {
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    marginLeft: -8,
-    marginRight: spacing.xs,
-  },
-  title: {
-    fontWeight: '600',
   },
   content: {
-    flex: 1,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.lg,
   },
-  scrollContent: {
-    padding: spacing.md,
-    paddingBottom: 100,
+  card: {
+    gap: spacing.gap,
   },
-  section: {
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+  description: {
+    minHeight: 64,
   },
-  input: {
-    marginBottom: spacing.md,
-  },
-  segmentedButtons: {
-    marginBottom: spacing.md,
-  },
-  parseButton: {
-    marginTop: spacing.sm,
+  below: {
+    marginTop: spacing.gap,
   },
   exercisesHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
-  exerciseItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+  list: {
+    paddingVertical: spacing.xs,
   },
-  exerciseActions: {
+  exerciseRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.gap,
+    paddingVertical: 10,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  exerciseText: {
+    flex: 1,
+  },
+  numbers: {
+    fontVariant: ['tabular-nums'],
   },
   emptyText: {
     textAlign: 'center',
-    opacity: 0.6,
-    marginVertical: spacing.lg,
+    marginTop: spacing.md,
   },
   footer: {
     flexDirection: 'row',
-    padding: spacing.md,
     gap: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    paddingHorizontal: spacing.screen,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   footerButton: {
     flex: 1,
   },
-  dialogInput: {
-    marginBottom: spacing.sm,
+  dialog: {
+    gap: spacing.gap,
   },
   rowInputs: {
     flexDirection: 'row',

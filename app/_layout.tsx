@@ -6,13 +6,23 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 function AppContent() {
-  const { theme } = useTheme();
+  const { theme, colors } = useTheme();
 
   return (
     <PaperProvider theme={theme}>
       <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
+      {/* Pushed screens get a transparent native header over the sky; iOS 26 puts its buttons on glass */}
+      <Stack
+        screenOptions={{
+          headerTransparent: true,
+          headerShadowVisible: false,
+          headerTintColor: colors.sunrise,
+          headerTitleStyle: { color: colors.text },
+          headerBackButtonDisplayMode: 'minimal',
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="plan" options={{ headerShown: false }} />
       </Stack>
     </PaperProvider>
   );

@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-native';
-import { Text, TextInput, IconButton, FAB, Appbar, Chip, Menu, Button, Divider } from 'react-native-paper';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { View, StyleSheet, ScrollView, Alert, Platform, Pressable, TextInput } from 'react-native';
+import { Text, Menu } from 'react-native-paper';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Exercise, MuscleGroup, Workout } from '../../types/workout';
-import { spacing } from '../../constants/theme';
+import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
+import { SkyScreen, SkyCard, SectionLabel } from '../../components/Sky';
+import { HeaderButton, Pill } from '../../components/Glass';
+import Field from '../../components/Field';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -154,128 +158,117 @@ export default function WorkoutEditScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Edit Workout" />
-        <Appbar.Action icon="delete" onPress={handleDelete} />
-        {hasChanges && <Appbar.Action icon="check" onPress={handleSave} />}
-      </Appbar.Header>
-
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
-          <Pressable onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-            <View style={styles.dateRow}>
-              <Text variant="titleLarge" style={[styles.date, { color: colors.text }]}>
-                {format(workoutDate, 'EEEE, MMMM d')}
-              </Text>
-              <IconButton icon="calendar" size={24} />
+    <SkyScreen edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: 'Edit Workout',
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <HeaderButton icon="trash" label="Delete workout" onPress={handleDelete} />
+              {hasChanges && <HeaderButton icon="checkmark" label="Save changes" onPress={handleSave} />}
             </View>
-          </Pressable>
-          
-          {showDatePicker && (
-            <DateTimePicker
-              value={workoutDate}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleDateChange}
-              maximumDate={new Date()}
+          ),
+        }}
+      />
+
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Pressable
+          onPress={() => setShowDatePicker(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Date, ${format(workoutDate, 'EEEE, MMMM d')}. Change date`}
+          style={styles.dateRow}
+        >
+          <Text variant="headlineMedium" style={[styles.date, { color: colors.text }]}>
+            {format(workoutDate, 'EEEE, MMMM d')}
+          </Text>
+          <SymbolView name="calendar" size={22} tintColor={colors.sunrise} />
+        </Pressable>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={workoutDate}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
+
+        <SectionLabel style={styles.label}>Exercises</SectionLabel>
+        {exercises.map((exercise) => (
+          <SkyCard key={exercise.id}>
+            <View style={styles.exerciseHeader}>
+              <TextInput
+                value={exercise.name}
+                onChangeText={(text) => updateExercise(exercise.id, 'name', text)}
+                placeholder="Exercise name"
+                placeholderTextColor={colors.textTertiary}
+                accessibilityLabel="Exercise name"
+                style={[styles.exerciseName, { color: colors.text }]}
+              />
+              <Pressable
+                onPress={() => removeExercise(exercise.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${exercise.name}`}
+                hitSlop={8}
+              >
+                <SymbolView name="xmark.circle.fill" size={22} tintColor={colors.textTertiary} />
+              </Pressable>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Field
+                label="Sets"
+                value={exercise.sets?.toString() || ''}
+                onChangeText={(text) => updateExercise(exercise.id, 'sets', text ? parseInt(text) : undefined)}
+                keyboardType="numeric"
+                containerStyle={styles.smallInput}
+              />
+              <Field
+                label="Reps"
+                value={exercise.reps?.toString() || ''}
+                onChangeText={(text) => updateExercise(exercise.id, 'reps', text ? parseInt(text) : undefined)}
+                keyboardType="numeric"
+                containerStyle={styles.smallInput}
+              />
+              <Field
+                label="Weight"
+                value={exercise.weight?.toString() || ''}
+                onChangeText={(text) => updateExercise(exercise.id, 'weight', text ? parseFloat(text) : undefined)}
+                keyboardType="numeric"
+                containerStyle={styles.mediumInput}
+              />
+            </View>
+
+            <MuscleGroupSelector
+              selected={exercise.muscleGroup}
+              onSelect={(group) => updateExercise(exercise.id, 'muscleGroup', group)}
             />
-          )}
+          </SkyCard>
+        ))}
 
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-              Exercises
-            </Text>
-            
-            {exercises.map((exercise, index) => (
-              <View key={exercise.id} style={[styles.exerciseCard, { backgroundColor: colors.surface }]}>
-                <View style={styles.exerciseHeader}>
-                  <TextInput
-                    mode="flat"
-                    value={exercise.name}
-                    onChangeText={(text) => updateExercise(exercise.id, 'name', text)}
-                    style={styles.exerciseNameInput}
-                    placeholder="Exercise name"
-                  />
-                  <IconButton
-                    icon="close"
-                    size={20}
-                    onPress={() => removeExercise(exercise.id)}
-                  />
-                </View>
+        <Pill variant="glass" icon="plus" label="Add exercise" onPress={addExercise} style={styles.addButton} />
 
-                <View style={styles.exerciseDetails}>
-                  <View style={styles.detailRow}>
-                    <TextInput
-                      mode="outlined"
-                      label="Sets"
-                      value={exercise.sets?.toString() || ''}
-                      onChangeText={(text) => updateExercise(exercise.id, 'sets', text ? parseInt(text) : undefined)}
-                      keyboardType="numeric"
-                      style={styles.smallInput}
-                    />
-                    <TextInput
-                      mode="outlined"
-                      label="Reps"
-                      value={exercise.reps?.toString() || ''}
-                      onChangeText={(text) => updateExercise(exercise.id, 'reps', text ? parseInt(text) : undefined)}
-                      keyboardType="numeric"
-                      style={styles.smallInput}
-                    />
-                    <TextInput
-                      mode="outlined"
-                      label="Weight"
-                      value={exercise.weight?.toString() || ''}
-                      onChangeText={(text) => updateExercise(exercise.id, 'weight', text ? parseFloat(text) : undefined)}
-                      keyboardType="numeric"
-                      style={styles.mediumInput}
-                    />
-                  </View>
-
-                  <MuscleGroupSelector
-                    selected={exercise.muscleGroup}
-                    onSelect={(group) => updateExercise(exercise.id, 'muscleGroup', group)}
-                  />
-                </View>
-
-                {index < exercises.length - 1 && <Divider style={styles.divider} />}
-              </View>
-            ))}
-
-            <Button
-              mode="outlined"
-              onPress={addExercise}
-              icon="plus"
-              style={styles.addButton}
-            >
-              Add Exercise
-            </Button>
-          </View>
-
-          <View style={styles.section}>
-            <Text variant="titleMedium" style={[styles.sectionTitle, { color: colors.text }]}>
-              Notes
-            </Text>
-            <TextInput
-              mode="outlined"
-              value={notes}
-              onChangeText={(text) => {
-                setNotes(text);
-                setHasChanges(true);
-              }}
-              multiline
-              numberOfLines={3}
-              placeholder="Add workout notes..."
-            />
-          </View>
-        </View>
+        <SectionLabel style={styles.label}>Notes</SectionLabel>
+        <SkyCard>
+          <Field
+            value={notes}
+            onChangeText={(text) => {
+              setNotes(text);
+              setHasChanges(true);
+            }}
+            multiline
+            placeholder="Add workout notes..."
+            accessibilityLabel="Workout notes"
+          />
+        </SkyCard>
       </ScrollView>
-    </View>
+    </SkyScreen>
   );
 }
 
 function MuscleGroupSelector({ selected, onSelect }: { selected: MuscleGroup; onSelect: (group: MuscleGroup) => void }) {
+  const { colors } = useTheme();
   const [visible, setVisible] = useState(false);
 
   return (
@@ -283,12 +276,18 @@ function MuscleGroupSelector({ selected, onSelect }: { selected: MuscleGroup; on
       visible={visible}
       onDismiss={() => setVisible(false)}
       anchor={
-        <Chip
+        <Pressable
           onPress={() => setVisible(true)}
-          style={styles.muscleChip}
+          accessibilityRole="button"
+          accessibilityLabel={`Muscle group, ${selected.replace('_', ' ')}. Change`}
+          style={[styles.muscleChip, { backgroundColor: colors.dim }]}
         >
-          {selected.replace('_', ' ')}
-        </Chip>
+          <View style={[styles.dot, { backgroundColor: muscleGroupColors[selected] }]} />
+          <Text variant="labelMedium" style={[styles.muscleText, { color: colors.textSecondary }]}>
+            {selected.replace('_', ' ')}
+          </Text>
+          <SymbolView name="chevron.up.chevron.down" size={11} weight="semibold" tintColor={colors.textTertiary} />
+        </Pressable>
       }
     >
       {muscleGroups.map((group) => (
@@ -306,55 +305,46 @@ function MuscleGroupSelector({ selected, onSelect }: { selected: MuscleGroup; on
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
   content: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.screen,
+    paddingBottom: spacing.xl,
   },
-  dateButton: {
-    marginBottom: spacing.lg,
+  headerActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.gap,
+    marginBottom: spacing.lg,
   },
   date: {
     flex: 1,
   },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
+  label: {
     marginBottom: spacing.sm,
-  },
-  exerciseCard: {
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   exerciseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginBottom: spacing.gap,
   },
-  exerciseNameInput: {
+  exerciseName: {
     flex: 1,
-    backgroundColor: 'transparent',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  exerciseDetails: {
-    marginTop: spacing.sm,
+    fontFamily: fonts.rounded,
+    fontSize: 19,
+    fontWeight: '700',
+    paddingVertical: 4,
   },
   detailRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.gap,
   },
   smallInput: {
     flex: 1,
@@ -364,12 +354,22 @@ const styles = StyleSheet.create({
   },
   muscleChip: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
   },
-  divider: {
-    marginTop: spacing.md,
-    marginBottom: -spacing.xs,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  muscleText: {
+    textTransform: 'capitalize',
   },
   addButton: {
-    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
   },
 });

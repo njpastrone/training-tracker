@@ -1,5 +1,6 @@
-import { View, StyleSheet } from 'react-native';
-import { Text, IconButton } from 'react-native-paper';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Text } from 'react-native-paper';
+import { SymbolView } from 'expo-symbols';
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isThisWeek } from 'date-fns';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
@@ -46,29 +47,34 @@ export default function WeekSelector({ selectedWeek, onWeekChange, canGoNext = t
 
   return (
     <View style={styles.container}>
-      <IconButton
-        icon="chevron-left"
-        size={20}
+      <Pressable
         onPress={handlePrevious}
-        style={styles.navButton}
-      />
+        accessibilityRole="button"
+        accessibilityLabel="Previous week"
+        style={[styles.navButton, { backgroundColor: colors.glass, borderColor: colors.glassLine }]}
+      >
+        <SymbolView name="chevron.left" size={14} weight="semibold" tintColor={colors.textSecondary} />
+      </Pressable>
       
       <View style={styles.weekInfo}>
-        <Text variant="titleMedium" style={[styles.weekLabel, { color: colors.text }]}>
+        <Text variant="titleMedium" style={{ color: colors.text }}>
           {getWeekLabel()}
         </Text>
-        <Text variant="bodySmall" style={[styles.weekSubtitle, { color: colors.textSecondary }]}>
+        <Text variant="labelMedium" style={[styles.weekSubtitle, { color: colors.textTertiary }]}>
           {format(weekStart, 'yyyy')}
         </Text>
       </View>
       
-      <IconButton
-        icon="chevron-right"
-        size={20}
+      <Pressable
         onPress={handleNext}
         disabled={isNextDisabled}
-        style={[styles.navButton, isNextDisabled && styles.disabledButton]}
-      />
+        accessibilityRole="button"
+        accessibilityLabel="Next week"
+        accessibilityState={{ disabled: isNextDisabled }}
+        style={[styles.navButton, { backgroundColor: colors.glass, borderColor: colors.glassLine }, isNextDisabled && styles.disabledButton]}
+      >
+        <SymbolView name="chevron.right" size={14} weight="semibold" tintColor={colors.textSecondary} />
+      </Pressable>
     </View>
   );
 }
@@ -82,7 +88,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   navButton: {
-    margin: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   disabledButton: {
     opacity: 0.3,
@@ -90,9 +101,6 @@ const styles = StyleSheet.create({
   weekInfo: {
     alignItems: 'center',
     flex: 1,
-  },
-  weekLabel: {
-    fontWeight: '600',
   },
   weekSubtitle: {
     marginTop: 2,
