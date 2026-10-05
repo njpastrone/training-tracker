@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.njpastrone.trainingtracker",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "RCTAsyncStorageExcludeFromBackup": false
       },
       "icon": {
         "light": "./assets/icon.png",
@@ -44,7 +45,15 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-file-system",
+        {
+          "enableFileSharing": true,
+          "supportsOpeningDocumentsInPlace": true
+        }
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "router": {},

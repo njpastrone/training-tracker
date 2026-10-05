@@ -1,9 +1,11 @@
 import 'react-native-get-random-values';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { runWeeklyBackup } from '../services/backup';
 
 function AppContent() {
   const { theme, colors } = useTheme();
@@ -29,6 +31,10 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    runWeeklyBackup().catch((error) => console.error('Weekly backup failed:', error));
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ThemeProvider>
