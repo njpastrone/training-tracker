@@ -224,6 +224,20 @@ export const scheduleService = {
     return true;
   },
 
+  // Deleting logged workouts reopens the sessions they completed. Returns whether any session changed.
+  async unlinkDeletedWorkouts(workoutIds: string[]): Promise<boolean> {
+    const ids = new Set(workoutIds);
+    const schedule = await this.getSchedule();
+    const linked = schedule.filter(s => s.completedWorkoutId && ids.has(s.completedWorkoutId));
+    if (linked.length === 0) return false;
+    for (const s of linked) {
+      s.completed = false;
+      s.completedWorkoutId = undefined;
+    }
+    await this.saveSchedule(schedule);
+    return true;
+  },
+
   // Mark workout as skipped
   async markWorkoutSkipped(date: string, reason?: string): Promise<void> {
     const schedule = await this.getSchedule();

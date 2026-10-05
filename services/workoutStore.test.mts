@@ -14,6 +14,7 @@ mock.module('@react-native-async-storage/async-storage', {
 });
 
 const { useWorkoutStore } = await import('../stores/workoutStore');
+const { scheduleService } = await import('./schedule');
 const store = () => useWorkoutStore.getState();
 
 const day = (n: number) => format(subDays(new Date(), n), 'yyyy-MM-dd');
@@ -52,4 +53,26 @@ test('bulk delete removes only the picked workouts, stats follow, and Undo resto
 test('deleteWorkout still deletes one', () => {
   store().deleteWorkout('a');
   assert.ok(!store().workouts.some((w) => w.id === 'a'));
+});
+
+test('a planned session follows its workout through delete and Undo', async () => {
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  const date = day(5);
+  await scheduleService.saveSchedule([{ id: 's1', date, templateId: 't', isRecurring: false, completed: false, planId: 'p' }]);
+  const session = () => store().schedule.find((s) => s.id === 's1');
+
+  store().addWorkout(workout('planned', date));
+  await settle();
+  assert.equal(session()?.completed, true);
+  assert.equal(session()?.completedWorkoutId, 'planned');
+
+  const removed = store().deleteWorkouts(['planned']);
+  await settle();
+  assert.equal(session()?.completed, false);
+  assert.equal(session()?.completedWorkoutId, undefined);
+
+  store().restoreWorkouts(removed);
+  await settle();
+  assert.equal(session()?.completed, true);
+  assert.equal(session()?.completedWorkoutId, 'planned');
 });

@@ -255,6 +255,10 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           workouts: state.workouts.filter((w) => !remove.has(w.id)),
         }));
+        scheduleService
+          .unlinkDeletedWorkouts(removed.map((w) => w.id))
+          .then(changed => { if (changed) get().loadSchedule(); })
+          .catch(error => console.error('Error unlinking deleted workouts from plan:', error));
         return removed;
       },
 
@@ -268,6 +272,14 @@ export const useWorkoutStore = create<WorkoutState>()(
             ),
           };
         });
+        // Sequential, since each link rewrites the whole schedule
+        restored
+          .reduce<Promise<boolean>>(
+            (prev, w) => prev.then(async (any) => (await scheduleService.linkLoggedWorkout(w.date, w.id)) || any),
+            Promise.resolve(false)
+          )
+          .then(linked => { if (linked) get().loadSchedule(); })
+          .catch(error => console.error('Error relinking restored workouts to plan:', error));
       },
 
       getWorkoutsByDate: (date) => {
