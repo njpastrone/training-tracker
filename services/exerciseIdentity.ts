@@ -5,6 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { AMBIGUOUS_WORDS, CATALOG, LEGACY_NAMES, catalogById, exerciseKey, normalizeWords } from '../data/catalog';
+import { aliasFor, type Candidate } from '../server/src/identity';
 import type { CustomExercise, Exercise, ExerciseLibrary, MuscleGroup, Workout } from '../types/workout';
 
 export const emptyLibrary = (): ExerciseLibrary => ({ custom: [], renames: {}, aliases: {}, merged: {} });
@@ -64,7 +65,7 @@ const ownIdFor = (key: string, library: ExerciseLibrary) =>
 // The id a name surely means: one of your aliases, a catalog name, or one of your exercises
 export function knownIdFor(name: string, library: ExerciseLibrary): string | undefined {
   const key = exerciseKey(name);
-  const id = key ? library.aliases[key] ?? catalogKeys.get(key) ?? ownIdFor(key, library) : undefined;
+  const id = key ? aliasFor(name, library.aliases) ?? catalogKeys.get(key) ?? ownIdFor(key, library) : undefined;
   return id && resolveId(id, library);
 }
 
@@ -99,7 +100,8 @@ export function resolveExercise(name: string, muscleGroup: MuscleGroup, library:
   const sure = (id: string): Resolution => ({ exerciseId: resolveId(id, library), match: 'sure' });
   const unsure = (id: string): Resolution => ({ exerciseId: resolveId(id, library), match: 'unsure' });
 
-  if (key && library.aliases[key]) return sure(library.aliases[key]);
+  const aliasId = aliasFor(name, library.aliases);
+  if (aliasId) return sure(aliasId);
 
   const catalogId = key ? catalogKeys.get(key) : undefined;
   if (catalogId) return LOSSY[catalogId]?.test(normalizeWords(rawInput)) ? unsure(catalogId) : sure(catalogId);
@@ -133,7 +135,8 @@ export function withIdentity(workout: Workout, library: ExerciseLibrary): { work
     if (e.exerciseId) return e;
     const r = resolveExercise(e.name, e.muscleGroup, lib, workout.rawInput);
     if (r.custom) lib = { ...lib, custom: [...lib.custom, r.custom] };
-    return { ...e, exerciseId: r.exerciseId, match: r.match };
+    // The parser may already have flagged a new exercise (its words weren't in the log)
+    return { ...e, exerciseId: r.exerciseId, match: e.match === 'unsure' ? 'unsure' : r.match };
   });
   return { workout: { ...workout, exercises }, library: lib };
 }
@@ -183,4 +186,26 @@ export function searchExercises(query: string, workouts: Workout[], library: Exe
   const known = knownIdFor(query, library);
   const ids = known && !yours.includes(known) && !catalog.includes(known) ? [known, ...yours, ...catalog] : [...yours, ...catalog];
   return ids.slice(0, limit).flatMap((id) => option(id) ?? []);
+}
+
+// The user's exercises for the parser's candidate list, most recently logged first, each with up
+// to 3 of their own alias wordings. Exercises still unsure aren't the user's yet.
+export function yourExercises(workouts: Workout[], library: ExerciseLibrary): Omit<Candidate, 'yours'>[] {
+  const seen = new Map<string, Omit<Candidate, 'yours'>>();
+  for (const w of [...workouts].sort((a, b) => b.date.localeCompare(a.date))) {
+    for (const e of w.exercises) {
+      const id = e.exerciseId && e.match !== 'unsure' ? resolveId(e.exerciseId, library) : undefined;
+      if (!id || seen.has(id)) continue;
+      const entry = catalogById.get(id);
+      const also = Object.entries(library.aliases).filter(([, a]) => resolveId(a, library) === id).map(([words]) => words).slice(0, 3);
+      seen.set(id, {
+        id,
+        name: displayName(id, library) ?? e.name,
+        muscleGroup: entry?.primary ?? library.custom.find((c) => c.id === id)?.muscleGroup ?? e.muscleGroup,
+        ...(also.length ? { also } : {}),
+        ...(entry?.family ? { family: entry.family } : {}),
+      });
+    }
+  }
+  return [...seen.values()];
 }

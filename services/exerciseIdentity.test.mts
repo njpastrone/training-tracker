@@ -102,7 +102,7 @@ test('an exercise picked on the edit screen keeps its id', () => {
 });
 
 test('the resolver order: user alias, catalog, custom, ambiguous guess, near spelling, new', () => {
-  const lib = { ...emptyLibrary(), aliases: { theusualpress: 'overhead-press' }, custom: [{ id: 'custom-x', name: 'Pendulum Thing', muscleGroup: 'quads' as const, metric: 'weight-reps' as const, createdAt: 't' }] };
+  const lib = { ...emptyLibrary(), aliases: { 'the usual press': 'overhead-press' }, custom: [{ id: 'custom-x', name: 'Pendulum Thing', muscleGroup: 'quads' as const, metric: 'weight-reps' as const, createdAt: 't' }] };
   const r = (name: string, rawInput = '') => {
     const { exerciseId, match } = resolveExercise(name, 'chest', lib, rawInput);
     return `${exerciseId} ${match}`;
@@ -119,7 +119,7 @@ test('the resolver order: user alias, catalog, custom, ambiguous guess, near spe
 });
 
 test('merged ids resolve forward', () => {
-  const lib = { ...emptyLibrary(), aliases: { mybench: 'custom-old' }, merged: { 'custom-old': 'bench-press' } };
+  const lib = { ...emptyLibrary(), aliases: { 'my bench': 'custom-old' }, merged: { 'custom-old': 'bench-press' } };
   assert.equal(resolveExercise('my bench', 'chest', lib).exerciseId, 'bench-press');
   const { workout } = withIdentity({ id: 'w', date: 'd', rawInput: '', muscleGroups: [], createdAt: 't', exercises: [ex('a', 'my bench')] }, lib);
   assert.equal(workout.exercises[0].exerciseId, 'bench-press');
