@@ -3,7 +3,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
-import { buildParseRequest, buildCorrectionRequest, finalizeParse, type ParseOptions } from '../server/src/parse';
+import { buildParseRequest, buildCorrectionRequest, finalizeParse, modelNames, type ParseOptions } from '../server/src/parse';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
 
@@ -66,7 +66,7 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
   try {
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, draft, fix });
     const updated = finalizeParse(text, options.unit);
-    return updated && keepIdentity(draft, updated);
+    return updated && keepIdentity(draft, updated, modelNames(text));
   } catch (error) {
     if (error instanceof ApiError) throw error;
     console.error('Error correcting workout:', error);

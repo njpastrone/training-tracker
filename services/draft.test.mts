@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { editDraft, removeFromDraft, flagGuesses, keepIdentity } from './draft';
 import type { ParsedWorkoutResponse } from '../types/workout';
+import { finalizeParse, modelNames } from '../server/src/parse';
 
 const draft = {
   exercises: [
@@ -113,18 +114,25 @@ test('renaming an exercise drops its identity so it is resolved again on save', 
   assert.equal(editDraft(picked, 0, 'sets', 4).exercises[0].exerciseId, 'bench-press');
 });
 
-test('a typed fix keeps the identity of exercises it did not rename', () => {
+test('a typed fix keeps identity only for exercises the model returned under the name it was sent', () => {
   const before = parsed([
     { name: 'Chin-Up', muscleGroup: 'back', sets: 3, exerciseId: 'chin-up', match: 'sure', said: 'chin ups' },
     { name: 'Bench Press', muscleGroup: 'chest', exerciseId: 'bench-press', match: 'sure' },
   ]);
-  const after = parsed([
-    { name: 'Pull-ups', muscleGroup: 'back', sets: 4 }, // the list name snapped back by the parser
-    { name: 'Incline Bench Press', muscleGroup: 'chest' },
-  ]);
-  const [kept, renamed] = keepIdentity(before, after).exercises;
+  const fixed = (reply: object) => {
+    const text = JSON.stringify(reply);
+    return keepIdentity(before, finalizeParse(text)!, modelNames(text)).exercises;
+  };
+
+  const [kept, renamed] = fixed({ exercises: [{ name: 'chin-up', muscleGroup: 'back', sets: 4 }, { name: 'Incline Bench Press', muscleGroup: 'chest' }] });
   assert.deepEqual(kept, { name: 'Chin-Up', muscleGroup: 'back', sets: 4, exerciseId: 'chin-up', match: 'sure', said: 'chin ups' });
-  assert.deepEqual(renamed, { name: 'Incline Bench Press', muscleGroup: 'chest' });
+  assert.equal(renamed.name, 'Incline Bench Press');
+  assert.equal(renamed.exerciseId, undefined);
+
+  const [pullUps] = fixed({ exercises: [{ name: 'Pull-ups', muscleGroup: 'back', sets: 3 }, { name: 'Bench Press', muscleGroup: 'chest' }] });
+  assert.equal(pullUps.name, 'Pull-ups');
+  assert.equal(pullUps.exerciseId, undefined);
+  assert.equal(pullUps.match, undefined);
 });
 
 test('body-part entries from a low-detail log are not flagged', () => {

@@ -160,7 +160,7 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 const singular = (s: string) => s.replace(/s$/, '');
 
 // Exact name, then alias, then the same ignoring a trailing "s"
-export function canonical(name: string) {
+function canonical(name: string) {
   for (const key of [norm, (s: string) => singular(norm(s))]) {
     const k = key(name);
     const hit = exerciseList.find((e) => key(e.name) === k) ?? exerciseList.find((e) => e.aliases.some((a) => key(a) === k));
@@ -177,6 +177,16 @@ const UNITS: Record<string, 'lbs' | 'kg'> = {
   lb: 'lbs', lbs: 'lbs', pound: 'lbs', pounds: 'lbs',
 };
 const weightUnit = (v: unknown) => (typeof v === 'string' ? UNITS[v.trim().toLowerCase()] : undefined);
+
+// The exercise names exactly as the model wrote them, in the order finalizeParse keeps them
+export function modelNames(text: string): string[] {
+  try {
+    const raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+    return Array.isArray(raw?.exercises) ? raw.exercises.flatMap((e: Record<string, unknown>) => (e && str(e.name) ? [str(e.name)!] : [])) : [];
+  } catch {
+    return [];
+  }
+}
 
 // Model text → app shape: drops nulls and bad values, snaps names to the exercise list.
 // Returns null when the text holds no usable JSON object.
