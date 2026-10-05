@@ -48,7 +48,7 @@ exercise, muscle group included. Every run also prints the identity headline:
 
 ## Identity set
 
-`identity.ts` (52 cases) checks which exercise each lift is. Each case can give the user's library
+`identity.ts` (54 cases) checks which exercise each lift is. Each case can give the user's library
 (their exercises, most recent first, with remembered aliases). Statuses: `known` (in the library),
 `new-for-you` (a catalog exercise they haven't logged), `new` (neither: the user confirms the
 proposed name later) and `unsure` (flagged for the user, never counted in PRs until confirmed).
