@@ -12,6 +12,8 @@ import MuscleGroupBalance from '../../components/MuscleGroupBalance';
 import WeeklyWorkoutPattern from '../../components/WeeklyWorkoutPattern';
 import WeekSelector from '../../components/WeekSelector';
 import InsightCards from '../../components/InsightCards';
+import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
+import { Workout } from '../../types/workout';
 import { fonts, radius, spacing } from '../../constants/theme';
 import { format, isFuture, parseISO } from 'date-fns';
 import { WorkoutTemplate } from '../../types/template';
@@ -50,6 +52,7 @@ export default function HistoryScreen() {
   const addedPlan = plans.find(p => p.id === planId && p.status === 'active');
   const addedCount = schedule.filter(s => s.planId === planId).length;
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Start with current week
+  const [removed, setRemoved] = useState<Workout[] | null>(null);
   
   // Schedule workout dialog state
   const [scheduleDialogVisible, setScheduleDialogVisible] = useState(false);
@@ -99,10 +102,11 @@ export default function HistoryScreen() {
 
   const handleDatePress = (date: string) => {
     const dateObj = parseISO(date);
-    
-    // Only allow scheduling on future dates
-    if (!isFuture(dateObj) && format(dateObj, 'yyyy-MM-dd') !== format(new Date(), 'yyyy-MM-dd')) {
-      return; // Past dates - just view mode
+
+    // Logged and past days open the day, to view, edit or delete its workouts
+    if (workouts.some(w => w.date === date) || (!isFuture(dateObj) && date !== format(new Date(), 'yyyy-MM-dd'))) {
+      router.push(`/day/${date}`);
+      return;
     }
     
     // Check if date already has a scheduled workout
@@ -330,7 +334,7 @@ export default function HistoryScreen() {
             <Pill variant="glass" size="small" icon="logo" label="Plan" onPress={() => router.push('/plan')} />
           </View>
           <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textTertiary }]}>
-            Tap any day to view workouts or schedule future ones
+            Tap a day to view, edit or delete its workouts, or to plan ahead
           </Text>
           <Calendar
             workouts={workouts}
@@ -367,7 +371,13 @@ export default function HistoryScreen() {
             Longest streak: {stats.streak.longest} days · Total: {stats.totalWorkouts} workouts
           </Text>
         )}
+
+        {workouts.length > 0 && (
+          // ponytail: renders every workout; window it if history grows into the thousands
+          <SelectableWorkoutList label="All workouts" workouts={workouts} onDeleted={setRemoved} />
+        )}
       </ScrollView>
+      <UndoToast removed={removed} onClose={() => setRemoved(null)} />
 
       {/* Schedule Workout Dialog */}
       <Portal>

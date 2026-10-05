@@ -11,9 +11,21 @@ interface Props {
   onWorkoutPress?: (workout: Workout) => void;
   groupByDate?: boolean;
   enableSwipe?: boolean;
+  selected?: Set<string>; // select mode: a flat list where a tap toggles the workout
+  onToggle?: (id: string) => void;
 }
 
-export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = true, enableSwipe = false }: Props) {
+export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = true, enableSwipe = false, selected, onToggle }: Props) {
+  if (selected && onToggle) {
+    return (
+      <View style={styles.container}>
+        {workouts.map((workout) => (
+          <WorkoutCard key={workout.id} workout={workout} selected={selected.has(workout.id)} onPress={() => onToggle(workout.id)} />
+        ))}
+      </View>
+    );
+  }
+
   if (!groupByDate) {
     return (
       <GestureHandlerRootView>

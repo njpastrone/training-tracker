@@ -22,6 +22,8 @@ interface WorkoutState {
   addWorkout: (workout: Workout) => void;
   updateWorkout: (id: string, updates: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
+  deleteWorkouts: (ids: string[]) => Workout[]; // returns the removed workouts, for Undo
+  restoreWorkouts: (workouts: Workout[]) => void;
   getWorkoutsByDate: (date: string) => Workout[];
   getWorkoutDates: () => Set<string>;
   getStats: () => WorkoutStats;
@@ -244,9 +246,28 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       deleteWorkout: (id) => {
+        get().deleteWorkouts([id]);
+      },
+
+      deleteWorkouts: (ids) => {
+        const remove = new Set(ids);
+        const removed = get().workouts.filter((w) => remove.has(w.id));
         set((state) => ({
-          workouts: state.workouts.filter((w) => w.id !== id),
+          workouts: state.workouts.filter((w) => !remove.has(w.id)),
         }));
+        return removed;
+      },
+
+      // Undo for deleteWorkouts. Stats, PRs and streaks derive from workouts, so they follow.
+      restoreWorkouts: (restored) => {
+        set((state) => {
+          const present = new Set(state.workouts.map((w) => w.id));
+          return {
+            workouts: [...state.workouts, ...restored.filter((w) => !present.has(w.id))].sort((a, b) =>
+              b.date.localeCompare(a.date)
+            ),
+          };
+        });
       },
 
       getWorkoutsByDate: (date) => {

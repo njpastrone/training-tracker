@@ -132,8 +132,9 @@ export default function WorkoutEditScreen() {
           style: 'destructive',
           onPress: () => {
             deleteWorkout(id);
-            // Navigate back to home screen instead of using back()
-            router.replace('/');
+            // Back to where it was opened (a day, History), else home
+            if (router.canGoBack()) router.back();
+            else router.replace('/');
           },
         },
       ]
