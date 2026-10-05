@@ -65,3 +65,12 @@ test('missing reps are flagged and model flags are kept once', () => {
   const p = parsed([{ name: 'Deadlift', muscleGroup: 'back', weight: 405, unit: 'lbs' }], [{ exercise: 0, field: 'weight' }]);
   assert.deepEqual(flagGuesses(p, 'yesterday deadlift 405 lbs').unsure, [{ exercise: 0, field: 'weight' }, { exercise: 0, field: 'reps' }]);
 });
+
+test('comma-separated numbers count as typed values', () => {
+  const p = parsed([
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 1, reps: 10, weight: 135, unit: 'lbs' },
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 1, reps: 8, weight: 135, unit: 'lbs' },
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 10, weight: 2.5, unit: 'kg' },
+  ]);
+  assert.deepEqual(flagGuesses(p, 'bench 1 set each 135 lbs 10,8 then 3x8,3x10 at 2,5 kg').unsure, []);
+});
