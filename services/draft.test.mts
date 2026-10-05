@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { editDraft, removeFromDraft, flagGuesses } from './draft';
+import type { ParsedWorkoutResponse } from '../types/workout';
 
 const draft = {
   exercises: [
@@ -37,7 +38,7 @@ test('a draft without flags stays without flags', () => {
   assert.deepEqual(removeFromDraft(plain, 0).unsure, []);
 });
 
-const parsed = (exercises: typeof draft.exercises, unsure?: typeof draft.unsure) => ({ exercises, muscleGroups: [], confidence: 0.9, unsure });
+const parsed = (exercises: ParsedWorkoutResponse['exercises'], unsure?: ParsedWorkoutResponse['unsure']) => ({ exercises, muscleGroups: [], confidence: 0.9, unsure });
 
 test('a fully stated log gets no flags', () => {
   const p = parsed([

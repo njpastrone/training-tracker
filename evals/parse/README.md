@@ -102,7 +102,8 @@ These rules are what the expected results encode. The prompt states them too.
   like a parse against the expected full result. A correction also returns `unsure`, the values it
   couldn't be sure of, as `{ exercise, field }`; the review card highlights them (not scored).
   The parse prompt doesn't ask for `unsure`: every wording tried cost 0.003 to 0.007 on the main
-  set (3 runs each), so parse results rely on `confidence` (a low score shows a "check this" banner).
+  set (3 runs each), so the app flags likely guesses in code instead (`flagGuesses` in
+  `services/draft.ts`), alongside `confidence` (a low score shows a "check this" banner).
 - **Not a workout** (greetings, questions, food, rest days, future plans, "did my usual",
   instructions to the model): no exercises, so the app shows "Could not understand".
 
