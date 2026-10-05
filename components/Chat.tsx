@@ -23,7 +23,7 @@ export function CoachBubble({ text, muted }: { text: string; muted?: boolean }) 
   return (
     <View style={styles.coachRow}>
       <LinearGradient colors={[colors.sunriseSoft, colors.sunrise]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatar}>
-        <SymbolView name="sparkles" size={15} weight="semibold" tintColor={colors.onSunrise} />
+        <SymbolView name="text.bubble" size={15} weight="semibold" tintColor={colors.onSunrise} />
       </LinearGradient>
       <View
         style={[

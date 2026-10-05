@@ -206,7 +206,7 @@ export default function CoachScreen() {
           <LargeTitle title="Coach" />
           <SkyCard style={styles.empty}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.dim }]}>
-              <SymbolView name="sparkles" size={34} tintColor={colors.sunrise} />
+              <SymbolView name="text.bubble" size={34} tintColor={colors.sunrise} />
             </View>
             <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>
               Your coach is ready

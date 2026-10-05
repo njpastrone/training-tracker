@@ -63,7 +63,7 @@ export default function QuickAddScreen() {
               <View style={styles.buttons}>
                 <Pill variant="glass" label="Cancel" onPress={() => router.back()} disabled={!!log.busy} style={styles.button} />
                 <Pill
-                  icon="sparkles"
+                  icon="text.bubble"
                   label={log.busy === 'parse' ? 'Reading…' : 'Read it'}
                   onPress={log.parse}
                   loading={log.busy === 'parse'}

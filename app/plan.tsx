@@ -183,7 +183,7 @@ export default function PlanScreen() {
                 ))}
               </View>
               <Pill
-                icon="sparkles"
+                icon="text.bubble"
                 label={busy ? 'Planning…' : 'Plan it for me'}
                 onPress={() => send(input)}
                 loading={busy}
@@ -217,7 +217,7 @@ export default function PlanScreen() {
 
               {!!draft.reply && (
                 <View style={styles.coachLine}>
-                  <SymbolView name="sparkles" size={16} tintColor={colors.sunrise} />
+                  <SymbolView name="text.bubble" size={16} tintColor={colors.sunrise} />
                   <Text variant="bodyMedium" style={[styles.flex, { color: colors.text }]}>{draft.reply}</Text>
                 </View>
               )}
