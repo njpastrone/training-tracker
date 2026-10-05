@@ -159,10 +159,18 @@ All data lives on the phone. It is included in the iPhone's normal iCloud device
 
 Config lives in `app.json` (bundle ID `com.njpastrone.trainingtracker`) and `eas.json`. Build numbers are managed remotely by EAS and auto-increment on production builds.
 
-**Merges auto-ship.** Every push to `main` (including PR merges) runs the EAS Workflow in `.eas/workflows/testflight.yml`: it builds the production iOS app and submits it to TestFlight, where it reaches the internal `Team (Expo)` group. Requires the GitHub repo to be linked to the Expo project (expo.dev → project → GitHub). Watch runs at expo.dev or with `npx eas-cli workflow:runs`.
+**Merges auto-ship.** Every push to `main` (including PR merges) runs the EAS Workflow in `.eas/workflows/testflight.yml`. It fingerprints the native side of the app (native dependencies, config plugins, `app.json`, icon, permissions) and then:
 
-- **Skip a build:** put `[eas skip]` (or `[skip eas]` / `[no eas]`) in the commit message — for a squash merge, in the merge commit title or body.
-- **Build limit:** the Expo free plan includes a limited number of iOS builds per month, and every merge spends one. Batch small changes or skip docs-only merges.
+- **App-code-only change** (same fingerprint as an existing production build): publishes an over-the-air update to the `production` channel. Free, no build spent; installed apps pick it up on their next launch or two.
+- **Native change** (new dependency with native code, `app.json`/plugin change, icon, permissions, SDK upgrade): builds the production iOS app and submits it to TestFlight, where it reaches the internal `Team (Expo)` group.
+
+OTA updates only carry JavaScript and assets. They can't change native code, the app icon, permissions or anything else baked into the binary — those always need a build, and the fingerprint check triggers one automatically.
+
+Requires the GitHub repo to be linked to the Expo project (expo.dev → project → GitHub). Watch runs at expo.dev or with `npx eas-cli workflow:runs`.
+
+- **Force a full build:** put `[release]` in the commit message (for a squash merge, in the merge commit title or body), or run it by hand: `npx eas-cli workflow:run .eas/workflows/testflight.yml -F force_build=true`. EAS Workflows can't read PR labels on a push, so a label won't do it.
+- **Skip everything:** put `[eas skip]` (or `[skip eas]` / `[no eas]`) in the commit message.
+- **Build quota:** the Expo free plan includes 15 iOS builds per month; only native changes and forced builds spend one. Check what's left with `npx eas-cli account:usage` (or expo.dev → account → Usage).
 
 Manual one-time and per-release steps (run by the account owner):
 
