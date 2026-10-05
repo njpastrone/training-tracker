@@ -54,7 +54,7 @@ const listOf = (v: unknown, ok: (item: any) => boolean) => Array.isArray(v) && v
 const exercisesOk = (v: unknown) => listOf(v, (e) => hasStrings(e, 'name'));
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
-  '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises),
+  '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises) && Array.isArray(t.muscleGroups),
   '@training-tracker/schedule': (s) => hasStrings(s, 'id', 'date', 'templateId'),
   '@training-tracker/plans': (p) => hasStrings(p, 'id', 'name', 'startDate', 'endDate'),
 };
@@ -80,7 +80,7 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   if (!isObject(store) || !isObject(store.state) || !Number.isInteger(store.version)) fail(DAMAGED);
   if (store.version > (useWorkoutStore.persist.getOptions().version ?? 0)) fail(TOO_NEW);
   const workouts = store.state.workouts;
-  if (!listOf(workouts, (w) => hasStrings(w, 'id', 'date') && exercisesOk(w.exercises))) fail(DAMAGED);
+  if (!listOf(workouts, (w) => hasStrings(w, 'id', 'date') && exercisesOk(w.exercises) && Array.isArray(w.muscleGroups))) fail(DAMAGED);
   if (!isObject(store.state.settings)) fail(DAMAGED);
   for (const key of BACKUP_KEYS.slice(1)) {
     if (b.data[key] != null && !listOf(b.data[key], ITEM_CHECKS[key])) fail(DAMAGED);

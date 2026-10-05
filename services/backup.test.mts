@@ -140,6 +140,8 @@ test('bad, old and too-new files are rejected without touching data', async () =
     ['bad workout', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.workouts.push({ id: 5 }); return g; })()), /damaged/],
     ['workout without exercises', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.workouts[0].exercises; return g; })()), /damaged/],
     ['bad exercise', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.workouts[0].exercises.push(null); return g; })()), /damaged/],
+    ['workout without muscle groups', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.workouts[0].muscleGroups; return g; })()), /damaged/],
+    ['template without muscle groups', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/templates'][0].muscleGroups; return g; })()), /damaged/],
     ['no settings', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.settings; return g; })()), /damaged/],
     ['bad templates', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'] = 'x'; return g; })()), /damaged/],
     ['null template', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'].push(null); return g; })()), /damaged/],
