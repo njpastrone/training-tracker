@@ -147,8 +147,25 @@ test('a typed fix that merges split sets keeps the identity of the exercises aft
     { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 10 },
   ] }))!;
   const fixed = keepIdentity(before, after, names);
-  assert.deepEqual(fixed.exercises.map(e => [e.name, e.exerciseId, e.sets]), [['Bench Press', 'bench-press', 2], ['Barbell Row', undefined, 3]]);
+  assert.deepEqual(fixed.exercises.map(e => [e.name, e.exerciseId, e.sets]), [['Bench Press', 'bench-press', 2], ['Barbell Row', 'barbell-row', 3]]);
   assert.deepEqual(fixed.unsure, []);
+});
+
+test('a typed fix that adds or removes an exercise keeps the identity of the others', () => {
+  const draft = (names: string[]) => parsed(names.map(name => ({ name, muscleGroup: 'back', sets: 3, exerciseId: name.toLowerCase(), match: 'sure' as const })),
+    [{ exercise: names.length - 1, field: 'sets' }]);
+  const fix = (before: ParsedWorkoutResponse, names: string[]) => {
+    const { parsed: after, names: returned } = finalizeWithNames(JSON.stringify({ exercises: names.map(name => ({ name, muscleGroup: 'back', sets: 3 })) }))!;
+    return keepIdentity(before, after, returned);
+  };
+
+  const added = fix(draft(['Bench', 'Row']), ['Bench', 'Squat', 'Row']);
+  assert.deepEqual(added.exercises.map(e => e.exerciseId), ['bench', undefined, 'row']);
+  assert.deepEqual(added.unsure, [{ exercise: 2, field: 'sets' }]);
+
+  const removed = fix(draft(['Bench', 'Squat', 'Row']), ['Bench', 'Row']);
+  assert.deepEqual(removed.exercises.map(e => e.exerciseId), ['bench', 'row']);
+  assert.deepEqual(removed.unsure, [{ exercise: 1, field: 'sets' }]);
 });
 
 test('body-part entries from a low-detail log are not flagged', () => {

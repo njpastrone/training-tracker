@@ -24,24 +24,33 @@ export function removeFromDraft(draft: Draft, index: number): Draft {
   };
 }
 
-// After a typed fix, each exercise the model returned under the name it was sent (same position,
-// its own name before snapping to the list) keeps its display name and identity, so only renamed
-// ones are resolved again on save. Its earlier flags stay on values the fix left unchanged.
+// After a typed fix, each exercise the model returned under the name it was sent (its own name before
+// snapping to the list) or as the same exercise keeps its display name and identity, so only renamed
+// ones are resolved again on save. Draft exercises are matched in order, so merged sets, added and
+// removed exercises don't shift the others. Earlier flags stay on values the fix left unchanged.
 export function keepIdentity(before: Draft, after: Draft, returnedNames: string[]): Draft {
   const same = (a?: string, b?: string) => a !== undefined && b !== undefined && a.trim().toLowerCase() === b.trim().toLowerCase();
-  // Unchanged: the model returned the name it was sent, or picked the same exercise again
-  const kept = (i: number) => {
-    const old = before.exercises[i];
-    return !!old && (same(returnedNames[i], old.name) || (!!old.exerciseId && after.exercises[i]?.exerciseId === old.exerciseId));
-  };
+  const source: (number | undefined)[] = [];
+  let next = 0;
+  after.exercises.forEach((e, i) => {
+    for (let j = next; j < before.exercises.length; j++) {
+      const old = before.exercises[j];
+      if (same(returnedNames[i], old.name) || (!!old.exerciseId && e.exerciseId === old.exerciseId)) {
+        source[i] = j;
+        next = j + 1;
+        return;
+      }
+    }
+  });
   const exercises = after.exercises.map((e, i) => {
-    const old = before.exercises[i];
-    return kept(i) ? { ...e, name: old.name, exerciseId: old.exerciseId, match: old.match, said: old.said } : e;
+    const old = source[i] === undefined ? undefined : before.exercises[source[i]!];
+    return old ? { ...e, name: old.name, exerciseId: old.exerciseId, match: old.match, said: old.said } : e;
   });
   const unsure = [...(after.unsure ?? [])];
   for (const u of before.unsure ?? []) {
-    const unchanged = kept(u.exercise) && exercises[u.exercise][u.field] === before.exercises[u.exercise][u.field];
-    if (unchanged && !unsure.some(f => f.exercise === u.exercise && f.field === u.field)) unsure.push(u);
+    const exercise = source.indexOf(u.exercise);
+    const unchanged = exercise >= 0 && exercises[exercise][u.field] === before.exercises[u.exercise][u.field];
+    if (unchanged && !unsure.some(f => f.exercise === exercise && f.field === u.field)) unsure.push({ exercise, field: u.field });
   }
   return { ...after, exercises, unsure };
 }
