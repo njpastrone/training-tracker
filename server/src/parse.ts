@@ -64,7 +64,7 @@ Log each exercise of a superset, circuit or giant set as its own entry with its 
 
 <muscle_group_only>
 Only when the log names no exercise at all. If it names any exercise, even without numbers or alongside body parts ("back and bis, rows and curls mostly"), log just those exercises and add no body-part entries.
-When the user names body parts or a split but no exercises ("glute day", "did back and shoulders", "upper body"), add exactly one entry per part named, even when the part covers several muscle groups ("upper body" → one "Upper Body Workout" entry): "Chest Workout", "Back Workout", "Leg Workout", "Arm Workout", "Shoulder Workout", "Core Workout", "Full Body Workout" and so on, with the closest muscleGroup (legs → quads, arms → biceps, abs → core) and any duration given.
+When the user names body parts or a split but no exercises ("glute day", "did back and shoulders", "upper body"), add exactly one entry per part named, even when the part covers several muscle groups ("upper body" → one "Upper Body Workout" entry): "Chest Workout", "Back Workout", "Leg Workout", "Arm Workout", "Shoulder Workout", "Core Workout", "Full Body Workout" and so on, with the closest muscleGroup (legs → quads, arms → biceps, abs → core) and any duration given. When exercises are named too ("legs today, mostly squats and lunges"), log only the named exercises, one entry each: the body parts add no entries, no extra exercises and no extra muscleGroups.
 </muscle_group_only>
 
 <muscle_groups>
