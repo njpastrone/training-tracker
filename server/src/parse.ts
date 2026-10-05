@@ -2,7 +2,6 @@
 // sends it), the app (which still sends it for Workers deployed before the parse mode existed)
 // and evals/parse (which scores it). Change the prompt here and run `npm run eval:parse`.
 
-import { exercises as exerciseList } from '../../data/exercises.ts';
 import type { MuscleGroup, ParsedWorkoutResponse } from '../../types/workout.ts';
 import { formatCandidates, isAssisted, isBodyPartSession, resolveName, resolvePick, type Candidate, type IdentityContext } from './identity.ts';
 
@@ -168,19 +167,6 @@ export function buildCorrectionRequest(draft: ParsedWorkoutResponse, fix: string
     system: `${SYSTEM_PROMPT}\n\n${CORRECTION_RULES}`,
     messages: [{ role: 'user' as const, content: `${context(options)}\n<draft>${JSON.stringify(draftForModel(draft))}</draft>\n<fix>${fix}</fix>` }],
   };
-}
-
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-const singular = (s: string) => s.replace(/s$/, '');
-
-// Exact name, then alias, then the same ignoring a trailing "s"
-export function canonical(name: string) {
-  for (const key of [norm, (s: string) => singular(norm(s))]) {
-    const k = key(name);
-    const hit = exerciseList.find((e) => key(e.name) === k) ?? exerciseList.find((e) => e.aliases.some((a) => key(a) === k));
-    if (hit) return hit;
-  }
-  return undefined;
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined);

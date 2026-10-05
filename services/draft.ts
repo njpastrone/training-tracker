@@ -1,6 +1,5 @@
 import type { ParsedWorkoutResponse, UnsureField } from '../types/workout';
 import { exercises as exerciseList } from '../data/exercises';
-import { canonical } from '../server/src/parse';
 
 type Draft = ParsedWorkoutResponse;
 type Field = keyof Draft['exercises'][number];
@@ -25,14 +24,16 @@ export function removeFromDraft(draft: Draft, index: number): Draft {
   };
 }
 
-// After a typed fix, each exercise the fix didn't rename (same position, same name or its list name)
-// keeps its display name and identity, so only renamed ones are resolved again on save
+// After a typed fix, each exercise the model returned under the name it was sent (same position)
+// keeps its display name and identity, so only renamed
+// ones are resolved again on save
 export function keepIdentity(before: Draft, after: Draft): Draft {
+  const same = (a?: string, b?: string) => a !== undefined && b !== undefined && a.trim().toLowerCase() === b.trim().toLowerCase();
   return {
     ...after,
     exercises: after.exercises.map((e, i) => {
       const old = before.exercises[i];
-      if (!old || (e.name !== old.name && e.name !== canonical(old.name)?.name)) return e;
+      if (!old || !same(e.name, old.name)) return e;
       return { ...e, name: old.name, exerciseId: old.exerciseId, match: old.match, said: old.said };
     }),
   };
