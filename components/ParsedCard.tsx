@@ -141,7 +141,12 @@ function NumberChip({ value, suffix, unsure, onChange }: { value?: number | stri
   const edit = (t: string) => {
     setText(t);
     const next = toNumber(t);
-    if (next !== current) onChange(next);
+    if (next !== undefined && next !== current) onChange(next);
+  };
+
+  const endEdit = () => {
+    if (toNumber(text) === undefined && current !== undefined) onChange(undefined);
+    else setText(shown);
   };
 
   return (
@@ -155,7 +160,7 @@ function NumberChip({ value, suffix, unsure, onChange }: { value?: number | stri
       <TextInput
         value={text}
         onChangeText={edit}
-        onEndEditing={() => setText(shown)}
+        onEndEditing={endEdit}
         placeholder="–"
         placeholderTextColor={colors.textTertiary}
         keyboardType="decimal-pad"
