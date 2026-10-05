@@ -57,7 +57,6 @@ export interface ExerciseReference {
 // User settings/preferences
 export interface UserSettings {
   weightUnit: WeightUnit;
-  theme: 'light' | 'dark' | 'system';
   showStreakNotifications: boolean;
 }
 

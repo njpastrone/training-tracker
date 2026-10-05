@@ -1,63 +1,53 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AccessibilityInfo, AppState, useColorScheme } from 'react-native';
+import { format } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
-import { darkTheme, lightTheme, darkColors, lightColors } from '../constants/theme';
-
-type ThemeMode = 'light' | 'dark' | 'system';
+import { darkTheme, lightTheme, darkPalette, lightPalette, Palette } from '../constants/theme';
+import { weekSky, WeekSky } from '../services/sky';
 
 interface ThemeContextType {
   isDarkMode: boolean;
-  themeMode: ThemeMode;
-  colors: typeof darkColors;
-  theme: typeof darkTheme;
-  setThemeMode: (mode: ThemeMode) => void;
+  colors: Palette;
+  theme: typeof lightTheme;
+  sky: WeekSky;
+  reduceTransparency: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const today = () => format(new Date(), 'yyyy-MM-dd');
+
+// Appearance follows the iPhone (HIG: no app-specific appearance setting)
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemColorScheme = useColorScheme();
-  const { settings, updateSettings } = useWorkoutStore();
-  
-  // Use local state for immediate theme updates, sync with store for persistence
-  const [localThemeMode, setLocalThemeMode] = useState<ThemeMode>(settings.theme);
+  const isDarkMode = useColorScheme() === 'dark';
+  const workouts = useWorkoutStore(s => s.workouts);
+  const schedule = useWorkoutStore(s => s.schedule);
+  const [day, setDay] = useState(today);
+  const [reduceTransparency, setReduceTransparency] = useState(false);
 
-  // Sync local state with store on mount and when store changes
+  // The sky is static per visit: recomputed on data changes and when the app returns on a new day
   useEffect(() => {
-    setLocalThemeMode(settings.theme);
-  }, [settings.theme]);
+    const sub = AppState.addEventListener('change', state => state === 'active' && setDay(today()));
+    return () => sub.remove();
+  }, []);
 
-  // Use local theme mode for immediate updates
-  const themeMode = localThemeMode;
+  useEffect(() => {
+    AccessibilityInfo.isReduceTransparencyEnabled().then(setReduceTransparency);
+    const sub = AccessibilityInfo.addEventListener('reduceTransparencyChanged', setReduceTransparency);
+    return () => sub.remove();
+  }, []);
 
-  // Determine if we should use dark mode
-  const isDarkMode = themeMode === 'dark' || (themeMode === 'system' && systemColorScheme === 'dark');
-
-  // Get appropriate colors and theme
-  const colors = isDarkMode ? darkColors : lightColors;
-  const theme = isDarkMode ? darkTheme : lightTheme;
-
-  const handleSetThemeMode = (mode: ThemeMode) => {
-    // Update local state immediately for instant UI response
-    setLocalThemeMode(mode);
-    
-    // Update store for persistence (async)
-    updateSettings({ theme: mode });
-  };
+  const sky = useMemo(() => weekSky(workouts, schedule), [workouts, schedule, day]);
 
   const value: ThemeContextType = {
     isDarkMode,
-    themeMode,
-    colors,
-    theme,
-    setThemeMode: handleSetThemeMode,
+    colors: isDarkMode ? darkPalette : lightPalette,
+    theme: isDarkMode ? darkTheme : lightTheme,
+    sky,
+    reduceTransparency,
   };
 
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

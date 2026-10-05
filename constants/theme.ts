@@ -1,124 +1,168 @@
-import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+import { Platform } from 'react-native';
+import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper';
 
-// Base brand colors (consistent across themes)
-export const brandColors = {
-  primary: '#FF6B35', // Energetic Orange
-  primaryLight: '#FF8A65',
-  primaryDark: '#E55100',
-  secondary: '#00E676', // Bright Green
-  secondaryLight: '#69F0AE',
-  accent: '#FFD600', // Electric Yellow
-  error: '#FF1744',
-  warning: '#FF9100',
-  success: '#00E676',
-};
+// Daylight design tokens. See DESIGN-SYSTEM.md.
+// Content sits on a sky (services/sky.ts) that tracks the training week; cards are a
+// translucent material over it; Liquid Glass is for controls only.
 
-// Dark theme colors
-export const darkColors = {
-  ...brandColors,
-  background: '#121212',
-  surface: '#1E1E1E',
-  surfaceVariant: '#2A2A2A',
-  text: '#FFFFFF',
-  textSecondary: '#CCCCCC',
-  textTertiary: '#999999',
-  border: '#333333',
-  borderLight: '#444444',
-  disabled: '#666666',
-  overlay: 'rgba(0, 0, 0, 0.7)',
-  
-  gradients: {
-    primary: ['#FF6B35', '#E55100'],
-    secondary: ['#00E676', '#00C853'],
-    accent: ['#FFD600', '#FF8F00'],
-    surface: ['#1E1E1E', '#2A2A2A'],
-    card: ['#1E1E1E', '#252525'],
-  },
-};
-
-// Light theme colors
+// Light: text levels, card material, sunrise accent, cobalt for planned, mint for success
 export const lightColors = {
-  ...brandColors,
-  background: '#FAFAFA',
-  surface: '#FFFFFF',
-  surfaceVariant: '#F5F5F5',
-  text: '#1A1A1A',
-  textSecondary: '#666666',
-  textTertiary: '#999999',
-  border: '#E0E0E0',
-  borderLight: '#F0F0F0',
-  disabled: '#BDBDBD',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  
-  gradients: {
-    primary: ['#FF6B35', '#E55100'],
-    secondary: ['#00E676', '#00C853'],
-    accent: ['#FFD600', '#FF8F00'],
-    surface: ['#FFFFFF', '#F8F8F8'],
-    card: ['#FFFFFF', '#FDFDFD'],
-  },
+  text: '#0E1430',
+  textSecondary: '#4A5374',
+  textTertiary: '#6E7798',
+  card: 'rgba(255,255,255,0.62)',
+  cardLine: 'rgba(255,255,255,0.8)',
+  glass: 'rgba(255,255,255,0.5)',
+  glassLine: 'rgba(255,255,255,0.85)',
+  dim: 'rgba(14,20,48,0.06)',
+  sunrise: '#D2441C',
+  sunriseSoft: '#FF7A4F',
+  onSunrise: '#FFFFFF',
+  cobalt: '#3560F0',
+  mint: '#13865A',
+  error: '#D70015',
+  warning: '#B25E00',
+  // Solid surfaces: Reduce Transparency, sheets, and screens not yet on the sky
+  background: '#E4EEFF',
+  surface: '#F7F9FF',
+  border: '#D5DCEF',
+  disabled: '#A3AAC4',
+  overlay: 'rgba(14,20,48,0.4)',
 };
 
-// For backward compatibility (defaults to dark)
-export const colors = darkColors;
+// Dark: always night
+export const darkColors: typeof lightColors = {
+  text: '#F3F5FF',
+  textSecondary: '#B0B7D6',
+  textTertiary: '#8189AE',
+  card: 'rgba(255,255,255,0.075)',
+  cardLine: 'rgba(255,255,255,0.13)',
+  glass: 'rgba(255,255,255,0.10)',
+  glassLine: 'rgba(255,255,255,0.18)',
+  dim: 'rgba(255,255,255,0.06)',
+  sunrise: '#FF7F57',
+  sunriseSoft: '#FF9D7A',
+  onSunrise: '#2A1208',
+  cobalt: '#8EA6FF',
+  mint: '#52D9A0',
+  error: '#FF6961',
+  warning: '#FFB340',
+  background: '#141938',
+  surface: '#1C2142',
+  border: '#2E3460',
+  disabled: '#5A6189',
+  overlay: 'rgba(0,0,0,0.6)',
+};
 
-// Muscle group colors - Work well in both themes
+// ponytail: old token names for screens not yet restyled; remove once every screen uses the names above
+const aliases = (c: typeof lightColors) => ({
+  ...c,
+  primary: c.sunrise,
+  primaryLight: c.sunriseSoft,
+  secondary: c.cobalt,
+  success: c.mint,
+  accent: c.sunriseSoft,
+  surfaceVariant: c.surface,
+  borderLight: c.border,
+});
+export const lightPalette = aliases(lightColors);
+export const darkPalette = aliases(darkColors);
+export type Palette = typeof lightPalette;
+
+// Muscle groups: soft dots, not a rainbow of chips
 export const muscleGroupColors: Record<string, string> = {
-  chest: '#FF5722',      // Deep Orange
-  back: '#2196F3',       // Blue
-  shoulders: '#9C27B0',  // Purple
-  biceps: '#E91E63',     // Pink
-  triceps: '#FF9800',    // Orange
-  forearms: '#8BC34A',   // Light Green
-  core: '#FFC107',       // Amber
-  quads: '#00BCD4',      // Cyan
-  hamstrings: '#009688', // Teal
-  glutes: '#E91E63',     // Pink
-  calves: '#673AB7',     // Deep Purple
-  cardio: '#4CAF50',     // Green
-  full_body: '#FF6B35',  // Primary Orange
+  chest: '#F0764F',
+  back: '#4B8DF8',
+  shoulders: '#9B7BF0',
+  biceps: '#E8618C',
+  triceps: '#F2A93B',
+  forearms: '#8DB255',
+  core: '#E3B33A',
+  quads: '#34B8A8',
+  hamstrings: '#2E9E7B',
+  glutes: '#EE6F9F',
+  calves: '#7A6FE0',
+  cardio: '#3FA7D6',
+  full_body: '#D2441C',
 };
 
-// Dark theme configuration
-export const darkTheme = {
-  ...MD3DarkTheme,
-  colors: {
-    ...MD3DarkTheme.colors,
-    primary: darkColors.primary,
-    secondary: darkColors.secondary,
-    background: darkColors.background,
-    surface: darkColors.surface,
-    surfaceVariant: darkColors.surfaceVariant,
-    error: darkColors.error,
-    outline: darkColors.border,
-    onBackground: darkColors.text,
-    onSurface: darkColors.text,
-    onSurfaceVariant: darkColors.textSecondary,
+// SF Pro Rounded for titles, numbers and labels; SF Pro (system) for body text
+export const fonts = {
+  rounded: Platform.select({ ios: 'ui-rounded', default: undefined }),
+};
+
+const rounded = (fontSize: number, lineHeight: number, fontWeight: '600' | '700' | '800') => ({
+  fontFamily: fonts.rounded ?? MD3LightTheme.fonts.titleLarge.fontFamily,
+  fontSize,
+  lineHeight,
+  fontWeight,
+  letterSpacing: 0,
+});
+const system = (fontSize: number, lineHeight: number) => ({
+  ...MD3LightTheme.fonts.bodyLarge,
+  fontSize,
+  lineHeight,
+  letterSpacing: 0,
+});
+
+// Mapped onto the iOS text styles
+const paperFonts = configureFonts({
+  config: {
+    displayLarge: rounded(40, 46, '800'),
+    displayMedium: rounded(36, 42, '800'),
+    displaySmall: rounded(34, 41, '800'),
+    headlineLarge: rounded(34, 41, '800'), // Large Title
+    headlineMedium: rounded(28, 34, '800'), // Title 1
+    headlineSmall: rounded(22, 28, '700'), // Title 2
+    titleLarge: rounded(20, 25, '700'), // Title 3
+    titleMedium: rounded(17, 22, '700'), // Headline
+    titleSmall: rounded(15, 20, '700'),
+    labelLarge: rounded(17, 22, '700'), // buttons
+    labelMedium: rounded(13, 18, '700'),
+    labelSmall: rounded(12, 16, '600'),
+    bodyLarge: system(17, 22), // Body
+    bodyMedium: system(15, 20), // Subheadline
+    bodySmall: system(13, 18), // Footnote
   },
-};
+});
 
-// Light theme configuration
+const paperColors = (c: typeof lightColors) => ({
+  primary: c.sunrise,
+  onPrimary: c.onSunrise,
+  primaryContainer: c.dim,
+  onPrimaryContainer: c.text,
+  secondary: c.cobalt,
+  secondaryContainer: c.dim,
+  onSecondaryContainer: c.text,
+  background: c.background,
+  onBackground: c.text,
+  surface: c.surface,
+  onSurface: c.text,
+  surfaceVariant: c.surface,
+  onSurfaceVariant: c.textSecondary,
+  outline: c.border,
+  outlineVariant: c.border,
+  error: c.error,
+  surfaceDisabled: c.dim,
+  onSurfaceDisabled: c.disabled,
+  backdrop: c.overlay,
+});
+
 export const lightTheme = {
   ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: lightColors.primary,
-    secondary: lightColors.secondary,
-    background: lightColors.background,
-    surface: lightColors.surface,
-    surfaceVariant: lightColors.surfaceVariant,
-    error: lightColors.error,
-    outline: lightColors.border,
-    onBackground: lightColors.text,
-    onSurface: lightColors.text,
-    onSurfaceVariant: lightColors.textSecondary,
-  },
+  roundness: 6,
+  fonts: paperFonts,
+  colors: { ...MD3LightTheme.colors, ...paperColors(lightColors) },
 };
 
-// For backward compatibility
-export const athleticTheme = darkTheme;
+export const darkTheme = {
+  ...MD3DarkTheme,
+  roundness: 6,
+  fonts: paperFonts,
+  colors: { ...MD3DarkTheme.colors, ...paperColors(darkColors) },
+};
 
-// Spacing scale
+// 8 pt grid; 20 pt screen margins, 12 pt between cards
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -126,49 +170,24 @@ export const spacing = {
   lg: 24,
   xl: 32,
   xxl: 48,
+  screen: 20,
+  gap: 12,
 };
 
-// Font sizes
-export const fontSize = {
-  xs: 12,
-  sm: 14,
-  md: 16,
-  lg: 18,
-  xl: 24,
-  xxl: 32,
-};
-
-// Border radius
-export const borderRadius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  xxl: 20,
+export const radius = {
+  card: 26, // concentric with the screen corners
+  tile: 20,
+  bubble: 22,
+  control: 26, // 50-52 pt pills
   full: 9999,
 };
 
-// Enhanced shadows for dark theme
+// One soft shadow for floating glass; cards rely on the material, not shadows
 export const shadows = {
-  small: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  medium: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  large: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 10,
+  float: {
+    shadowColor: '#283270',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
   },
 };

@@ -6,11 +6,11 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 function AppContent() {
-  const { theme, isDarkMode } = useTheme();
-  
+  const { theme } = useTheme();
+
   return (
     <PaperProvider theme={theme}>
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
       </Stack>
