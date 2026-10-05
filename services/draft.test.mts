@@ -149,3 +149,19 @@ test('spelled-out numbers count as typed values', () => {
   ]);
   assert.deepEqual(flagGuesses(p, 'bench four sets of twelve, squat 315 lbs for a double').unsure, []);
 });
+
+test('a typed fix keeps earlier flags only on values it left unchanged', () => {
+  const before = parsed([
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8 },
+    { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 8, weight: 135 },
+  ], [{ exercise: 1, field: 'weight' }]);
+  const fixed = (rowWeight: number) => {
+    const text = JSON.stringify({ exercises: [
+      { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 10 },
+      { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 8, weight: rowWeight },
+    ], unsure: [] });
+    return keepIdentity(before, finalizeParse(text)!).unsure;
+  };
+  assert.deepEqual(fixed(135), [{ exercise: 1, field: 'weight' }]);
+  assert.deepEqual(fixed(155), []);
+});

@@ -25,18 +25,21 @@ export function removeFromDraft(draft: Draft, index: number): Draft {
 }
 
 // After a typed fix, each exercise the model returned under the name it was sent (same position)
-// keeps its display name and identity, so only renamed
-// ones are resolved again on save
+// keeps its display name and identity, so only renamed ones are resolved again on save. Its earlier
+// flags stay on values the fix left unchanged.
 export function keepIdentity(before: Draft, after: Draft): Draft {
   const same = (a?: string, b?: string) => a !== undefined && b !== undefined && a.trim().toLowerCase() === b.trim().toLowerCase();
-  return {
-    ...after,
-    exercises: after.exercises.map((e, i) => {
-      const old = before.exercises[i];
-      if (!old || !same(e.name, old.name)) return e;
-      return { ...e, name: old.name, exerciseId: old.exerciseId, match: old.match, said: old.said };
-    }),
-  };
+  const kept = (i: number) => !!before.exercises[i] && same(after.exercises[i]?.name, before.exercises[i].name);
+  const exercises = after.exercises.map((e, i) => {
+    const old = before.exercises[i];
+    return kept(i) ? { ...e, name: old.name, exerciseId: old.exerciseId, match: old.match, said: old.said } : e;
+  });
+  const unsure = [...(after.unsure ?? [])];
+  for (const u of before.unsure ?? []) {
+    const unchanged = kept(u.exercise) && exercises[u.exercise][u.field] === before.exercises[u.exercise][u.field];
+    if (unchanged && !unsure.some(f => f.exercise === u.exercise && f.field === u.field)) unsure.push(u);
+  }
+  return { ...after, exercises, unsure };
 }
 
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve',
