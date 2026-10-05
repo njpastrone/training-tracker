@@ -149,6 +149,9 @@ The History tab shows:
 - Current streak
 - Weekly/monthly workout counts
 - Longest streak record
+- A list of all workouts
+
+Tap a logged or past day on the calendar to see its workouts. Tap a workout to edit or delete it. To delete several at once (for example test entries), tap **Select** on the day or on the all-workouts list, pick the workouts, and tap **Delete**. **Undo** appears right after and restores them, along with any calendar session they had completed.
 
 ### Backing Up
 
