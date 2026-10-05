@@ -5,6 +5,7 @@ import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, type ParseOptions } from '../server/src/parse';
 import { draftToText } from './format';
+import { flagGuesses } from './draft';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
@@ -45,7 +46,8 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
     const req = buildParseRequest(input, options);
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options });
-    return finalizeParse(text, options.unit) ?? fallbackParse(input);
+    const parsed = finalizeParse(text, options.unit);
+    return parsed ? flagGuesses(parsed, input) : fallbackParse(input);
   } catch (error) {
     console.error('Error parsing workout:', error);
     if (error instanceof ApiError) throw error;
