@@ -164,7 +164,7 @@ export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit'], 
   const isGroup = (g: unknown): g is MuscleGroup => MUSCLE_GROUPS.includes(g as MuscleGroup);
   type Parsed = ParsedWorkoutResponse['exercises'][number];
   const listed = (raw.exercises as Record<string, unknown>[]).filter((e) => e && (str(e.name) || str(e.said) || str(e.ex)));
-  const namesOnly = !listed.some((e) => str(e.said));
+  const namesOnly = !listed.some((e) => str(e.said) || str(e.ex));
   const exercises = listed
     .map((e) => {
       const id = identity && (namesOnly ? resolveName(str(e.name), identity) : resolvePick({ said: str(e.said), ex: str(e.ex), alt: str(e.alt), name: str(e.name) }, identity));

@@ -121,3 +121,11 @@ test('an older Worker that returns names only: exact names are sure, the rest is
     ['Landmine Press', undefined, undefined],
   ]);
 });
+
+test('a pick with a key but no words is still checked, not read as an older Worker', () => {
+  const input = 'hack squat 3x10';
+  const candidates = buildCandidates(input, yours(['custom-pendulum', 'Pendulum Squat', 'quads']));
+  const text = JSON.stringify({ exercises: [{ ex: 'e1', name: 'Pendulum Squat', muscleGroup: 'quads', sets: 3, reps: 10 }] });
+  const [out] = finalizeParse(text, 'lbs', { input, candidates })!.exercises;
+  assert.deepEqual([out.exerciseId, out.match], ['custom-pendulum', 'unsure']);
+});
