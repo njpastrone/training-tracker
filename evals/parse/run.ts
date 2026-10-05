@@ -87,7 +87,7 @@ async function runCase(c: (typeof cases)[number]) {
     error = String(e);
   }
   const ms = Date.now() - started;
-  const parsed: Predicted | null = error ? null : parser.finalizeParse(text, c.input);
+  const parsed: Predicted | null = error ? null : parser.finalizeParse(text, c.unit ?? 'lbs');
   const [pin, pout] = price(body.model);
   const cacheWrite = usage.cache_creation_input_tokens ?? 0;
   const cacheRead = usage.cache_read_input_tokens ?? 0;

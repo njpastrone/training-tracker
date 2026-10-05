@@ -60,11 +60,14 @@ These rules are what the expected results encode. The prompt states them too.
 - **Several days in one message**: each exercise gets a `dayOffset` (0 = the logging date, -1 =
   yesterday, weekday names = their most recent occurrence). The app saves one workout per day.
   Past sessions mentioned only for comparison aren't logged.
-- **Information that doesn't fit the schema is never dropped silently**. Workout `notes` (shown on
-  the workout screen) take how it felt, pain or injury, PRs, sleep, body weight, training partner,
-  gym conditions, total time, and skipped or planned exercises. Exercise `notes` take technical
-  details: superset pairing, RPE, tempo, pauses, rest, failure, each side, grip, machine settings.
-  Notes stay empty when the log says nothing beyond the fields.
+- **Information that doesn't fit the schema is never dropped silently**. Workout `notes` take how it
+  felt, pain or injury, PRs, sleep, body weight, training partner, gym conditions, total time, and
+  skipped or planned exercises. Exercise `notes` take technical details: superset pairing, RPE,
+  tempo, pauses, rest, failure, each side, grip, machine settings; distances go in `distance` +
+  `distanceUnit`. Notes stay empty when the log says nothing beyond the fields. Today the app shows
+  only workout notes (on the workout screen); exercise notes and distance are stored and will be
+  displayed once the redesigned workout cards (WorkoutCard, GroupedWorkoutCard, workout detail
+  screen) ship.
 - **Not a workout** (greetings, questions, food, rest days, future plans, "did my usual",
   instructions to the model): no exercises, so the app shows "Could not understand".
 

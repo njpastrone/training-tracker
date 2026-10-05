@@ -146,7 +146,7 @@ const oneOf = <T extends string>(v: unknown, options: readonly T[]) => (options.
 
 // Model text → app shape: drops nulls and bad values, snaps names to the exercise list.
 // Returns null when the text holds no usable JSON object.
-export function finalizeParse(text: string): ParsedWorkoutResponse | null {
+export function finalizeParse(text: string, defaultUnit?: ParseOptions['unit']): ParsedWorkoutResponse | null {
   let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown };
   try {
     raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
@@ -169,7 +169,7 @@ export function finalizeParse(text: string): ParsedWorkoutResponse | null {
         sets: num(e.sets),
         reps: num(e.reps),
         weight,
-        unit: weight ? oneOf(e.unit, ['lbs', 'kg'] as const) : undefined,
+        unit: weight ? (oneOf(e.unit, ['lbs', 'kg'] as const) ?? defaultUnit) : undefined,
         duration: num(e.duration),
         distance,
         distanceUnit: distance ? oneOf(e.distanceUnit, ['mi', 'km', 'm'] as const) : undefined,
