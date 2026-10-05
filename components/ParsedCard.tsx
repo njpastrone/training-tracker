@@ -51,7 +51,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
     <Animated.View entering={FadeInDown.springify().damping(17)} layout={LinearTransition}>
       <SkyCard>
         <View style={styles.header}>
-          <SymbolView name="sparkles" size={20} tintColor={colors.sunrise} />
+          <SymbolView name="text.bubble" size={20} tintColor={colors.sunrise} />
           <Text variant="titleMedium" style={[styles.flex, { color: colors.text }]}>
             {title ?? 'Got it. Look right?'}
           </Text>

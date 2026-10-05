@@ -327,7 +327,7 @@ export default function HistoryScreen() {
         <SkyCard>
           <View style={styles.calendarHeader}>
             <SectionLabel>Calendar</SectionLabel>
-            <Pill variant="glass" size="small" icon="sparkles" label="Plan" onPress={() => router.push('/plan')} />
+            <Pill variant="glass" size="small" icon="text.bubble" label="Plan" onPress={() => router.push('/plan')} />
           </View>
           <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textTertiary }]}>
             Tap any day to view workouts or schedule future ones

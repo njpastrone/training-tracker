@@ -175,7 +175,7 @@ export default function LogScreen() {
               </View>
               {todaysSchedule.note && (
                 <View style={[styles.note, { backgroundColor: colors.sunrise + '17' }]}>
-                  <SymbolView name="sparkles" size={16} tintColor={colors.sunrise} />
+                  <SymbolView name="text.bubble" size={16} tintColor={colors.sunrise} />
                   <Text variant="bodyMedium" style={[styles.fill, { color: colors.text }]}>{todaysSchedule.note}</Text>
                 </View>
               )}
@@ -207,7 +207,7 @@ export default function LogScreen() {
               <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
                 Tell the coach what you want and it puts the workouts on your calendar.
               </Text>
-              <Pill icon="sparkles" label="Plan it for me" onPress={() => router.push('/plan')} />
+              <Pill icon="text.bubble" label="Plan it for me" onPress={() => router.push('/plan')} />
             </SkyCard>
           )}
 
@@ -273,7 +273,7 @@ function ReadingCard() {
     <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut}>
       <SkyCard>
         <View style={styles.readingTop}>
-          <SymbolView name="sparkles" size={18} tintColor={colors.sunrise} />
+          <SymbolView name="text.bubble" size={18} tintColor={colors.sunrise} />
           <Text variant="titleMedium" style={{ color: colors.text }}>Reading your workout…</Text>
         </View>
         {[0.88, 0.72, 0.8].map(w => (
