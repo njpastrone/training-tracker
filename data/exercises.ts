@@ -1,4 +1,4 @@
-import { ExerciseReference } from '../types/workout';
+import type { ExerciseReference } from '../types/workout';
 
 export const exercises: ExerciseReference[] = [
   // CHEST

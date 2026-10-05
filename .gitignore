@@ -43,3 +43,7 @@ yarn-error.*
 
 # Cloudflare Wrangler
 .wrangler/
+.dev.vars
+
+# parsing eval run outputs
+evals/parse/results/

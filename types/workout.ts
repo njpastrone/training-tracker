@@ -27,7 +27,8 @@ export interface Exercise {
   weight?: number;
   unit?: WeightUnit;
   duration?: number; // minutes (for cardio)
-  distance?: number; // miles/km (for cardio)
+  distance?: number; // in distanceUnit (for cardio)
+  distanceUnit?: 'mi' | 'km' | 'm';
   notes?: string;
 }
 
@@ -84,7 +85,7 @@ export interface WorkoutStats {
 
 // Response from Claude API parsing
 export interface ParsedWorkoutResponse {
-  exercises: Omit<Exercise, 'id'>[];
+  exercises: (Omit<Exercise, 'id'> & { dayOffset?: number })[]; // dayOffset: days before the logging date
   muscleGroups: MuscleGroup[];
   notes?: string;
   confidence: number; // 0-1 confidence score

@@ -9,7 +9,7 @@ API integrations and data persistence services.
 
 ## Claude API Service
 - Calls Claude through the Cloudflare Worker in `server/` (`callClaude`); the Worker holds the key and picks the model
-- System prompt tailored for workout parsing
+- Workout-log parsing prompt lives in `server/src/parse.ts` (shared with the Worker and `evals/parse`)
 - Returns structured Exercise[] from natural language
 - Handles errors gracefully with fallbacks
 

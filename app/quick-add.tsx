@@ -4,16 +4,15 @@ import { Text, TextInput, Button, Appbar, HelperText } from 'react-native-paper'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
-import { parseWorkout, ApiError } from '../services/claude';
+import { parseWorkout, workoutsFromParse, ApiError } from '../services/claude';
 import { spacing } from '../constants/theme';
 import { format, parseISO } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function QuickAddScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
   const router = useRouter();
-  const { addWorkout } = useWorkoutStore();
+  const { addWorkout, settings } = useWorkoutStore();
   const { colors } = useTheme();
   
   const [input, setInput] = useState('');
@@ -33,7 +32,7 @@ export default function QuickAddScreen() {
     setError(null);
 
     try {
-      const parsed = await parseWorkout(input.trim());
+      const parsed = await parseWorkout(input.trim(), { date: targetDate, unit: settings.weightUnit });
 
       if (!parsed || parsed.exercises.length === 0) {
         setError('Could not understand the workout. Try being more specific.');
@@ -41,17 +40,7 @@ export default function QuickAddScreen() {
         return;
       }
 
-      const workout = {
-        id: uuidv4(),
-        date: targetDate,
-        exercises: parsed.exercises.map((e) => ({ ...e, id: uuidv4() })),
-        rawInput: input.trim(),
-        muscleGroups: parsed.muscleGroups,
-        notes: parsed.notes,
-        createdAt: new Date().toISOString(),
-      };
-
-      addWorkout(workout);
+      workoutsFromParse(parsed, input.trim(), targetDate).forEach(addWorkout);
       router.back();
     } catch (err) {
       console.error('Error parsing workout:', err);
