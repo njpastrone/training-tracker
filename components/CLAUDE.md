@@ -3,7 +3,7 @@
 Reusable UI components for the Training Tracker app.
 
 ## Components
-- `WorkoutInput.tsx`: Natural language input box with submit button
+- `ParsedCard.tsx`: Parsed workout reviewed before saving (tap a number to edit, type a fix)
 - `WorkoutCard.tsx`: Displays a single workout summary
 - `WorkoutList.tsx`: Scrollable list of WorkoutCard components
 - `Calendar.tsx`: Calendar heatmap showing workout frequency

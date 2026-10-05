@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-native';
 import { Text, Menu } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,6 +10,8 @@ import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { SkyScreen, SkyCard, SectionLabel } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
 import Field from '../../components/Field';
+import { FixBox } from '../../components/ParsedCard';
+import { correctWorkout, ApiError } from '../../services/claude';
 import { format, parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -23,7 +25,7 @@ const muscleGroups: MuscleGroup[] = [
 export default function WorkoutEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate } = useWorkoutStore();
+  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate, settings } = useWorkoutStore();
   const { colors } = useTheme();
   
   const workout = workouts.find(w => w.id === id);
@@ -35,6 +37,14 @@ export default function WorkoutEditScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   // Which exercise the picker is choosing for: an exercise id, 'new' for Add Exercise, or closed
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [fixing, setFixing] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
+  // Distance and Notes show for exercises that have them, and stay while being emptied and retyped
+  const extraFields = useRef(new Set<string>()).current;
+  const showExtra = (id: string, field: 'distance' | 'notes', value: unknown) => {
+    if (value !== undefined) extraFields.add(`${id}:${field}`);
+    return extraFields.has(`${id}:${field}`);
+  };
 
   useEffect(() => {
     if (!workout) {
@@ -152,6 +162,30 @@ export default function WorkoutEditScreen() {
     setHasChanges(true);
   };
 
+  // Typed fix ("the rows were 120"): re-parses the workout as it stands now; Save keeps it
+  const handleFix = async (fix: string) => {
+    setFixing(true);
+    setFixError(null);
+    try {
+      const draft = { exercises, muscleGroups: selectedMuscleGroups, notes: notes.trim() || undefined, confidence: 1 };
+      const updated = await correctWorkout(draft, fix.trim(), { date: format(workoutDate, 'yyyy-MM-dd'), unit: settings.weightUnit });
+      if (!updated || updated.exercises.length === 0) {
+        setFixError("Couldn't apply that fix. Try saying it another way.");
+        return false;
+      }
+      setExercises(updated.exercises.map(({ dayOffset, ...e }) => ({ ...e, id: uuidv4() })));
+      setSelectedMuscleGroups(updated.muscleGroups);
+      setNotes(updated.notes ?? '');
+      setHasChanges(true);
+      return true;
+    } catch (error) {
+      setFixError(error instanceof ApiError ? error.message : "Couldn't apply that fix. Please try again.");
+      return false;
+    } finally {
+      setFixing(false);
+    }
+  };
+
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -197,7 +231,12 @@ export default function WorkoutEditScreen() {
           />
         )}
 
-        <SectionLabel style={styles.label}>Exercises</SectionLabel>
+        <FixBox onFix={handleFix} busy={fixing} disabled={fixing} placeholder={'Fix it by typing: "the rows were 120"'} />
+        {fixError ? (
+          <Text variant="bodySmall" style={[styles.fixError, { color: colors.error }]} accessibilityLiveRegion="polite">{fixError}</Text>
+        ) : null}
+
+        <SectionLabel style={[styles.label, styles.below]}>Exercises</SectionLabel>
         {exercises.map((exercise) => (
           <SkyCard key={exercise.id}>
             <View style={styles.exerciseHeader}>
@@ -234,14 +273,31 @@ export default function WorkoutEditScreen() {
                 keyboardType="numeric"
                 containerStyle={styles.smallInput}
               />
-              <Field
+              <DecimalField
                 label="Weight"
-                value={exercise.weight?.toString() || ''}
-                onChangeText={(text) => updateExercise(exercise.id, 'weight', text ? parseFloat(text) : undefined)}
-                keyboardType="numeric"
+                value={exercise.weight}
+                onChange={(n) => updateExercise(exercise.id, 'weight', n)}
                 containerStyle={styles.mediumInput}
               />
             </View>
+
+            {showExtra(exercise.id, 'distance', exercise.distance) && (
+              <DecimalField
+                label={`Distance${exercise.distanceUnit ? ` (${exercise.distanceUnit})` : ''}`}
+                value={exercise.distance}
+                onChange={(n) => updateExercise(exercise.id, 'distance', n)}
+                containerStyle={styles.extraField}
+              />
+            )}
+            {showExtra(exercise.id, 'notes', exercise.notes) && (
+              <Field
+                label="Notes"
+                value={exercise.notes ?? ''}
+                onChangeText={(text) => updateExercise(exercise.id, 'notes', text || undefined)}
+                containerStyle={styles.extraField}
+                style={styles.quiet}
+              />
+            )}
 
             <MuscleGroupSelector
               selected={exercise.muscleGroup}
@@ -274,6 +330,25 @@ export default function WorkoutEditScreen() {
         onDismiss={() => setPickerFor(null)}
       />
     </SkyScreen>
+  );
+}
+
+// A decimal field that keeps what's typed ("3.") and stores the number it parses to; empty clears it
+function DecimalField({ label, value, onChange, containerStyle }: { label: string; value?: number; onChange: (n: number | undefined) => void; containerStyle: object }) {
+  const [text, setText] = useState(value?.toString() ?? '');
+  useEffect(() => setText(t => (parseFloat(t) === value || (t === '' && value === undefined) ? t : value?.toString() ?? '')), [value]);
+  return (
+    <Field
+      label={label}
+      value={text}
+      onChangeText={(t) => {
+        setText(t);
+        const n = parseFloat(t.replace(',', '.'));
+        onChange(t.trim() === '' || !(n > 0) ? undefined : n);
+      }}
+      keyboardType="decimal-pad"
+      containerStyle={containerStyle}
+    />
   );
 }
 
@@ -329,7 +404,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
     marginTop: spacing.gap,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   date: {
     flex: 1,
@@ -385,5 +460,20 @@ const styles = StyleSheet.create({
   },
   addButton: {
     marginBottom: spacing.lg,
+  },
+  below: {
+    marginTop: spacing.lg,
+  },
+  fixError: {
+    marginTop: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  extraField: {
+    marginBottom: spacing.gap,
+  },
+  quiet: {
+    fontSize: 15,
+    minHeight: 38,
+    paddingVertical: 8,
   },
 });

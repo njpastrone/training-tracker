@@ -112,4 +112,10 @@ export interface ParsedWorkoutResponse {
   muscleGroups: MuscleGroup[];
   notes?: string;
   confidence: number; // 0-1 confidence score
+  unsure?: UnsureField[]; // values a correction couldn't be sure of, highlighted for review before saving
+}
+
+export interface UnsureField {
+  exercise: number; // index into exercises
+  field: 'name' | 'sets' | 'reps' | 'weight' | 'duration' | 'distance';
 }

@@ -13,6 +13,7 @@ npm run eval:parse -- --set holdout                 # 20 cases never used for tu
 npm run eval:parse -- --set identity                # which exercise each lift is, given a library
 npm run eval:parse -- --model claude-sonnet-5-5 --effort low
 npm run eval:parse -- --compat                      # what a Worker deployed before parse mode sends
+npm run eval:parse -- --set corrections             # typed fixes applied to a draft (correction mode)
 npm run eval:parse -- --against evals/parse/results/<earlier run>.json   # list regressions
 node --test evals/parse/score.test.ts               # scorer self-check
 node --test evals/parse/recall.test.ts              # offline, free: is the right exercise a candidate?
@@ -94,10 +95,17 @@ These rules are what the expected results encode. The prompt states them too.
   felt, pain or injury, PRs, sleep, body weight, training partner, gym conditions, total time, and
   skipped or planned exercises. Exercise `notes` take technical details: superset pairing, RPE,
   tempo, pauses, rest, failure, each side, grip, machine settings; distances go in `distance` +
-  `distanceUnit`. Notes stay empty when the log says nothing beyond the fields. Today the app shows
-  only workout notes (on the workout screen); exercise notes and distance are stored and will be
-  displayed once the redesigned workout cards (WorkoutCard, GroupedWorkoutCard, workout detail
-  screen) ship.
+  `distanceUnit`. Notes stay empty when the log says nothing beyond the fields. The app shows exercise
+  notes and distance on the review card, the workout cards and the workout screen.
+- **Corrections** (`corrections.ts`): the app sends the draft under review plus the user's typed fix
+  (`buildCorrectionRequest`). The model returns the whole workout with only the fix applied, scored
+  like a parse against the expected full result. A correction also returns `unsure`, the values it
+  couldn't be sure of, as `{ exercise, field }`; the review card highlights them (not scored).
+  The parse prompt doesn't ask for `unsure`: every wording tried cost 0.003 to 0.007 on the main
+  set (3 runs each), so the app flags genuine ambiguity in code instead (`flagGuesses` in
+  `services/draft.ts`: an exercise the log doesn't name, a weight or rep count not in the log, a
+  weight with no unit, a day not stated), alongside `confidence` (a low score shows a "check this"
+  banner). Missing sets, reps or weight are never flagged: detail is optional.
 - **Not a workout** (greetings, questions, food, rest days, future plans, "did my usual",
   instructions to the model): no exercises, so the app shows "Could not understand".
 
@@ -137,6 +145,7 @@ is never a weight (it goes in notes), and identical sets in a row of the same ex
 | nonsense (9) | 1.000 | 1.000 |
 | **overall** | **0.779 (9/100 perfect)** | **0.998 (97/100 perfect)** |
 | holdout (20) | 0.690 (2/20) | 1.000 (20/20) |
+| corrections (12, added 2026-10-05) | | 1.000 (12/12); with exercise identity: 1.000, 0 silent mismatches, 3.5% needless flags |
 
 Baseline is the prompt from before this eval (`services/claude.ts` at 86645ec), scored with the same
 cases. Its biggest gaps: sets with different weights collapsed into one, no distances, everything

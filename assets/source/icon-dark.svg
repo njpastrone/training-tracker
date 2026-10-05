@@ -1,15 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
 <defs>
   <linearGradient id="night" x1="0" y1="0" x2="0.6" y2="1"><stop offset="0" stop-color="#2A2766"/><stop offset=".55" stop-color="#141938"/><stop offset="1" stop-color="#0A0F26"/></linearGradient>
-  <linearGradient id="bell" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF9D7A"/><stop offset="1" stop-color="#FF7F57"/></linearGradient>
+  <linearGradient id="bubble" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF9068"/><stop offset="1" stop-color="#F26A40"/></linearGradient>
 </defs>
 <rect width="1024" height="1024" fill="url(#night)"/>
-<path d="M240 266 h544 a124 124 0 0 1 124 124 v190 a124 124 0 0 1 -124 124 h-300 l-132 112 a12 12 0 0 1 -20 -9 v-103 h-92 a124 124 0 0 1 -124 -124 v-190 a124 124 0 0 1 124 -124z" fill="#FFFFFF" fill-opacity=".13" stroke="#FFFFFF" stroke-opacity=".38" stroke-width="10"/>
-<g fill="url(#bell)">
-  <rect x="300" y="463" width="424" height="38" rx="14"/>
-  <rect x="318" y="372" width="64" height="220" rx="24"/>
-  <rect x="392" y="410" width="40" height="144" rx="16"/>
-  <rect x="642" y="372" width="64" height="220" rx="24"/>
-  <rect x="592" y="410" width="40" height="144" rx="16"/>
-</g>
+<path d="M302 250 H698 A138 138 0 0 1 836 388 L836 540 Q836 596 844.7 651.3 L862 761.2 Q864 774 852.1 768.8 L722.9 712.1 Q668 688 608 688 H302 A138 138 0 0 1 164 550 V388 A138 138 0 0 1 302 250 Z" fill="url(#bubble)"/>
+<path d="M258 373 A30 30 0 0 1 288 343 H308 A30 30 0 0 1 338 373 V384 H370 A22 22 0 0 1 392 406 V443 H608 V406 A22 22 0 0 1 630 384 H662 V373 A30 30 0 0 1 692 343 H712 A30 30 0 0 1 742 373 V565 A30 30 0 0 1 712 595 H692 A30 30 0 0 1 662 565 V554 H630 A22 22 0 0 1 608 532 V495 H392 V532 A22 22 0 0 1 370 554 H338 V565 A30 30 0 0 1 308 595 H288 A30 30 0 0 1 258 565 Z" fill="#FFFFFF"/>
 </svg>

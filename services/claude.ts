@@ -3,16 +3,23 @@ import { addDays, format, parseISO } from 'date-fns';
 import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
-import { buildParseRequest, finalizeParse, type ParseOptions } from '../server/src/parse';
+import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildCandidates } from '../server/src/identity';
 import { yourExercises } from './exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { draftToText } from './format';
+import { flagGuesses, keepIdentity } from './draft';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
 
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model
-export async function callClaude(system: string, content: string, maxTokens: number, parse?: ParseOptions & { input: string }): Promise<string> {
+export async function callClaude(
+  system: string,
+  content: string,
+  maxTokens: number,
+  parse?: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string }
+): Promise<string> {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
     throw new Error('EXPO_PUBLIC_API_URL is not set');
@@ -47,13 +54,35 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
     const req = buildParseRequest(input, { ...options, exercises });
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises });
-    return finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases }) ?? fallbackParse(input);
+    const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
+    return parsed ? flagGuesses(parsed, input) : fallbackParse(input);
   } catch (error) {
     console.error('Error parsing workout:', error);
     if (error instanceof ApiError) throw error;
 
     // Fallback: try simple parsing without AI
     return fallbackParse(input);
+  }
+}
+
+// Applies a typed fix ("actually 3x10, not 3x8") to the draft under review and returns the whole
+// updated draft, or null when the reply is unusable. Workers without correction mode parse `input`,
+// the draft written back as a log plus the fix; Workers older than parse mode send system/messages.
+export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, options: ParseOptions): Promise<ParsedWorkoutResponse | null> {
+  const input = `${draftToText(draft.exercises, draft.notes)}\nCorrection: ${fix}`;
+  try {
+    // The model picks from the exercises the draft and the fix name, as in a parse
+    const { workouts, exerciseLibrary } = useWorkoutStore.getState();
+    const candidates = buildCandidates(input, yourExercises(workouts, exerciseLibrary));
+    const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
+    const req = buildCorrectionRequest(draft, fix, { ...options, exercises });
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises, draft, fix });
+    const updated = finalizeWithNames(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
+    return updated && keepIdentity(draft, updated.parsed, updated.names);
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    console.error('Error correcting workout:', error);
+    return null;
   }
 }
 

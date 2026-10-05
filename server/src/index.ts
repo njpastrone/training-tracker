@@ -1,5 +1,5 @@
 import { fitsPrompt } from './identity.ts';
-import { buildParseRequest, type ParseOptions } from './parse.ts';
+import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -65,12 +65,21 @@ export default {
     // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
     let upstream: Record<string, unknown>;
     if (parse !== undefined) {
-      const { input, date, unit, exercises } = (parse ?? {}) as Record<string, unknown>;
+      const { input, date, unit, exercises, draft, fix } = (parse ?? {}) as Record<string, unknown>;
       const candidates = exercises === undefined ? [] : parseCandidates(exercises);
       if (typeof input !== 'string' || !input.trim() || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
         return json(400, { error: 'Invalid request.' });
       }
-      upstream = buildParseRequest(input, { date, unit, exercises: candidates });
+      // Correction mode: apply a typed fix to the draft under review. `input` (the draft as text plus
+      // the fix) is what Workers deployed before this mode parse instead.
+      if (fix !== undefined) {
+        if (typeof fix !== 'string' || !fix.trim() || !Array.isArray((draft as { exercises?: unknown })?.exercises)) {
+          return json(400, { error: 'Invalid request.' });
+        }
+        upstream = buildCorrectionRequest(draft as Parameters<typeof buildCorrectionRequest>[0], fix, { date, unit, exercises: candidates });
+      } else {
+        upstream = buildParseRequest(input, { date, unit, exercises: candidates });
+      }
     } else {
       if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
         return json(400, { error: 'Invalid request.' });
