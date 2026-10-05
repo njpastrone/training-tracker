@@ -17,7 +17,7 @@ export function UserBubble({ text }: { text: string }) {
   );
 }
 
-// The coach's message: a sparkle avatar and a glass bubble on the left
+// The coach's message: a LiftText-mark avatar and a glass bubble on the left
 export function CoachBubble({ text, muted }: { text: string; muted?: boolean }) {
   const { colors, reduceTransparency } = useTheme();
   return (
