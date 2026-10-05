@@ -59,6 +59,10 @@ export const cases: Case[] = [
       { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 5, weight: 225, unit: 'lbs' },
       { name: 'Barbell Row', muscleGroup: 'back', sets: 3, reps: 8, weight: 185, unit: 'lbs' },
     ] },
+  { id: 'terse-rows-alone', category: 'terse', input: 'rows 3x8 185',
+    exercises: [
+      { name: 'Barbell Row', alt: ['Seated Cable Row', 'Dumbbell Row'], muscleGroup: 'back', sets: 3, reps: 8, weight: 185, unit: 'lbs' },
+    ] },
   { id: 'terse-kg-chins', category: 'terse', input: 'OHP 50kg 5x5, chins 3x8',
     exercises: [
       { name: 'Overhead Press', muscleGroup: 'shoulders', sets: 5, reps: 5, weight: 50, unit: 'kg' },
