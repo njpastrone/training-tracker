@@ -99,7 +99,7 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 ## App Icon and Splash
 
-- Icon ("Sent bubble"): a sunrise speech bubble with the barbell cut out in white, over a dawn sky, with dark (night sky) and tinted variants (`ios.icon` in `app.json`). Sources are in `assets/source/*.svg` (the bubble and barbell layers for Icon Composer in `assets/source/layers/`); render with `rsvg-convert -w 1024 -h 1024`. The AI mark (`components/LogoMark.tsx`, `assets/tab-logo*.png` at 26/52/78 px) is the same bubble as one path, `assets/source/logo-glyph.svg`.
+- Icon ("Sent bubble"): a sunrise speech bubble with the barbell cut out in white, over a dawn sky, with dark (night sky) and tinted variants (`ios.icon` in `app.json`). Sources are in `assets/source/*.svg` (the bubble and barbell layers for Icon Composer in `assets/source/layers/`); render with `rsvg-convert -w 1024 -h 1024`. The AI mark (`components/LogoMark.tsx`, `assets/tab-logo*.png` at 26/52/78 px) is the new "Messages curl" bubble with the "Heavy bar" barbell cut out, one path, `assets/source/logo-glyph.svg`. The matching app icon (light/dark/tinted) is staged in `assets/icon-next/` and ships with the next native build.
 - Splash: the bubble mark on `#FADCE6`, and on night `#141938` in Dark Mode.
 
 ## Accessibility
