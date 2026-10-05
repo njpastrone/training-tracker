@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { editDraft, removeFromDraft } from './draft';
+import { editDraft, removeFromDraft, flagGuesses } from './draft';
 
 const draft = {
   exercises: [
@@ -35,4 +35,33 @@ test('a draft without flags stays without flags', () => {
   const { unsure, ...plain } = draft;
   assert.deepEqual(editDraft(plain, 0, 'sets', 4).unsure, []);
   assert.deepEqual(removeFromDraft(plain, 0).unsure, []);
+});
+
+const parsed = (exercises: typeof draft.exercises, unsure?: typeof draft.unsure) => ({ exercises, muscleGroups: [], confidence: 0.9, unsure });
+
+test('a fully stated log gets no flags', () => {
+  const p = parsed([
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, weight: 135, unit: 'lbs' },
+    { name: 'Running', muscleGroup: 'cardio', duration: 20, distance: 5, distanceUnit: 'km' } as never,
+  ]);
+  assert.deepEqual(flagGuesses(p, 'bench 3x8 at 135 lbs, then 5k run in 20 min').unsure, []);
+});
+
+test('guessed numbers, units, days and names are flagged', () => {
+  const p = parsed([
+    { name: 'Squat', muscleGroup: 'quads', sets: 1, reps: 5, weight: 225, unit: 'lbs', dayOffset: -1 },
+    { name: 'Pull-ups', muscleGroup: 'back', sets: 3, reps: 10 },
+  ]);
+  assert.deepEqual(flagGuesses(p, 'squat 2 plates for 5, chins 3x10').unsure, [
+    { exercise: 0, field: 'name' }, // dayOffset with no day in the log
+    { exercise: 0, field: 'sets' }, // 1 set inferred
+    { exercise: 0, field: 'weight' }, // 225 from "2 plates", unit assumed
+    { exercise: 1, field: 'name' }, // "chins" matched to Pull-ups
+    { exercise: 1, field: 'weight' }, // missing weight on a lift
+  ]);
+});
+
+test('missing reps are flagged and model flags are kept once', () => {
+  const p = parsed([{ name: 'Deadlift', muscleGroup: 'back', weight: 405, unit: 'lbs' }], [{ exercise: 0, field: 'weight' }]);
+  assert.deepEqual(flagGuesses(p, 'yesterday deadlift 405 lbs').unsure, [{ exercise: 0, field: 'weight' }, { exercise: 0, field: 'reps' }]);
 });

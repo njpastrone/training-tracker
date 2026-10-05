@@ -28,7 +28,7 @@ interface Props {
 }
 
 // The parsed workout, reviewed before anything is saved: tap a number to change it, type a fix, Save.
-// Values a typed fix left uncertain are highlighted; a low parse confidence shows a banner.
+// Values the parse guessed or a typed fix left uncertain are highlighted; a low parse confidence shows a banner.
 export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error }: Props) {
   const { colors } = useTheme();
   const unsure = draft.unsure ?? [];
@@ -133,14 +133,15 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
 // A number you can tap to edit; empty clears it
 function NumberChip({ value, suffix, unsure, onChange }: { value?: number | string; suffix: string; unsure: boolean; onChange: (v: number | undefined) => void }) {
   const { colors } = useTheme();
-  const [text, setText] = useState(value === undefined ? '' : String(value));
-  useEffect(() => setText(value === undefined ? '' : String(value)), [value]);
+  const shown = value === undefined ? '' : String(value);
+  const current = typeof value === 'string' ? parseFloat(value) : value;
+  const [text, setText] = useState(shown);
+  useEffect(() => setText(t => (toNumber(t) === current ? t : shown)), [value]);
 
-  const commit = () => {
-    const n = parseFloat(text.replace(',', '.'));
-    const next = text.trim() === '' || !(n > 0) ? undefined : n;
-    if (next !== (typeof value === 'number' ? value : value === undefined ? undefined : parseFloat(value))) onChange(next);
-    else setText(value === undefined ? '' : String(value));
+  const edit = (t: string) => {
+    setText(t);
+    const next = toNumber(t);
+    if (next !== current) onChange(next);
   };
 
   return (
@@ -153,8 +154,8 @@ function NumberChip({ value, suffix, unsure, onChange }: { value?: number | stri
     >
       <TextInput
         value={text}
-        onChangeText={setText}
-        onEndEditing={commit}
+        onChangeText={edit}
+        onEndEditing={() => setText(shown)}
         placeholder="–"
         placeholderTextColor={colors.textTertiary}
         keyboardType="decimal-pad"
@@ -166,6 +167,12 @@ function NumberChip({ value, suffix, unsure, onChange }: { value?: number | stri
       <Text variant="labelMedium" style={{ color: colors.textSecondary }}>{suffix}</Text>
     </View>
   );
+}
+
+// Empty or not a positive number clears the value
+function toNumber(text: string) {
+  const n = parseFloat(text.replace(',', '.'));
+  return text.trim() === '' || !(n > 0) ? undefined : n;
 }
 
 // "Fix something" box: a typed correction re-parses the draft
