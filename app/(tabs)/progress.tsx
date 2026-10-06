@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
+import GoalsCard, { LIST_AT_FONT_SCALE } from '../../components/GoalsCard';
 import { Toast } from '../../components/SelectableWorkoutList';
 import { dayLabel } from '../../components/WorkoutCard';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -16,6 +17,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useLogDraft } from '../../hooks/useLogDraft';
 import { digest, target, ExerciseSummary, LiftTrend, Target } from '../../services/insights';
 import { daysAgo, lastDoneLine } from '../../services/format';
+import { goalProgress, muscleName } from '../../services/goals';
 import { fonts, muscleGroupColors, radius, spacing } from '../../constants/theme';
 import type { MuscleGroup, Workout } from '../../types/workout';
 
@@ -29,16 +31,22 @@ const FIX_LOG_CHIPS = ['Legs on Wed:', 'Yesterday I did', 'Forgot Monday:'];
 export default function ProgressScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
   const { workouts, exerciseLibrary, settings, deleteWorkouts } = useWorkoutStore();
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
   const trends = useMemo(() => new Map(d.liftTrends.map(t => [t.id, { trend: t, target: target(t) }])), [d]);
+  const goals = useMemo(() => settings.goals && goalProgress(settings.goals, workouts, exerciseLibrary), [settings.goals, workouts, exerciseLibrary]);
   const [showAll, setShowAll] = useState(false);
   const [logged, setLogged] = useState<Workout[] | null>(null);
 
   const log = useLogDraft({ date: d.today, onLogged: (_id, _template, saved) => setLogged(saved ?? null) });
 
   const tiles = [
-    { value: d.sessionsLast7, label: 'Last 7 days', note: d.usualPerWeek !== null ? `usual ${d.usualPerWeek}` : undefined },
+    {
+      value: d.sessionsLast7,
+      label: 'Last 7 days',
+      note: settings.weeklyTarget ? `goal ${settings.weeklyTarget}` : d.usualPerWeek !== null ? `usual ${d.usualPerWeek}` : undefined,
+    },
     { value: d.weeksInARow, label: d.weeksInARow === 1 ? 'Week in a row' : 'Weeks in a row' },
     d.liftTrends.length
       ? { value: d.prsLast14Days.length, label: 'PRs · 14 days' }
@@ -104,6 +112,8 @@ export default function ProgressScreen() {
             ))}
           </View>
 
+          {goals && (goals.muscles.length > 0 || goals.custom.length > 0) && <GoalsCard progress={goals} daysSince={d.daysSinceGroupTrained} />}
+
           <SkyCard>
             <SectionLabel>Your exercises</SectionLabel>
             {shown.map((e, i) => (
@@ -126,36 +136,47 @@ export default function ProgressScreen() {
             )}
           </SkyCard>
 
-          <SkyCard>
-            <SectionLabel>Days since trained</SectionLabel>
-            <View style={styles.groups}>
-              {groups.map(g => {
-                const days = d.daysSinceGroupTrained[g]!;
-                const stale = d.staleGroups.includes(g);
-                return (
-                  <Pressable
-                    key={g}
-                    onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${groupName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
-                    style={({ pressed }) => [
-                      styles.group,
-                      { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View style={styles.groupName}>
-                      <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
-                      <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{groupName(g)}</Text>
-                    </View>
-                    <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
-                      {days === 0 ? 'Today' : `${days}d`}
-                    </Text>
+          {/* With muscle goals on, the goals card shows each muscle instead */}
+          {!goals?.muscles.length && (
+            <SkyCard>
+              <View style={styles.header}>
+                <SectionLabel style={styles.fill}>Days since trained</SectionLabel>
+                {!goals?.custom.length && (
+                  <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" hitSlop={10}>
+                    <Text variant="labelLarge" style={{ color: colors.sunrise }}>Set goals</Text>
                   </Pressable>
-                );
-              })}
-            </View>
-          </SkyCard>
+                )}
+              </View>
+              <View style={styles.groups}>
+                {groups.map(g => {
+                  const days = d.daysSinceGroupTrained[g]!;
+                  const stale = d.staleGroups.includes(g);
+                  return (
+                    <Pressable
+                      key={g}
+                      onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${muscleName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
+                      style={({ pressed }) => [
+                        styles.group,
+                        { width: fontScale > LIST_AT_FONT_SCALE ? '100%' : '48%' }, // two a row so names fit; one at large text
+                        { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View style={styles.groupName}>
+                        <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
+                        <Text variant="labelMedium" style={[styles.shrink, { color: colors.textSecondary }]}>{muscleName(g)}</Text>
+                      </View>
+                      <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
+                        {days === 0 ? 'Today' : `${days}d`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </SkyCard>
+          )}
         </>
       )}
     </ChatScreen>
@@ -167,8 +188,6 @@ const loggedOn = (date: string) => {
   const label = dayLabel(date);
   return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
 };
-
-const groupName = (g: MuscleGroup) => (g === 'full_body' ? 'Full body' : g.charAt(0).toUpperCase() + g.slice(1));
 
 // One exercise: when and how often for everyone; trend, PR and next target only with numbers
 function ExerciseRow({ exercise, lift, first, onPress }: { exercise: ExerciseSummary; lift?: { trend: LiftTrend; target: Target }; first: boolean; onPress: () => void }) {
@@ -218,6 +237,11 @@ function Sparkline({ weights, color }: { weights: number[]; color: string }) {
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   shrink: {
     flexShrink: 1,
@@ -281,8 +305,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   group: {
-    width: '31%',
-    flexGrow: 1,
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 10,

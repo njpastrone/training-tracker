@@ -82,6 +82,7 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 - **`Segmented`**, **`HeaderButton`**: a capsule option switch, and an SF Symbol button for the native header.
 - **`Field`** (`components/Field.tsx`): a text field on a quiet fill with a small caps label.
 - **`Row`** (`components/Row.tsx`): a settings-style row with a symbol tile, title, subtitle and accessory.
+- **`GoalsCard`** (`components/GoalsCard.tsx`): goals on Progress. Each muscle is a tile (name, "1 of 2 times", "6+ of 8 sets" with a bar, when last trained), two to a row, one to a row when Dynamic Type is above 130%. Labels are spelled out and wrap; nothing truncates. A green edge and a checkmark mark a muscle whose goals are met. Your own goals are full-width rows below.
 - **`Ring`** (`components/Ring.tsx`): progress ring or open gauge (`react-native-svg`), sunrise gradient by default.
 - **`UserBubble`** (`components/Chat.tsx`): your message on the right in sunrise.
 - **`ParsedCard`** (`components/ParsedCard.tsx`): the parsed workout reviewed before saving. It shows only what was said: detail is optional, so an exercise with no numbers shows an "Add details" link instead of empty chips. Numbers are tappable chips; values flagged `unsure` (genuine ambiguity the app spots in a first parse, `flagGuesses` in `services/draft.ts`, plus what a typed fix left uncertain; never missing detail) are outlined in warning; a low `confidence` shows a banner asking for a check; Save, Discard and, outside the chat tabs (where the chat bar does it), a **`FixBox`** for typed fixes and questions, with a **`FixReply`** for the answer (or "I didn't change anything") and the one-tap "Call it '…' from now on". The flow lives in `hooks/useLogDraft.ts` (Log, Progress and Add Workout); the workout screen reuses `FixBox` and `FixReply`.
@@ -106,4 +107,5 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 - Text on the sky and on cards meets 4.5:1 in both modes; check new colour pairs.
 - Never rely on colour alone: logged is a filled circle, planned an outlined ring, today a ring around the date.
+- No text bleed: grids get fewer, larger cells instead of truncated labels. Check the smallest iPhone (375 pt) and the largest Dynamic Type size; above 130% a grid becomes a list.
 - Respect Reduce Motion and Reduce Transparency (`useTheme().reduceTransparency`).

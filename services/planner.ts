@@ -38,8 +38,8 @@ async function savePlans(plans: TrainingPlan[]): Promise<void> {
 }
 
 export type HistorySummary = ReturnType<typeof summarizeHistory>;
-// What the user told setup and the planner: days a week and what they're training for
-export type PlannerHistory = HistorySummary & { daysPerWeek?: number; goal?: TrainingGoal };
+// What the user told setup and the planner: days a week, what they're training for, and their goals in plain words
+export type PlannerHistory = HistorySummary & { daysPerWeek?: number; goal?: TrainingGoal; goals?: string[] };
 
 // Compact, local (no AI) picture of the user's training that rides along with every planner call.
 // This is how the planner "learns": skipped days and partial weeks from the last plan show up here.
@@ -192,6 +192,7 @@ const PLANNER_PROMPT = `<role>Strength coach planning workouts for a LiftText us
   prefer the user's usual days; avoid training the same muscle group on consecutive days.
 - If <history> shows the last plan had skipped or missed days, plan fewer days or move them off those weekdays.
 - If <history> has "daysPerWeek" or "goal" (strength, muscle, fitness or comeback), plan for them unless the request says otherwise.
+- If <history> has "goals" (how often to train each muscle, minimum sets a week per muscle, lifts to reach, exercises to do often), plan the first week so it meets them where the days allow, unless the request says otherwise.
 - If the user gives their own workouts, keep them exactly and mark those days "source": "mine"; only fill what they asked you to suggest.
 - If <current_plan> is present, change only what the user asked for and keep the rest.
 - One session per date, dates between <window> start and end, never before today. Write only the first week of sessions; use "repeatWeeks" (1-12) for longer blocks.

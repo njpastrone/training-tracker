@@ -85,9 +85,23 @@ export interface UserSettings {
   weeklyTarget?: number; // days a week from setup or Settings (3, 4 or 5); unset = the usual count
   goal?: TrainingGoal; // asked the first time the user plans; unset = general fitness
   onboardedAt?: string; // yyyy-MM-dd setup was finished or skipped; unset for users from before setup
+  goals?: Goals; // checked against the log on Progress; "days a week" is weeklyTarget
 }
 
 export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'comeback';
+
+// Goals the Progress tab checks against the last 7 days of the log (services/goals.ts)
+export interface Goals {
+  muscles: MuscleGroup[]; // the muscles the two muscle goals cover
+  timesPerWeek?: number; // each muscle trained on this many days; unset = off
+  minSets?: Partial<Record<MuscleGroup, number>>; // minimum sets a week (MEV); a muscle without a number gets the default; unset = off
+  custom: CustomGoal[];
+}
+
+// Goals someone sets for themselves: a weight to lift, or an exercise to do often
+export type CustomGoal =
+  | { id: string; kind: 'lift'; exerciseId: string; weight: number; unit: WeightUnit }
+  | { id: string; kind: 'often'; exerciseId: string; perWeek: number };
 
 // Analytics data types
 export interface WorkoutStreak {
