@@ -151,7 +151,7 @@ History is the record; how it's going (streaks, PRs, goals) is on Progress. The 
 - A calendar of logged and planned days
 - Your workouts by month, a few months at a time (**Show earlier** for more)
 
-Tap any day on the calendar to open it: its workouts, or its planned workout (**Remove** it, or for today **Start on Log**), or **Plan this day** for an empty future day. Tap a workout to edit or delete it. To delete several at once (for example test entries), tap **Select** on the day or on the workouts list, pick the workouts, and tap **Delete**. Any delete (Select, swipe, or the trash on a workout) shows **Undo** for a few seconds, which restores the workouts along with any calendar session they had completed.
+Tap any day on the calendar to open it: its workouts, or its planned workout (**Remove** it, or for today **Start on Log**), or **Plan this day** for an empty today or future day (today also offers **Add workout**). Tap a workout to edit or delete it. To delete several at once (for example test entries), tap **Select** on the day or on the workouts list, pick the workouts, and tap **Delete**. Any delete (Select, swipe, or the trash on a workout) shows **Undo** for a few seconds, which restores the workouts along with any calendar session they had completed.
 
 ### Backing Up
 
