@@ -10,6 +10,7 @@ import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { BACKUP_KEYS, runWeeklyBackup } from '../services/backup';
 import { isFreshInstall } from '../services/onboarding';
+import AiConsentSheet from '../components/AiConsentSheet';
 
 // The store hydrates from AsyncStorage after the first render, so the splash stays up until
 // it has, and until we know whether this is a fresh install. Otherwise setup would flash.
@@ -49,6 +50,7 @@ function AppContent({ fresh }: { fresh: boolean }) {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack>
+      <AiConsentSheet />
     </PaperProvider>
   );
 }

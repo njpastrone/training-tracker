@@ -10,6 +10,7 @@ import { offersName, yourExercises } from './exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
+import { hasAiConsent } from './aiConsent';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
@@ -29,6 +30,13 @@ function getInstallId(): Promise<string> {
   return installId;
 }
 
+// The user hasn't agreed to send their words to Anthropic, so nothing was sent
+export class AiOffError extends ApiError {
+  constructor() {
+    super('AI is off. Turn it on in Settings to use this.');
+  }
+}
+
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model
 export async function callClaude(
   system: string,
@@ -40,6 +48,7 @@ export async function callClaude(
   if (!url) {
     throw new Error('EXPO_PUBLIC_API_URL is not set');
   }
+  if (!(await hasAiConsent())) throw new AiOffError();
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -74,6 +83,8 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
     const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
     return parsed ? flagGuesses(parsed, input) : fallbackParse(input);
   } catch (error) {
+    // With AI off the log still works by hand: each line or comma becomes an exercise to fill in
+    if (error instanceof AiOffError) return fallbackParse(input);
     console.error('Error parsing workout:', error);
     if (error instanceof ApiError) throw error;
 
@@ -139,60 +150,51 @@ export function workoutsFromParse(parsed: ParsedWorkoutResponse, rawInput: strin
   });
 }
 
-// Simple fallback parser when AI is unavailable
+// Detect muscle groups from keywords
+const muscleGroupKeywords: Record<string, MuscleGroup> = {
+  'chest': 'chest',
+  'bench': 'chest',
+  'back': 'back',
+  'pull': 'back',
+  'row': 'back',
+  'shoulder': 'shoulders',
+  'ohp': 'shoulders',
+  'press': 'shoulders',
+  'bicep': 'biceps',
+  'curl': 'biceps',
+  'tricep': 'triceps',
+  'pushdown': 'triceps',
+  'leg': 'quads',
+  'squat': 'quads',
+  'quad': 'quads',
+  'hamstring': 'hamstrings',
+  'deadlift': 'hamstrings',
+  'glute': 'glutes',
+  'hip thrust': 'glutes',
+  'calf': 'calves',
+  'core': 'core',
+  'ab': 'core',
+  'plank': 'core',
+  'cardio': 'cardio',
+  'run': 'cardio',
+  'bike': 'cardio',
+};
+
+// Simple fallback parser when AI is off or unavailable: one exercise per line or comma, numbers filled in by hand
 function fallbackParse(input: string): ParsedWorkoutResponse | null {
-  const lowerInput = input.toLowerCase();
-
-  // Detect muscle groups from keywords
-  const muscleGroupKeywords: Record<string, MuscleGroup> = {
-    'chest': 'chest',
-    'bench': 'chest',
-    'back': 'back',
-    'pull': 'back',
-    'row': 'back',
-    'shoulder': 'shoulders',
-    'ohp': 'shoulders',
-    'press': 'shoulders',
-    'bicep': 'biceps',
-    'curl': 'biceps',
-    'tricep': 'triceps',
-    'pushdown': 'triceps',
-    'leg': 'quads',
-    'squat': 'quads',
-    'quad': 'quads',
-    'hamstring': 'hamstrings',
-    'deadlift': 'hamstrings',
-    'glute': 'glutes',
-    'hip thrust': 'glutes',
-    'calf': 'calves',
-    'core': 'core',
-    'ab': 'core',
-    'plank': 'core',
-    'cardio': 'cardio',
-    'run': 'cardio',
-    'bike': 'cardio',
-  };
-
-  const detectedMuscleGroups: Set<MuscleGroup> = new Set();
-
-  for (const [keyword, group] of Object.entries(muscleGroupKeywords)) {
-    if (lowerInput.includes(keyword)) {
-      detectedMuscleGroups.add(group);
-    }
-  }
-
-  if (detectedMuscleGroups.size === 0) {
-    detectedMuscleGroups.add('full_body');
-  }
+  const exercises = input
+    .split(/[,\n]+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => {
+      const lower = part.toLowerCase();
+      const keyword = Object.keys(muscleGroupKeywords).find(k => lower.includes(k));
+      return { name: part.substring(0, 50), muscleGroup: keyword ? muscleGroupKeywords[keyword] : 'full_body' as MuscleGroup };
+    });
 
   return {
-    exercises: [
-      {
-        name: input.substring(0, 50),
-        muscleGroup: Array.from(detectedMuscleGroups)[0],
-      },
-    ],
-    muscleGroups: Array.from(detectedMuscleGroups),
+    exercises,
+    muscleGroups: [...new Set(exercises.map(e => e.muscleGroup))],
     confidence: 0.3,
   };
 }
