@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import Svg, { Polyline } from 'react-native-svg';
-import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
-import { Composer, Pill } from '../../components/Glass';
+import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { Pill } from '../../components/Glass';
+import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import { Toast } from '../../components/SelectableWorkoutList';
@@ -19,10 +20,12 @@ import { fonts, muscleGroupColors, radius, spacing } from '../../constants/theme
 import type { MuscleGroup, Workout } from '../../types/workout';
 
 const SHOWN = 8; // exercises before "Show all"
+// Chat bar starters for a missed workout: they begin the message, you finish it
+const FIX_LOG_CHIPS = ['Legs on Wed:', 'Yesterday I did', 'Forgot Monday:'];
 
 // How you're doing, from your own log. Detail is optional: every exercise shows when it was last
 // done and how often, and PRs, trends and next targets appear only where there are numbers.
-// Missed a workout? Say so in the box at the top and it goes on the right day.
+// Missed a workout? Say so in the chat bar and it goes on the right day.
 export default function ProgressScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -44,132 +47,118 @@ export default function ProgressScreen() {
   const groups = (Object.keys(muscleGroupColors) as MuscleGroup[]).filter(g => d.daysSinceGroupTrained[g] !== undefined);
   const shown = showAll ? d.exercises : d.exercises.slice(0, SHOWN);
   const loggedDays = logged ? [...new Set(logged.map(w => w.date))] : [];
+  const reviewing = !!log.sent || !!log.draft;
 
   return (
-    <SkyScreen>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
-        <ScrollView style={styles.fill} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <LargeTitle title="Progress" />
+    <ChatScreen
+      bar={logBar(log, "Forgot something? 'legs on Wed'", FIX_LOG_CHIPS)}
+      follow={reviewing}
+      overlay={
+        logged && (
+          <Toast
+            key={logged.map(w => w.id).join()}
+            icon="checkmark.circle.fill"
+            text={`Logged ${loggedDays.map(loggedOn).join(' and ')}`}
+            onUndo={() => deleteWorkouts(logged.map(w => w.id))}
+            onClose={() => setLogged(null)}
+          />
+        )
+      }
+    >
+      <LargeTitle title="Progress" />
 
-          {/* Corrections: a missed workout in plain words goes to its own day */}
-          {log.sent && <UserBubble text={log.sent} />}
-          {log.draft ? (
-            <ParsedCard
-              draft={log.draft}
-              date={d.today}
-              onChange={log.setDraft}
-              onSave={log.save}
-              onDiscard={log.discard}
-              onFix={log.fix}
-              busy={log.busy}
-              error={log.error}
-              reply={log.reply}
-            />
-          ) : (
-            <View style={styles.composer}>
-              <Composer
-                value={log.text}
-                onChangeText={log.setText}
-                onSend={log.parse}
-                placeholder="Forgot something? e.g. 'did legs six days ago'"
-                busy={log.busy === 'parse'}
-              />
-              {log.error && (
-                <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">
-                  {log.error}
-                </Text>
-              )}
-            </View>
-          )}
-
-          {workouts.length === 0 ? (
-            <SkyCard style={styles.empty}>
-              <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
-              <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
-              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-                Log a workout and you'll see when you last did each exercise and how often. Numbers are optional.
-              </Text>
-            </SkyCard>
-          ) : (
-            <>
-              <View style={styles.tiles}>
-                {tiles.map(tile => (
-                  <SkyCard key={tile.label} style={styles.tile}>
-                    <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
-                    <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{tile.label}</Text>
-                    {tile.note && (
-                      <Text variant="labelSmall" style={{ color: colors.textTertiary }} numberOfLines={1}>{tile.note}</Text>
-                    )}
-                  </SkyCard>
-                ))}
-              </View>
-
-              <SkyCard>
-                <SectionLabel>Your exercises</SectionLabel>
-                {shown.map((e, i) => (
-                  <ExerciseRow
-                    key={e.id}
-                    exercise={e}
-                    lift={trends.get(e.id)}
-                    first={i === 0}
-                    onPress={() => router.push({ pathname: '/exercise', params: { id: e.id } })}
-                  />
-                ))}
-                {d.exercises.length > SHOWN && (
-                  <Pill
-                    variant="glass"
-                    size="small"
-                    label={showAll ? 'Show fewer' : `Show all ${d.exercises.length}`}
-                    onPress={() => setShowAll(!showAll)}
-                    style={styles.more}
-                  />
-                )}
-              </SkyCard>
-
-              <SkyCard>
-                <SectionLabel>Days since trained</SectionLabel>
-                <View style={styles.groups}>
-                  {groups.map(g => {
-                    const days = d.daysSinceGroupTrained[g]!;
-                    const stale = d.staleGroups.includes(g);
-                    return (
-                      <Pressable
-                        key={g}
-                        onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${groupName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
-                        style={({ pressed }) => [
-                          styles.group,
-                          { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={styles.groupName}>
-                          <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
-                          <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{groupName(g)}</Text>
-                        </View>
-                        <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
-                          {days === 0 ? 'Today' : `${days}d`}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </SkyCard>
-            </>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-      {logged && (
-        <Toast
-          key={logged.map(w => w.id).join()}
-          icon="checkmark.circle.fill"
-          text={`Logged ${loggedDays.map(loggedOn).join(' and ')}`}
-          onUndo={() => deleteWorkouts(logged.map(w => w.id))}
-          onClose={() => setLogged(null)}
+      {/* Corrections: a missed workout in plain words goes to its own day */}
+      {log.sent && <UserBubble text={log.sent} />}
+      {log.draft && (
+        <ParsedCard
+          draft={log.draft}
+          date={d.today}
+          onChange={log.setDraft}
+          onSave={log.save}
+          onDiscard={log.discard}
+          busy={log.busy}
+          error={log.error}
+          reply={log.reply}
         />
       )}
-    </SkyScreen>
+
+      {reviewing ? null : workouts.length === 0 ? (
+        <SkyCard style={styles.empty}>
+          <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
+          <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
+          <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+            Log a workout and you'll see when you last did each exercise and how often. Numbers are optional.
+          </Text>
+        </SkyCard>
+      ) : (
+        <>
+          <View style={styles.tiles}>
+            {tiles.map(tile => (
+              <SkyCard key={tile.label} style={styles.tile}>
+                <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
+                <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{tile.label}</Text>
+                {tile.note && (
+                  <Text variant="labelSmall" style={{ color: colors.textTertiary }} numberOfLines={1}>{tile.note}</Text>
+                )}
+              </SkyCard>
+            ))}
+          </View>
+
+          <SkyCard>
+            <SectionLabel>Your exercises</SectionLabel>
+            {shown.map((e, i) => (
+              <ExerciseRow
+                key={e.id}
+                exercise={e}
+                lift={trends.get(e.id)}
+                first={i === 0}
+                onPress={() => router.push({ pathname: '/exercise', params: { id: e.id } })}
+              />
+            ))}
+            {d.exercises.length > SHOWN && (
+              <Pill
+                variant="glass"
+                size="small"
+                label={showAll ? 'Show fewer' : `Show all ${d.exercises.length}`}
+                onPress={() => setShowAll(!showAll)}
+                style={styles.more}
+              />
+            )}
+          </SkyCard>
+
+          <SkyCard>
+            <SectionLabel>Days since trained</SectionLabel>
+            <View style={styles.groups}>
+              {groups.map(g => {
+                const days = d.daysSinceGroupTrained[g]!;
+                const stale = d.staleGroups.includes(g);
+                return (
+                  <Pressable
+                    key={g}
+                    onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${groupName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
+                    style={({ pressed }) => [
+                      styles.group,
+                      { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={styles.groupName}>
+                      <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
+                      <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{groupName(g)}</Text>
+                    </View>
+                    <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
+                      {days === 0 ? 'Today' : `${days}d`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </SkyCard>
+        </>
+      )}
+    </ChatScreen>
   );
 }
 
@@ -232,17 +221,6 @@ const styles = StyleSheet.create({
   },
   shrink: {
     flexShrink: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.xl,
-  },
-  composer: {
-    marginBottom: spacing.gap,
-  },
-  error: {
-    marginTop: spacing.sm,
-    marginHorizontal: spacing.sm,
   },
   center: {
     textAlign: 'center',

@@ -26,7 +26,7 @@ interface Props {
   onChange: (draft: Draft) => void;
   onSave: () => void;
   onDiscard: () => void;
-  onFix: (fix: string) => Promise<boolean>;
+  onFix?: (fix: string) => Promise<boolean>; // its own fix box; chat tabs fix through their chat bar instead
   busy: 'parse' | 'fix' | 'save' | null;
   error?: string | null;
   reply?: FixReplyState | null;
@@ -186,7 +186,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
               <Pill icon="checkmark" label="Save" onPress={onSave} loading={busy === 'save'} disabled={!!busy || draft.exercises.length === 0} style={styles.save} />
               <Pill variant="glass" label="Discard" onPress={onDiscard} disabled={!!busy} style={styles.discard} />
             </View>
-            <FixBox onFix={onFix} busy={busy === 'fix'} disabled={!!busy} />
+            {onFix && <FixBox onFix={onFix} busy={busy === 'fix'} disabled={!!busy} />}
           </>
         )}
         {reply ? <FixReply reply={reply} /> : null}

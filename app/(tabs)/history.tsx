@@ -3,8 +3,13 @@ import { View, StyleSheet, ScrollView, Alert, AlertButton, Pressable } from 'rea
 import { Text, Chip, Portal, Dialog, List, Button } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
+import { ChatScreen } from '../../components/ChatBar';
+import { UserBubble } from '../../components/Chat';
+import PlanCard from '../../components/PlanCard';
+import { usePlanner } from '../../hooks/usePlanner';
+import { GOALS } from '../../services/onboarding';
 import { useWorkoutStore, DeletedWorkouts } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
@@ -18,6 +23,10 @@ import { scheduleService } from '../../services/schedule';
 import { getPlans, deletePlan } from '../../services/planner';
 import { TrainingPlan } from '../../types/plan';
 import { v4 as uuidv4 } from 'uuid';
+
+// Chat bar chips: a new plan from a starter, an open plan from its own tweaks
+const STARTERS = ['Re-entry week', 'Next week', 'PPL split', 'Upper / lower', '3 days a week'];
+const DEFAULT_TWEAKS = ['Easier', 'Harder', '45 min max', 'Different days', 'Add cardio'];
 
 // Helper function to compare arrays for preset selection
 function arraysEqual(a: string[], b: string[]): boolean {
@@ -37,14 +46,18 @@ export default function HistoryScreen() {
     loadSchedule,
     scheduleWorkout,
     cancelScheduledWorkout,
-    deleteRecurringSeries
+    deleteRecurringSeries,
+    settings,
+    updateSettings,
   } = useWorkoutStore();
   const { colors, sky } = useTheme();
   const router = useRouter();
   const stats = getStats();
 
-  // Set by the Plan screen after Plan it, so this tab can offer Undo
-  const { planId } = useLocalSearchParams<{ planId?: string }>();
+  // planId: set after Plan it, so this tab can offer Undo. request: a plan asked for from the Log tab
+  const { planId, request } = useLocalSearchParams<{ planId?: string; request?: string }>();
+  const planner = usePlanner({ onPlanned: plan => router.setParams({ planId: plan.id }) });
+  const planning = !!planner.sent || !!planner.draft;
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const addedPlan = plans.find(p => p.id === planId && p.status === 'active');
   const addedCount = schedule.filter(s => s.planId === planId).length;
@@ -79,6 +92,12 @@ export default function HistoryScreen() {
   useEffect(() => {
     getPlans().then(setPlans);
   }, [schedule]);
+
+  useEffect(() => {
+    if (!request) return;
+    planner.setText(request);
+    router.setParams({ request: '' });
+  }, [request]);
 
   const handleDeletePlan = async (id: string) => {
     try {
@@ -296,74 +315,113 @@ export default function HistoryScreen() {
   ];
 
   return (
-    <SkyScreen>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <LargeTitle title="History" subtitle={`${sky.done} of ${sky.target} ${sky.planned ? 'planned workouts' : 'workouts'} in the last 7 days`} />
-        {addedPlan && (
-          <SkyCard style={styles.planBanner}>
-            <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />
-            <Text variant="bodyMedium" style={[styles.planBannerText, { color: colors.text }]}>
-              {addedPlan.name} added · {addedCount} workout{addedCount === 1 ? '' : 's'}
-            </Text>
-            <Pill variant="glass" size="small" label="Undo" onPress={() => planId && handleDeletePlan(planId)} />
-            <Pressable onPress={() => router.setParams({ planId: '' })} accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={8}>
-              <SymbolView name="xmark" size={14} weight="semibold" tintColor={colors.textTertiary} />
-            </Pressable>
-          </SkyCard>
-        )}
+    <ChatScreen
+      bar={{
+        value: planner.text,
+        onChangeText: planner.setText,
+        onSend: () => planner.send(planner.text),
+        placeholder: planner.draft ? 'Tell me what to change…' : 'Plan your week…',
+        chips: planner.draft ? (planner.draft.chips.length ? planner.draft.chips : DEFAULT_TWEAKS) : STARTERS,
+        onChip: planner.send,
+        busy: planner.busy,
+        disabled: planner.saving,
+        error: planner.draft ? null : planner.error, // the plan card shows its own errors
+      }}
+      follow={planning}
+      overlay={<UndoToast removed={removed} onClose={() => setRemoved(null)} />}
+    >
+      <LargeTitle title="History" subtitle={`${sky.done} of ${sky.target} ${sky.planned ? 'planned workouts' : 'workouts'} in the last 7 days`} />
 
-        <View style={styles.tiles}>
-          {tiles.map(tile => (
-            <SkyCard key={tile.label} style={styles.tile}>
-              <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
-              <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{tile.label}</Text>
-            </SkyCard>
-          ))}
-        </View>
-
-        {/* Calendar: tap a day to view it; today and future days can be scheduled */}
+      {/* The goal is asked once before planning, then remembered (Settings can change it) */}
+      {!planning && !settings.goal && (
         <SkyCard>
-          <View style={styles.calendarHeader}>
-            <SectionLabel>Calendar</SectionLabel>
-            <Pill variant="glass" size="small" icon="logo" label="Plan" onPress={() => router.push('/plan')} />
+          <SectionLabel>What are you training for?</SectionLabel>
+          <View style={styles.goalRow}>
+            {GOALS.map(goal => (
+              <Pill key={goal.value} variant="glass" size="small" label={goal.label} onPress={() => updateSettings({ goal: goal.value })} />
+            ))}
           </View>
-          <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textTertiary }]}>
-            Tap a day to view, edit or delete its workouts, or to plan ahead
-          </Text>
-          <Calendar
-            workouts={workouts}
-            schedule={schedule}
-            onDatePress={handleDatePress}
-          />
         </SkyCard>
+      )}
 
-        {/* Weekly pattern; what's due by muscle group is on Progress */}
-        <SkyCard>
-          <WeekSelector
-            selectedWeek={selectedWeek}
-            onWeekChange={setSelectedWeek}
-          />
-          <WeeklyWorkoutPattern
-            workouts={workouts}
-            selectedWeek={selectedWeek}
-          />
-        </SkyCard>
+      {/* Planning: your message, then the plan to tweak in the bar and put on the calendar */}
+      {planner.sent && <UserBubble text={planner.sent} />}
+      {planner.draft && planner.preview && (
+        <PlanCard
+          draft={planner.draft}
+          previous={planner.previous}
+          preview={planner.preview}
+          context={planner.context}
+          busy={planner.busy}
+          saving={planner.saving}
+          error={planner.error}
+          onPlanIt={planner.planIt}
+          onUndo={planner.undoTweak}
+          onStartOver={planner.startOver}
+        />
+      )}
 
-        {stats.streak.longest > 0 && (
-          <Text variant="bodySmall" style={[styles.longestStreak, { color: colors.textTertiary }]}>
-            Longest streak: {stats.streak.longest} days · Total: {stats.totalWorkouts} workouts
-          </Text>
-        )}
+      {!planning && (
+        <>
+          {addedPlan && (
+            <SkyCard style={styles.planBanner}>
+              <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />
+              <Text variant="bodyMedium" style={[styles.planBannerText, { color: colors.text }]}>
+                {addedPlan.name} added · {addedCount} workout{addedCount === 1 ? '' : 's'}
+              </Text>
+              <Pill variant="glass" size="small" label="Undo" onPress={() => planId && handleDeletePlan(planId)} />
+              <Pressable onPress={() => router.setParams({ planId: '' })} accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={8}>
+                <SymbolView name="xmark" size={14} weight="semibold" tintColor={colors.textTertiary} />
+              </Pressable>
+            </SkyCard>
+          )}
 
-        {workouts.length > 0 && (
-          // ponytail: renders every workout; window it if history grows into the thousands
-          <SelectableWorkoutList label="All workouts" workouts={workouts} onDeleted={setRemoved} />
-        )}
-      </ScrollView>
-      <UndoToast removed={removed} onClose={() => setRemoved(null)} />
+          <View style={styles.tiles}>
+            {tiles.map(tile => (
+              <SkyCard key={tile.label} style={styles.tile}>
+                <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
+                <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{tile.label}</Text>
+              </SkyCard>
+            ))}
+          </View>
+
+          {/* Calendar: tap a day to view it; today and future days can be scheduled */}
+          <SkyCard>
+            <SectionLabel>Calendar</SectionLabel>
+            <Text variant="bodySmall" style={[styles.calendarHint, { color: colors.textTertiary }]}>
+              Tap a day to view, edit or delete its workouts, or to plan ahead
+            </Text>
+            <Calendar
+              workouts={workouts}
+              schedule={schedule}
+              onDatePress={handleDatePress}
+            />
+          </SkyCard>
+
+          {/* Weekly pattern; what's due by muscle group is on Progress */}
+          <SkyCard>
+            <WeekSelector
+              selectedWeek={selectedWeek}
+              onWeekChange={setSelectedWeek}
+            />
+            <WeeklyWorkoutPattern
+              workouts={workouts}
+              selectedWeek={selectedWeek}
+            />
+          </SkyCard>
+
+          {stats.streak.longest > 0 && (
+            <Text variant="bodySmall" style={[styles.longestStreak, { color: colors.textTertiary }]}>
+              Longest streak: {stats.streak.longest} days · Total: {stats.totalWorkouts} workouts
+            </Text>
+          )}
+
+          {workouts.length > 0 && (
+            // ponytail: renders every workout; window it if history grows into the thousands
+            <SelectableWorkoutList label="All workouts" workouts={workouts} onDeleted={setRemoved} />
+          )}
+        </>
+      )}
 
       {/* Schedule Workout Dialog */}
       <Portal>
@@ -378,7 +436,7 @@ export default function HistoryScreen() {
             <Text variant="bodyMedium" style={{ marginBottom: 8 }}>
               Choose Template:
             </Text>
-            
+        
             {templates.length === 0 ? (
               <Text style={{ color: colors.text, opacity: 0.7, marginBottom: 16 }}>
                 No templates available. Create templates in Settings first.
@@ -407,7 +465,7 @@ export default function HistoryScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text variant="bodyMedium">Schedule Type</Text>
               </View>
-              
+          
               {/* New flattened schedule type options */}
               <View style={{ gap: 8 }}>
                 <Chip
@@ -423,7 +481,7 @@ export default function HistoryScreen() {
                 >
                   One Time
                 </Chip>
-                
+            
                 <Chip
                   selected={isRecurring && recurringPattern === 'weekly'}
                   onPress={() => {
@@ -437,7 +495,7 @@ export default function HistoryScreen() {
                 >
                   Weekly Repeat
                 </Chip>
-                
+            
                 <Chip
                   selected={recurringPattern === 'custom'}
                   onPress={() => {
@@ -496,7 +554,7 @@ export default function HistoryScreen() {
                   <Text variant="bodySmall" style={{ marginBottom: 12 }}>
                     Select workout days:
                   </Text>
-                  
+              
                   {/* Quick preset buttons (horizontal) */}
                   <ScrollView 
                     horizontal 
@@ -530,7 +588,7 @@ export default function HistoryScreen() {
                       Clear
                     </Button>
                   </ScrollView>
-                  
+              
                   {/* Individual day selection */}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 16 }}>
                     {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
@@ -560,7 +618,7 @@ export default function HistoryScreen() {
                       );
                     })}
                   </View>
-                  
+              
                   {/* Compact preview text */}
                   {selectedDays.length > 0 && (
                     <View style={{ 
@@ -599,18 +657,11 @@ export default function HistoryScreen() {
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </SkyScreen>
+    </ChatScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.xl,
-  },
   tiles: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -630,10 +681,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
-  calendarHeader: {
+  goalRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing.sm,
   },
   calendarHint: {
     marginTop: 2,

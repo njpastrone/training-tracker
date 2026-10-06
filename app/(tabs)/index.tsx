@@ -1,12 +1,13 @@
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
-import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
-import { Composer, Pill } from '../../components/Glass';
+import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { Pill } from '../../components/Glass';
+import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import Ring from '../../components/Ring';
@@ -36,6 +37,9 @@ const exampleDraft = (kg: boolean): ParsedWorkoutResponse => ({
   confidence: 1,
 });
 
+// Chat bar starters: they begin the message, you finish it
+const LOG_CHIPS = ['Chest and back:', 'Legs:', 'Push day:', 'Ran 3 miles'];
+
 const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
 
 export default function LogScreen() {
@@ -52,7 +56,6 @@ export default function LogScreen() {
   } = useWorkoutStore();
   const { colors, sky } = useTheme();
   const router = useRouter();
-  const scrollRef = useRef<ScrollView>(null);
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [logged, setLogged] = useState<string | null>(null); // toast after saving
   const [example, setExample] = useState<ParsedWorkoutResponse | null>(null);
@@ -77,8 +80,9 @@ export default function LogScreen() {
   const firstRun = !!settings.onboardedAt && workouts.length === 0;
   const justStarted = !!settings.onboardedAt && workouts.length === 1 && workouts[0].date === today;
   const weeklyTarget = settings.weeklyTarget ?? 3;
+  // Planning happens in History's chat bar
   const planRest = () =>
-    router.push({ pathname: '/plan', params: { request: `The rest of this week, ${weeklyTarget} days a week.` } });
+    router.navigate({ pathname: '/(tabs)/history', params: { request: `The rest of this week, ${weeklyTarget} days a week.` } });
 
   const log = useLogDraft({
     date: today,
@@ -145,199 +149,168 @@ export default function LogScreen() {
   const reviewing = !!log.sent || !!log.draft || !!example;
 
   return (
-    // The composer sits above the tab bar, so pad the bottom edge too
-    <SkyScreen edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
-        <ScrollView
-          ref={scrollRef}
-          style={styles.fill}
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => reviewing && scrollRef.current?.scrollToEnd({ animated: true })}
-        >
-          <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
+    <ChatScreen bar={logBar(log, "What'd you do today?", LOG_CHIPS, () => setExample(null))} follow={reviewing}>
+      <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
 
-          {logged && (
-            <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut} style={styles.toastWrap}>
-              <View style={[styles.toast, { backgroundColor: colors.glass, borderColor: colors.glassLine }]} accessibilityLiveRegion="polite">
-                <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />
-                <Text variant="titleSmall" style={{ color: colors.text }}>{logged}</Text>
-              </View>
-            </Animated.View>
-          )}
+      {logged && (
+        <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut} style={styles.toastWrap}>
+          <View style={[styles.toast, { backgroundColor: colors.glass, borderColor: colors.glassLine }]} accessibilityLiveRegion="polite">
+            <SymbolView name="checkmark.circle.fill" size={20} tintColor={colors.mint} />
+            <Text variant="titleSmall" style={{ color: colors.text }}>{logged}</Text>
+          </View>
+        </Animated.View>
+      )}
 
-          {!reviewing && todaysSchedule && scheduledTemplate && (
-            <SkyCard style={styles.today}>
-              <View style={styles.todayTop}>
-                <SectionLabel>Today</SectionLabel>
-                {todaysPlan ? (
-                  <Tag icon="calendar" color={colors.cobalt}>
-                    {`${todaysPlan.name} · ${planSessions.findIndex(s => s.id === todaysSchedule.id) + 1} of ${planSessions.length}`}
-                  </Tag>
-                ) : todaysSchedule.isRecurring && todaysSchedule.recurringPattern ? (
-                  <Tag icon="repeat" color={colors.cobalt}>{todaysSchedule.recurringPattern}</Tag>
-                ) : null}
-              </View>
-              <View style={styles.todayMain}>
-                <View style={styles.fill}>
-                  <Text style={[styles.todayName, { color: colors.text }]}>{scheduledTemplate.name}</Text>
-                  <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-                    {scheduledTemplate.exercises.length} exercises
-                  </Text>
-                </View>
-                <Ring size={74} stroke={6} progress={sky.progress}>
-                  <Text style={[styles.ringValue, { color: colors.text }]}>{sky.done}/{sky.target}</Text>
-                  <Text style={[styles.ringLabel, { color: colors.textTertiary }]}>7 days</Text>
-                </Ring>
-              </View>
-              <View style={styles.muscles}>
-                {scheduledTemplate.muscleGroups.map(group => (
-                  <Tag key={group} dot={muscleGroupColors[group]} color={colors.textSecondary}>
-                    {group.replace('_', ' ')}
-                  </Tag>
-                ))}
-              </View>
-              {todaysSchedule.note && (
-                <View style={[styles.note, { backgroundColor: colors.sunrise + '17' }]}>
-                  <LogoMark size={16} color={colors.sunrise} />
-                  <Text variant="bodyMedium" style={[styles.fill, { color: colors.text }]}>{todaysSchedule.note}</Text>
-                </View>
-              )}
-              <View style={styles.actions}>
-                <Pill icon="play.fill" label="Start workout" onPress={handleStartScheduledWorkout} style={styles.primaryAction} />
-                <Pill variant="glass" label="Skip" onPress={handleSkipScheduledWorkout} style={styles.secondaryAction} />
-              </View>
-            </SkyCard>
-          )}
-
-          {!reviewing && !todaysSchedule && firstRun && (
-            <SkyCard style={styles.hint}>
-              <LogoMark size={30} color={colors.sunrise} />
-              <Text variant="titleMedium" style={{ color: colors.text }}>Log your first workout</Text>
-              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-                Just say what you did, like “chest and back today: bench, rows, pull-ups”. Sets and weights are optional. Or use the mic on the keyboard.
+      {!reviewing && todaysSchedule && scheduledTemplate && (
+        <SkyCard style={styles.today}>
+          <View style={styles.todayTop}>
+            <SectionLabel>Today</SectionLabel>
+            {todaysPlan ? (
+              <Tag icon="calendar" color={colors.cobalt}>
+                {`${todaysPlan.name} · ${planSessions.findIndex(s => s.id === todaysSchedule.id) + 1} of ${planSessions.length}`}
+              </Tag>
+            ) : todaysSchedule.isRecurring && todaysSchedule.recurringPattern ? (
+              <Tag icon="repeat" color={colors.cobalt}>{todaysSchedule.recurringPattern}</Tag>
+            ) : null}
+          </View>
+          <View style={styles.todayMain}>
+            <View style={styles.fill}>
+              <Text style={[styles.todayName, { color: colors.text }]}>{scheduledTemplate.name}</Text>
+              <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+                {scheduledTemplate.exercises.length} exercises
               </Text>
-              <View style={styles.firstActions}>
-                <Pill variant="glass" size="small" label="Show me an example" onPress={() => setExample(exampleDraft(settings.weightUnit === 'kg'))} />
-                <Pill variant="glass" size="small" label="I haven't trained yet" onPress={planRest} />
-              </View>
-            </SkyCard>
-          )}
-
-          {!reviewing && !todaysSchedule && !firstRun && (
-            <SkyCard style={styles.hint}>
-              <SymbolView name="bubble.left.and.text.bubble.right" size={30} tintColor={colors.sunrise} />
-              <Text variant="titleMedium" style={{ color: colors.text }}>Just say what you did</Text>
-              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-                Type or dictate it. The exercises are enough; add numbers only if you want.
-              </Text>
-              <View style={styles.examples}>
-                {EXAMPLES.map(example => (
-                  <Text key={example} variant="bodyMedium" style={[styles.center, { color: colors.textTertiary }]}>“{example}”</Text>
-                ))}
-              </View>
-            </SkyCard>
-          )}
-
-          {!reviewing && !hasUpcoming && justStarted && !notNow && (
-            <SkyCard>
-              <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
-              <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
-                You're aiming for {weeklyTarget} days a week. I'll fit the rest around what you just did.
-              </Text>
-              <View style={styles.actions}>
-                <Pill icon="logo" label="Plan my week" onPress={planRest} style={styles.primaryAction} />
-                <Pill variant="glass" label="Not now" onPress={() => setNotNow(true)} style={styles.secondaryAction} />
-              </View>
-            </SkyCard>
-          )}
-
-          {!reviewing && !hasUpcoming && !(justStarted && !notNow) && (
-            <SkyCard>
-              <Text variant="titleMedium" style={{ color: colors.text }}>Plan your week</Text>
-              <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
-                Tell the coach what you want and it puts the workouts on your calendar.
-              </Text>
-              <Pill icon="logo" label="Plan it for me" onPress={() => router.push('/plan')} />
-            </SkyCard>
-          )}
-
-          {log.sent && (
-            <Animated.View entering={FadeInDown.springify().damping(17)}>
-              <UserBubble text={log.sent} />
-            </Animated.View>
-          )}
-
-          {example && (
-            <>
-              <Animated.View entering={FadeInDown.springify().damping(17)}>
-                <UserBubble text={exampleLog(settings.weightUnit === 'kg')} />
-              </Animated.View>
-              <ParsedCard
-                example
-                draft={example}
-                date={today}
-                title="Here's how that reads"
-                onChange={setExample}
-                onSave={() => {}}
-                onDiscard={() => setExample(null)}
-                onFix={async () => false}
-                busy={null}
-              />
-            </>
-          )}
-
-          {log.busy === 'parse' && <ReadingCard />}
-
-          {log.draft && (
-            <ParsedCard
-              key={log.templateId ?? 'parsed'}
-              draft={log.draft}
-              date={today}
-              title={log.templateId ? scheduledTemplate?.name : undefined}
-              onChange={log.setDraft}
-              onSave={log.save}
-              onDiscard={log.discard}
-              onFix={log.fix}
-              busy={log.busy}
-              error={log.error}
-              reply={log.reply}
-            />
-          )}
-
-          {!reviewing && (
-            <View style={styles.recent}>
-              <SectionLabel style={styles.label}>Recent</SectionLabel>
-              {recentWorkouts.length > 0 ? (
-                <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
-              ) : (
-                <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-                  No workouts yet. Tell me your first one below.
-                </Text>
-              )}
+            </View>
+            <Ring size={74} stroke={6} progress={sky.progress}>
+              <Text style={[styles.ringValue, { color: colors.text }]}>{sky.done}/{sky.target}</Text>
+              <Text style={[styles.ringLabel, { color: colors.textTertiary }]}>7 days</Text>
+            </Ring>
+          </View>
+          <View style={styles.muscles}>
+            {scheduledTemplate.muscleGroups.map(group => (
+              <Tag key={group} dot={muscleGroupColors[group]} color={colors.textSecondary}>
+                {group.replace('_', ' ')}
+              </Tag>
+            ))}
+          </View>
+          {todaysSchedule.note && (
+            <View style={[styles.note, { backgroundColor: colors.sunrise + '17' }]}>
+              <LogoMark size={16} color={colors.sunrise} />
+              <Text variant="bodyMedium" style={[styles.fill, { color: colors.text }]}>{todaysSchedule.note}</Text>
             </View>
           )}
-        </ScrollView>
+          <View style={styles.actions}>
+            <Pill icon="play.fill" label="Start workout" onPress={handleStartScheduledWorkout} style={styles.primaryAction} />
+            <Pill variant="glass" label="Skip" onPress={handleSkipScheduledWorkout} style={styles.secondaryAction} />
+          </View>
+        </SkyCard>
+      )}
 
-        <View style={styles.composer}>
-          {log.error && !log.draft && (
-            <Animated.Text entering={FadeIn} style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">
-              {log.error}
-            </Animated.Text>
-          )}
-          <Composer
-            value={log.text}
-            onChangeText={log.setText}
-            onSend={() => {
-              setExample(null);
-              log.parse();
-            }}
-            placeholder="What'd you do today?"
-            busy={log.busy === 'parse'}
+      {!reviewing && !todaysSchedule && firstRun && (
+        <SkyCard style={styles.hint}>
+          <LogoMark size={30} color={colors.sunrise} />
+          <Text variant="titleMedium" style={{ color: colors.text }}>Log your first workout</Text>
+          <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+            Just say what you did, like “chest and back today: bench, rows, pull-ups”. Sets and weights are optional. Or use the mic on the keyboard.
+          </Text>
+          <View style={styles.firstActions}>
+            <Pill variant="glass" size="small" label="Show me an example" onPress={() => setExample(exampleDraft(settings.weightUnit === 'kg'))} />
+            <Pill variant="glass" size="small" label="I haven't trained yet" onPress={planRest} />
+          </View>
+        </SkyCard>
+      )}
+
+      {!reviewing && !todaysSchedule && !firstRun && (
+        <SkyCard style={styles.hint}>
+          <SymbolView name="bubble.left.and.text.bubble.right" size={30} tintColor={colors.sunrise} />
+          <Text variant="titleMedium" style={{ color: colors.text }}>Just say what you did</Text>
+          <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+            Type or dictate it. The exercises are enough; add numbers only if you want.
+          </Text>
+          <View style={styles.examples}>
+            {EXAMPLES.map(example => (
+              <Text key={example} variant="bodyMedium" style={[styles.center, { color: colors.textTertiary }]}>“{example}”</Text>
+            ))}
+          </View>
+        </SkyCard>
+      )}
+
+      {!reviewing && !hasUpcoming && justStarted && !notNow && (
+        <SkyCard>
+          <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
+          <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
+            You're aiming for {weeklyTarget} days a week. I'll fit the rest around what you just did.
+          </Text>
+          <View style={styles.actions}>
+            <Pill icon="logo" label="Plan my week" onPress={planRest} style={styles.primaryAction} />
+            <Pill variant="glass" label="Not now" onPress={() => setNotNow(true)} style={styles.secondaryAction} />
+          </View>
+        </SkyCard>
+      )}
+
+      {!reviewing && !hasUpcoming && !(justStarted && !notNow) && (
+        <SkyCard>
+          <Text variant="titleMedium" style={{ color: colors.text }}>Plan your week</Text>
+          <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
+            Tell the coach what you want and it puts the workouts on your calendar.
+          </Text>
+          <Pill icon="logo" label="Plan it for me" onPress={() => router.navigate('/(tabs)/history')} />
+        </SkyCard>
+      )}
+
+      {log.sent && (
+        <Animated.View entering={FadeInDown.springify().damping(17)}>
+          <UserBubble text={log.sent} />
+        </Animated.View>
+      )}
+
+      {example && (
+        <>
+          <Animated.View entering={FadeInDown.springify().damping(17)}>
+            <UserBubble text={exampleLog(settings.weightUnit === 'kg')} />
+          </Animated.View>
+          <ParsedCard
+            example
+            draft={example}
+            date={today}
+            title="Here's how that reads"
+            onChange={setExample}
+            onSave={() => {}}
+            onDiscard={() => setExample(null)}
+            busy={null}
           />
+        </>
+      )}
+
+      {log.busy === 'parse' && <ReadingCard />}
+
+      {log.draft && (
+        <ParsedCard
+          key={log.templateId ?? 'parsed'}
+          draft={log.draft}
+          date={today}
+          title={log.templateId ? scheduledTemplate?.name : undefined}
+          onChange={log.setDraft}
+          onSave={log.save}
+          onDiscard={log.discard}
+          busy={log.busy}
+          error={log.error}
+          reply={log.reply}
+        />
+      )}
+
+      {!reviewing && (
+        <View style={styles.recent}>
+          <SectionLabel style={styles.label}>Recent</SectionLabel>
+          {recentWorkouts.length > 0 ? (
+            <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
+          ) : (
+            <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+              No workouts yet. Tell me your first one below.
+            </Text>
+          )}
         </View>
-      </KeyboardAvoidingView>
-    </SkyScreen>
+      )}
+    </ChatScreen>
   );
 }
 
@@ -373,10 +346,6 @@ function Tag({ children, color, icon, dot }: { children: React.ReactNode; color:
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.lg,
   },
   center: {
     textAlign: 'center',
@@ -504,15 +473,5 @@ const styles = StyleSheet.create({
   label: {
     marginLeft: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  composer: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  error: {
-    fontSize: 13,
-    marginBottom: 6,
-    marginLeft: 6,
   },
 });
