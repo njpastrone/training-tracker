@@ -22,6 +22,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const isDarkMode = useColorScheme() === 'dark';
   const workouts = useWorkoutStore(s => s.workouts);
   const schedule = useWorkoutStore(s => s.schedule);
+  const weeklyTarget = useWorkoutStore(s => s.settings.weeklyTarget);
+  const startedAt = useWorkoutStore(s => s.settings.onboardedAt);
   const [day, setDay] = useState(today);
   const [reduceTransparency, setReduceTransparency] = useState(false);
 
@@ -37,7 +39,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, []);
 
-  const sky = useMemo(() => weekSky(workouts, schedule), [workouts, schedule, day]);
+  const sky = useMemo(
+    () => weekSky(workouts, schedule, new Date(), { weeklyTarget, startedAt }),
+    [workouts, schedule, weeklyTarget, startedAt, day]
+  );
 
   const value: ThemeContextType = {
     isDarkMode,

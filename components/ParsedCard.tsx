@@ -30,11 +30,12 @@ interface Props {
   busy: 'parse' | 'fix' | 'save' | null;
   error?: string | null;
   reply?: FixReplyState | null;
+  example?: boolean; // a canned example for a first-time user: nothing to save or fix
 }
 
 // The parsed workout, reviewed before anything is saved: tap a number to change it, type a fix, Save.
 // Values the parse guessed or a typed fix left uncertain are highlighted; a low parse confidence shows a banner.
-export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error, reply }: Props) {
+export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error, reply, example }: Props) {
   const { colors } = useTheme();
   const library = useWorkoutStore(s => s.exerciseLibrary);
   const unsure = draft.unsure ?? [];
@@ -175,12 +176,19 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
           <Text variant="bodyMedium" style={[styles.notes, { color: colors.textSecondary }]}>{draft.notes}</Text>
         ) : null}
 
-        <View style={styles.actions}>
-          <Pill icon="checkmark" label="Save" onPress={onSave} loading={busy === 'save'} disabled={!!busy || draft.exercises.length === 0} style={styles.save} />
-          <Pill variant="glass" label="Discard" onPress={onDiscard} disabled={!!busy} style={styles.discard} />
-        </View>
-
-        <FixBox onFix={onFix} busy={busy === 'fix'} disabled={!!busy} />
+        {example ? (
+          <View style={styles.actions}>
+            <Pill icon="square.and.pencil" label="Log my own" onPress={onDiscard} style={styles.save} />
+          </View>
+        ) : (
+          <>
+            <View style={styles.actions}>
+              <Pill icon="checkmark" label="Save" onPress={onSave} loading={busy === 'save'} disabled={!!busy || draft.exercises.length === 0} style={styles.save} />
+              <Pill variant="glass" label="Discard" onPress={onDiscard} disabled={!!busy} style={styles.discard} />
+            </View>
+            <FixBox onFix={onFix} busy={busy === 'fix'} disabled={!!busy} />
+          </>
+        )}
         {reply ? <FixReply reply={reply} /> : null}
         {error ? (
           <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">{error}</Text>

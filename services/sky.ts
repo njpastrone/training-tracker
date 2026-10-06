@@ -1,3 +1,4 @@
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { trainingWindow, usualPerWeek, onPace, perWeekRate } from './pace';
 
 // The Daylight sky tracks the last 7 days of training, not the clock: dawn when nothing's in,
@@ -19,22 +20,33 @@ export interface WeekSky {
   phase: SkyPhase;
   progress: number; // 0..1, share of the target done
   done: number; // distinct days trained in the last 7
-  target: number; // planned days in the last 7, or the usual weekly count
+  target: number; // planned days in the last 7, else the picked or usual weekly count
   planned: boolean; // target comes from the schedule
   stops: SkyStops; // light-mode gradient
 }
 
-export function weekSky(workouts: { date: string }[], schedule: { date: string }[], now: Date = new Date()): WeekSky {
+// weeklyTarget: the days a week the user picked in setup or Settings; startedAt: when they finished setup
+export interface SkyPrefs {
+  weeklyTarget?: number;
+  startedAt?: string; // yyyy-MM-dd
+}
+
+export function weekSky(workouts: { date: string }[], schedule: { date: string }[], now: Date = new Date(), prefs: SkyPrefs = {}): WeekSky {
   const dates = workouts.map(w => w.date);
   const win = trainingWindow(dates, 7, now);
   const done = win.trained.size;
   const plannedDates = [...new Set(schedule.map(s => s.date))].filter(d => d >= win.first && d <= win.last);
   const planned = plannedDates.length > 0;
-  const target = planned ? plannedDates.length : usualPerWeek(dates, now);
+  // A new user's first 7 days only ask for the days they've been here, and pace never fails them:
+  // day one is dawn, and logging that day is full daylight
+  const daysHere = prefs.startedAt ? Math.max(1, differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1) : Infinity;
+  const firstWeek = !planned && daysHere <= 7;
+  const usual = prefs.weeklyTarget ?? usualPerWeek(dates, now);
+  const target = planned ? plannedDates.length : firstWeek ? Math.min(usual, daysHere) : usual;
   const progress = Math.min(1, done / target);
   const behind = planned
     ? done < plannedDates.filter(d => d < win.last).length // planned days already gone by
-    : !onPace(perWeekRate(done, win.elapsed), target, win.elapsed);
+    : !firstWeek && !onPace(perWeekRate(done, win.elapsed), target, win.elapsed);
 
   const phase: SkyPhase = progress >= 1 ? 'day' : behind ? 'dusk' : 'dawn';
   const stops = phase === 'dusk' ? SKY.dusk : mixStops(SKY.dawn, SKY.day, progress);

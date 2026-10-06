@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
@@ -16,6 +16,7 @@ import { FixBox } from '../components/ParsedCard';
 import Field from '../components/Field';
 import { ApiError } from '../services/claude';
 import { getPlans, planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
+import { GOALS } from '../services/onboarding';
 import { PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
 import LogoMark from '../components/LogoMark';
 
@@ -49,9 +50,10 @@ function dateRange(plan: PlanDraft): string {
 export default function PlanScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { workouts, schedule, settings, loadSchedule, loadTemplates } = useWorkoutStore();
+  const { workouts, schedule, settings, updateSettings, loadSchedule, loadTemplates } = useWorkoutStore();
+  const params = useLocalSearchParams<{ request?: string }>();
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(params.request ?? ''); // prefilled from the Log screen's first run
   const [messages, setMessages] = useState<string[]>([]);
   const [turns, setTurns] = useState(0);
   const [draft, setDraft] = useState<PlannerResponse | null>(null);
@@ -67,8 +69,8 @@ export default function PlanScreen() {
   }, []);
 
   const history = useMemo(
-    () => summarizeHistory(workouts, schedule, plans, settings.weightUnit),
-    [workouts, schedule, plans, settings.weightUnit]
+    () => ({ ...summarizeHistory(workouts, schedule, plans, settings.weightUnit), daysPerWeek: settings.weeklyTarget, goal: settings.goal }),
+    [workouts, schedule, plans, settings.weightUnit, settings.weeklyTarget, settings.goal]
   );
   const preview = draft ? previewPlan(draft.plan, schedule) : null;
   const unit = settings.weightUnit === 'kg' ? 'kg' : 'lb';
@@ -139,7 +141,9 @@ export default function PlanScreen() {
     : format(subDays(new Date(), history.daysSinceLastWorkout), 'MMM d');
   const context = lastWorkout
     ? `From your log: last workout ${lastWorkout} (${history.daysSinceLastWorkout} days ago) · about ${history.workoutsPerWeek.prior8w || history.workoutsPerWeek.last4w}/week before that${history.usualDays.length ? `, usually ${history.usualDays.join(', ')}` : ''}`
-    : 'No workouts logged yet, so the plan starts from scratch.';
+    : settings.weeklyTarget || settings.goal
+      ? `You want ${[settings.weeklyTarget && `${settings.weeklyTarget} days a week`, GOALS.find(g => g.value === settings.goal)?.label.toLowerCase()].filter(Boolean).join(' · ')}.`
+      : 'No workouts logged yet, so the plan starts from scratch.';
 
   const tags = draft ? draft.plan.sessions.map(s => rowTag(s, draft.plan, previous?.plan ?? null)) : [];
   const changedCount = previous ? tags.filter(Boolean).length : 0;
@@ -178,6 +182,17 @@ export default function PlanScreen() {
                 editable={!busy}
                 accessibilityLabel="What should we plan?"
               />
+              {/* The goal is asked here the first time, then remembered (Settings can change it) */}
+              {!settings.goal && (
+                <>
+                  <SectionLabel style={styles.goalLabel}>What are you training for?</SectionLabel>
+                  <View style={styles.chipRow}>
+                    {GOALS.map(goal => (
+                      <Pill key={goal.value} variant="glass" size="small" label={goal.label} onPress={() => updateSettings({ goal: goal.value })} disabled={busy} />
+                    ))}
+                  </View>
+                </>
+              )}
               <View style={styles.chipRow}>
                 {STARTERS.map(label => (
                   <Pill key={label} variant="glass" size="small" label={label} onPress={() => send(label)} disabled={busy} />
@@ -364,6 +379,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     marginVertical: spacing.gap,
+  },
+  goalLabel: {
+    marginTop: spacing.gap,
   },
   context: {
     marginTop: spacing.md,
