@@ -3,7 +3,7 @@
 ## Overview
 This document outlines the next major features to be implemented in the Training Tracker app. Both features are designed to be lightweight, non-invasive, and integrate seamlessly with existing functionality.
 
-The Coach tab has been replaced by **Progress** (`app/(tabs)/progress.tsx`): each exercise with when it was last done and how often, PRs only where numbers were logged, days since each muscle group was trained, and natural-language corrections for missed workouts.
+The Coach tab has been replaced by **Progress** (`app/(tabs)/progress.tsx`): goals checked against the last 7 days (`services/goals.ts`, set in `app/goals.tsx`), each exercise with when it was last done and how often, PRs only where numbers were logged, days since each muscle group was trained, and natural-language corrections for missed workouts. Private progress photos are planned for the next native build.
 
 ## Feature 1: Intra-Workout Trainer
 

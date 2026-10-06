@@ -26,7 +26,7 @@ export function metricFor(exerciseId: string, library: ExerciseLibrary): Metric 
 
 const LB_PER_KG = 2.20462;
 // Stored units are never converted; this is only for comparing
-const inUnit = (weight: number, from: WeightUnit | undefined, to: WeightUnit) =>
+export const inUnit = (weight: number, from: WeightUnit | undefined, to: WeightUnit) =>
   !from || from === to ? weight : from === 'kg' ? weight * LB_PER_KG : weight / LB_PER_KG;
 
 const METRES: Record<string, number> = { mi: 1609.344, km: 1000, m: 1 };

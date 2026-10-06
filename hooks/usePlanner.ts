@@ -5,6 +5,7 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { ApiError } from '../services/claude';
 import { planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
 import { GOALS } from '../services/onboarding';
+import { goalLines } from '../services/goals';
 import { PlannerResponse, TrainingPlan } from '../types/plan';
 
 // ponytail: ~8 AI turns per planning session keeps one user from draining the shared daily cap
@@ -14,7 +15,7 @@ const RETRY_MESSAGE = "Couldn't build that, try again.";
 // Say what you want → review the plan card → tweak by typing or a chip → Plan it.
 // Nothing is scheduled until planIt().
 export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlanned: (plan: TrainingPlan) => void }) {
-  const { workouts, schedule, settings, loadSchedule, loadTemplates } = useWorkoutStore();
+  const { workouts, schedule, settings, exerciseLibrary, loadSchedule, loadTemplates } = useWorkoutStore();
   const [text, setText] = useState(''); // what's in the chat bar
   const [messages, setMessages] = useState<string[]>([]);
   const [sending, setSending] = useState<string | null>(null); // shown as your bubble while the plan builds
@@ -26,8 +27,13 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
   const [error, setError] = useState<string | null>(null);
 
   const history = useMemo(
-    () => ({ ...summarizeHistory(workouts, schedule, plans, settings.weightUnit), daysPerWeek: settings.weeklyTarget, goal: settings.goal }),
-    [workouts, schedule, plans, settings.weightUnit, settings.weeklyTarget, settings.goal]
+    () => ({
+      ...summarizeHistory(workouts, schedule, plans, settings.weightUnit),
+      daysPerWeek: settings.weeklyTarget,
+      goal: settings.goal,
+      goals: settings.goals && goalLines(settings.goals, exerciseLibrary),
+    }),
+    [workouts, schedule, plans, settings.weightUnit, settings.weeklyTarget, settings.goal, settings.goals, exerciseLibrary]
   );
   const preview = draft ? previewPlan(draft.plan, schedule) : null;
 

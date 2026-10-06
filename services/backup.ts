@@ -82,6 +82,8 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   const workouts = store.state.workouts;
   if (!listOf(workouts, (w) => hasStrings(w, 'id', 'date') && exercisesOk(w.exercises) && Array.isArray(w.muscleGroups))) fail(DAMAGED);
   if (!isObject(store.state.settings)) fail(DAMAGED);
+  const goals = store.state.settings.goals;
+  if (goals !== undefined && !(isObject(goals) && Array.isArray(goals.muscles) && listOf(goals.custom, (c) => hasStrings(c, 'id', 'kind', 'exerciseId')))) fail(DAMAGED);
   for (const key of BACKUP_KEYS.slice(1)) {
     if (b.data[key] != null && !listOf(b.data[key], ITEM_CHECKS[key])) fail(DAMAGED);
   }

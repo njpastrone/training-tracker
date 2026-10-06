@@ -12,6 +12,7 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { digest, target } from '../services/insights';
 import { resolveId } from '../services/exerciseIdentity';
 import { daysAgo, lastDoneLine } from '../services/format';
+import { formatSets, goalProgress, muscleName } from '../services/goals';
 import { spacing } from '../constants/theme';
 import type { MuscleGroup } from '../types/workout';
 
@@ -27,6 +28,10 @@ export default function ExerciseScreen() {
   const exercise = id ? d.exercises.find(e => e.id === id) : undefined;
   const trend = id ? d.liftTrends.find(t => t.id === id) : undefined;
   const next = trend && target(trend);
+  const goal = useMemo(
+    () => (group && settings.goals ? goalProgress(settings.goals, workouts, exerciseLibrary).muscles.find(m => m.group === group) : undefined),
+    [group, settings.goals, workouts, exerciseLibrary]
+  );
   const times = workouts.filter(w =>
     group
       ? w.muscleGroups.includes(group)
@@ -34,7 +39,7 @@ export default function ExerciseScreen() {
   ).filter(w => w.date <= d.today);
   const last = times[0]?.date; // the store keeps workouts newest first
 
-  const title = exercise?.name ?? (group ? (group === 'full_body' ? 'Full body' : group.charAt(0).toUpperCase() + group.slice(1)) : '');
+  const title = exercise?.name ?? (group ? muscleName(group) : '');
   const subtitle = exercise ? lastDoneLine(exercise) : group && d.daysSinceGroupTrained[group] !== undefined ? `last trained ${daysAgo(d.daysSinceGroupTrained[group]!)}` : undefined;
 
   // A forgotten session most likely came after the last one you logged
@@ -56,6 +61,23 @@ export default function ExerciseScreen() {
             <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
               Last {next.last}. {next.why}
             </Text>
+          </SkyCard>
+        )}
+
+        {goal && (
+          <SkyCard>
+            <SectionLabel>Your goals · last 7 days</SectionLabel>
+            {goal.timesGoal !== undefined && (
+              <Text variant="bodyLarge" style={[styles.goalLine, { color: colors.text }]}>Trained {goal.times} of {goal.timesGoal} times</Text>
+            )}
+            {goal.setsGoal !== undefined && (
+              <Text variant="bodyLarge" style={[styles.goalLine, { color: colors.text }]}>
+                {formatSets(goal.sets, goal.setsMissing)} of {goal.setsGoal} sets
+              </Text>
+            )}
+            {goal.setsGoal !== undefined && goal.setsMissing && (
+              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Some exercises had no set count, so only written sets count.</Text>
+            )}
           </SkyCard>
         )}
 
@@ -116,6 +138,9 @@ const styles = StyleSheet.create({
   next: {
     marginTop: spacing.xs,
     fontVariant: ['tabular-nums'],
+  },
+  goalLine: {
+    marginTop: spacing.xs,
   },
   dayRow: {
     flexDirection: 'row',

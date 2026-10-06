@@ -9,6 +9,7 @@ import type { TrainingWindow } from './pace';
 export interface WeeklyMuscleData {
   muscleGroup: MuscleGroup;
   totalSets: number; // in the window
+  missingSets: boolean; // an exercise for it had no set count, so totalSets is a floor
   frequency: number; // sessions in the window
   lastTrained: string | null; // date
   daysRestBetweenSessions: number[];
@@ -27,6 +28,7 @@ export function analyzeWeeklyVolume(workouts: Workout[], win: TrainingWindow): R
     weeklyData[muscle] = {
       muscleGroup: muscle,
       totalSets: 0,
+      missingSets: false,
       frequency: 0,
       lastTrained: null,
       daysRestBetweenSessions: []
@@ -53,8 +55,13 @@ export function analyzeWeeklyVolume(workouts: Workout[], win: TrainingWindow): R
     workout.exercises.forEach(exercise => {
       const entry = exercise.exerciseId ? catalogById.get(exercise.exerciseId) : undefined;
       const sets = exercise.sets || 0;
-      weeklyData[entry?.primary ?? exercise.muscleGroup].totalSets += sets;
-      for (const muscle of entry?.secondary ?? []) weeklyData[muscle].totalSets += sets / 2;
+      const primary = weeklyData[entry?.primary ?? exercise.muscleGroup];
+      primary.totalSets += sets;
+      primary.missingSets ||= !exercise.sets;
+      for (const muscle of entry?.secondary ?? []) {
+        weeklyData[muscle].totalSets += sets / 2;
+        weeklyData[muscle].missingSets ||= !exercise.sets;
+      }
     });
   });
 
