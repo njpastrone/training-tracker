@@ -90,7 +90,8 @@ These rules are what the expected results encode. The prompt states them too.
   exercises are named.
 - **Several days in one message**: each exercise gets a `dayOffset` (0 = the logging date, -1 =
   yesterday, weekday names = their most recent occurrence). The app saves one workout per day.
-  Past sessions mentioned only for comparison aren't logged.
+  Past sessions mentioned only for comparison aren't logged; ones added late ("forgot to log
+  Tuesday", "the 28th") are, even when they name only body parts.
 - **Information that doesn't fit the schema is never dropped silently**. Workout `notes` take how it
   felt, pain or injury, PRs, sleep, body weight, training partner, gym conditions, total time, and
   skipped or planned exercises. Exercise `notes` take technical details: superset pairing, RPE,
