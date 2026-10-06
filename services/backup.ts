@@ -3,6 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { GOAL_MUSCLES } from './goals';
 
 // Every AsyncStorage key the app persists. A new persisted key must be added here or backups miss it.
 export const BACKUP_KEYS = [
@@ -52,6 +53,16 @@ const isObject = (v: unknown): v is Record<string, any> => typeof v === 'object'
 const hasStrings = (v: unknown, ...keys: string[]) => isObject(v) && keys.every((k) => typeof v[k] === 'string');
 const listOf = (v: unknown, ok: (item: any) => boolean) => Array.isArray(v) && v.every(ok);
 const exercisesOk = (v: unknown) => listOf(v, (e) => hasStrings(e, 'name'));
+const isCount = (v: unknown) => Number.isFinite(v) && (v as number) > 0;
+const customGoalOk = (c: any) =>
+  hasStrings(c, 'id', 'exerciseId') &&
+  (c.kind === 'lift' ? isCount(c.weight) && (c.unit === 'lbs' || c.unit === 'kg') : c.kind === 'often' && isCount(c.perWeek));
+const goalsOk = (g: any) =>
+  isObject(g) &&
+  listOf(g.muscles, (m) => GOAL_MUSCLES.includes(m)) &&
+  (g.timesPerWeek === undefined || isCount(g.timesPerWeek)) &&
+  (g.minSets === undefined || (isObject(g.minSets) && Object.values(g.minSets).every(isCount))) &&
+  listOf(g.custom, customGoalOk);
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
   '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises) && Array.isArray(t.muscleGroups),
@@ -83,7 +94,7 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   if (!listOf(workouts, (w) => hasStrings(w, 'id', 'date') && exercisesOk(w.exercises) && Array.isArray(w.muscleGroups))) fail(DAMAGED);
   if (!isObject(store.state.settings)) fail(DAMAGED);
   const goals = store.state.settings.goals;
-  if (goals !== undefined && !(isObject(goals) && Array.isArray(goals.muscles) && listOf(goals.custom, (c) => hasStrings(c, 'id', 'kind', 'exerciseId')))) fail(DAMAGED);
+  if (goals !== undefined && !goalsOk(goals)) fail(DAMAGED);
   for (const key of BACKUP_KEYS.slice(1)) {
     if (b.data[key] != null && !listOf(b.data[key], ITEM_CHECKS[key])) fail(DAMAGED);
   }

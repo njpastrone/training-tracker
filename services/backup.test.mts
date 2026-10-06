@@ -68,7 +68,13 @@ const snapshot = () => Object.fromEntries(backup.BACKUP_KEYS.map((k) => [k, mem.
 async function seed() {
   useWorkoutStore.getState().addWorkout(workout('w1', '2026-10-01'));
   useWorkoutStore.getState().addWorkout(workout('w2', '2026-10-03'));
-  useWorkoutStore.getState().updateSettings({ weightUnit: 'kg' });
+  useWorkoutStore.getState().updateSettings({
+    weightUnit: 'kg',
+    goals: {
+      muscles: ['chest', 'back'], timesPerWeek: 2, minSets: { chest: 10 },
+      custom: [{ id: 'g1', kind: 'lift', exerciseId: 'bench', weight: 100, unit: 'kg' }, { id: 'g2', kind: 'often', exerciseId: 'squat', perWeek: 2 }],
+    },
+  });
   const t = await templateService.createTemplate({ name: 'Push', exercises: [] } as any);
   await scheduleService.scheduleWorkout('2026-10-06', t.id);
   await savePlan({
@@ -145,6 +151,13 @@ test('bad, old and too-new files are rejected without touching data', async () =
     ['no settings', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/storage'].state.settings; return g; })()), /damaged/],
     ['goals without muscles', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { custom: [] }; return g; })()), /damaged/],
     ['bad custom goal', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x' }] }; return g; })()), /damaged/],
+    ['unknown goal muscle', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['legs'], custom: [] }; return g; })()), /damaged/],
+    ['bad times per week', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['chest'], timesPerWeek: '2', custom: [] }; return g; })()), /damaged/],
+    ['bad min sets', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['chest'], minSets: { chest: 'x' }, custom: [] }; return g; })()), /damaged/],
+    ['unknown goal kind', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'max', exerciseId: 'bench' }] }; return g; })()), /damaged/],
+    ['lift goal without weight', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'lift', exerciseId: 'bench', unit: 'lbs' }] }; return g; })()), /damaged/],
+    ['lift goal with bad unit', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'lift', exerciseId: 'bench', weight: 225, unit: 'stone' }] }; return g; })()), /damaged/],
+    ['often goal without per week', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'often', exerciseId: 'bench' }] }; return g; })()), /damaged/],
     ['bad templates', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'] = 'x'; return g; })()), /damaged/],
     ['null template', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'].push(null); return g; })()), /damaged/],
     ['schedule without template', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/schedule'][0].templateId; return g; })()), /damaged/],
