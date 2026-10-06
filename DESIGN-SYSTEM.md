@@ -13,11 +13,11 @@ LiftText is iOS-26-native: content sits on a soft sky, Liquid Glass is used for 
 
 `services/sky.ts` maps the last 7 days (a rolling window ending today, see `services/pace.ts`) to a sky. It is pure and unit-tested (`services/sky.test.mts`).
 
-- **Target:** distinct planned days in the last 7 days from the schedule. With no plan, the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history).
+- **Target:** distinct planned days in the last 7 days from the schedule. With no plan, the days a week picked in setup or Settings, else the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history). In a new user's first 7 days after setup (no plan), the target is capped at the days since setup, so day one is dawn and logging that day is full daylight.
 - **Done:** distinct days with a logged workout in the last 7 days.
 - **Phase:**
   - `day` when done ≥ target;
-  - `dusk` when behind pace: with a plan, fewer done than planned days already gone by; without one, fewer than the usual weekly count expects for the days counted so far (today counts once trained, days before your first workout never count);
+  - `dusk` when behind pace: with a plan, fewer done than planned days already gone by; without one (and never in a new user's first 7 days), fewer than the weekly target expects for the days counted so far (today counts once trained, days before your first workout never count);
   - otherwise `dawn`, blended toward day by `done / target`.
 - **Gradients (top → middle → bottom):** dawn `#FFD3B8 → #FADCE6 → #E4E8FF`, day `#C9DFFF → #E4EEFF → #F6F8FF`, dusk `#FFC39C → #EFB0C8 → #BDB8F0`, night `#0A0F26 → #141938 → #1F1B44` with a `#2A2766` glow at the top right.
 - The sky is static per visit: it changes when data changes or the app returns on a new day. No ambient animation.
