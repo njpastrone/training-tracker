@@ -24,6 +24,10 @@ test('names only (Jordan): every exercise has last done and how often, nothing n
   assert.equal(ex(d, 'leg-workout').timesLast28Days, 1);
   assert.equal(d.daysSinceGroupTrained.quads, 20);
   assert.equal(d.daysSinceGroupTrained.back, 1);
+  assert.deepEqual(d.staleGroups.sort(), ['quads', 'shoulders']); // legs 20 days ago, shoulders 10; cardio (basketball) 7
+  assert.equal(d.weeksInARow, 6); // since Aug 31
+  assert.equal(d.totalSessions, 20);
+  assert.deepEqual(d.prsLast14Days, []);
   // Most frequent first
   assert.equal(d.exercises[0].timesLast28Days >= d.exercises.at(-1)!.timesLast28Days, true);
 });
@@ -35,6 +39,7 @@ test('mixed (Maya): back after 22 days off, her usual is the 4 weeks before the 
   assert.equal(d.usualPerWeek, 2);
   assert.equal(d.sessionsLast7, 1);
   assert.equal(d.daysSinceLastWorkout, 2);
+  assert.equal(d.weeksInARow, 1); // the comeback week
   assert.equal(ex(d, 'cycling').withNumbers, true);
   assert.equal(ex(d, 'upper-body-workout').withNumbers, false);
 });
@@ -51,6 +56,7 @@ test('full detail (Sam): trends, PRs and stalls per lift', () => {
   assert.equal(lift('bench-press').isAllTimeBest, true);
   assert.equal(lift('bench-press').trend, 'up');
   assert.equal(lift('deadlift').isAllTimeBest, true);
+  assert.deepEqual(d.prsLast14Days.sort(), ['bench-press', 'deadlift', 'lat-pulldown', 'lateral-raise', 'overhead-press', 'seated-cable-row', 'tricep-pushdown']); // not squat; deadlift Sep 29 is 9 days ago
   assert.equal(lift('bench-press').recent.length, 5);
   assert.equal(lift('bench-press').recent[0].note, 'felt easy');
   // Leg press has numbers only once: no trend

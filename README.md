@@ -8,6 +8,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **AI-Powered Parsing** - Claude API extracts exercises, sets, reps, weights, and muscle groups automatically
 - **Workout History** - Calendar view showing your workout frequency and streaks
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
+- **Progress** - When you last did each exercise and how often, PRs where you logged numbers, days since each muscle group, and a box to add a workout you forgot ("did legs six days ago")
 - **Streak Tracking** - Stay motivated with current and longest streak counters
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
 - **Local Storage** - Your data stays on your device, with export/restore backups (see [Backing Up](#backing-up))
@@ -106,7 +107,7 @@ training-tracker/
 │   ├── (tabs)/             # Tab navigation screens
 │   │   ├── index.tsx       # Log tab (home)
 │   │   ├── history.tsx     # History & calendar
-│   │   ├── coach.tsx       # AI Coach (weekly report + chat)
+│   │   ├── progress.tsx    # Progress: exercises, days since, corrections
 │   │   └── settings.tsx    # App settings
 │   └── _layout.tsx         # Root layout
 ├── components/             # Reusable UI components

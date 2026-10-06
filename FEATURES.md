@@ -3,6 +3,8 @@
 ## Overview
 This document outlines the next major features to be implemented in the Training Tracker app. Both features are designed to be lightweight, non-invasive, and integrate seamlessly with existing functionality.
 
+The Coach tab has been replaced by **Progress** (`app/(tabs)/progress.tsx`): each exercise with when it was last done and how often, PRs only where numbers were logged, days since each muscle group was trained, and natural-language corrections for missed workouts.
+
 ## Feature 1: Intra-Workout Trainer
 
 ### Description
@@ -11,7 +13,7 @@ A lightweight, context-aware AI assistant that provides real-time guidance durin
 ### User Experience
 - **Access Point**: Small "Ask Coach" button on the main Log tab (near recent workouts section)
 - **Context Awareness**: Automatically knows what exercises have been logged today
-- **Interface**: Uses existing Coach tab's chat interface for Q&A
+- **Interface**: Chat-style questions will live in the planned "Ask about your training" sheet on Progress (a later PR)
 
 ### Key Capabilities
 - Answer workout-specific questions:
@@ -38,7 +40,7 @@ A lightweight, context-aware AI assistant that provides real-time guidance durin
 - **AI Prompt**: Specialized prompt focused on mid-workout decision making
 
 ### Implementation Priority: MEDIUM
-- Builds on existing coach infrastructure
+- Builds on the planned Ask sheet on Progress
 - High user value with minimal UI changes
 
 ---

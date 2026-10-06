@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, SFSymbol } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Workout } from '../types/workout';
 import { useWorkoutStore, DeletedWorkouts } from '../stores/workoutStore';
@@ -93,26 +93,39 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
 // Floats over the bottom of the screen for a few seconds after a delete
 export function UndoToast({ removed, onClose }: { removed: DeletedWorkouts | null; onClose: () => void }) {
   const restoreWorkouts = useWorkoutStore(s => s.restoreWorkouts);
+  if (!removed?.workouts.length) return null;
+  return (
+    <Toast
+      key={removed.workouts.map(w => w.id).join()}
+      icon="trash"
+      text={`Deleted ${plural(removed.workouts.length)}`}
+      onUndo={() => restoreWorkouts(removed)}
+      onClose={onClose}
+    />
+  );
+}
+
+// A few seconds of "this happened · Undo" over the bottom of the screen. Render it only while shown;
+// give it a new key for a new event so its timer restarts.
+export function Toast({ icon, text, onUndo, onClose }: { icon: SFSymbol; text: string; onUndo: () => void; onClose: () => void }) {
   const { colors } = useTheme();
 
   useEffect(() => {
-    if (!removed) return;
     const timer = setTimeout(onClose, 6000);
     return () => clearTimeout(timer);
-  }, [removed]);
+  }, []);
 
-  if (!removed?.workouts.length) return null;
   return (
     <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut} style={styles.toastWrap} pointerEvents="box-none">
       <View style={[styles.toast, { backgroundColor: colors.glass, borderColor: colors.glassLine }]} accessibilityLiveRegion="polite">
-        <SymbolView name="trash" size={18} tintColor={colors.textSecondary} />
-        <Text variant="titleSmall" style={{ color: colors.text }}>Deleted {plural(removed.workouts.length)}</Text>
+        <SymbolView name={icon} size={18} tintColor={colors.textSecondary} />
+        <Text variant="titleSmall" style={[styles.toastText, { color: colors.text }]} numberOfLines={2}>{text}</Text>
         <Pill
           variant="glass"
           size="small"
           label="Undo"
           onPress={() => {
-            restoreWorkouts(removed);
+            onUndo();
             onClose();
           }}
         />
@@ -143,6 +156,9 @@ const styles = StyleSheet.create({
     right: spacing.screen,
     bottom: spacing.lg,
     alignItems: 'center',
+  },
+  toastText: {
+    flexShrink: 1,
   },
   toast: {
     flexDirection: 'row',

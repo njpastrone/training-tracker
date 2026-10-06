@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, muscleGroupColors, spacing } from '../constants/theme';
 import { workoutSummary } from '../services/format';
@@ -49,8 +50,20 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
   const [adding, setAdding] = useState<number | null>(null);
   const focus = (key: string) => ({ onFocus: () => setFocused(key), onBlur: () => setFocused(f => (f === key ? null : f)) });
 
+  // A late add ("did legs six days ago") goes to one past day: show that day up top, tappable to change
+  const offsets = [...new Set(draft.exercises.map(e => e.dayOffset ?? 0))];
+  const single = offsets.length === 1 ? offsets[0] : null;
+  // Once shown, the day row stays for this draft, so moving it to today and back to a past day still works
+  const [pinned, setPinned] = useState(false);
+  if (!pinned && single !== null && single < 0) setPinned(true);
+  const backfill = pinned ? single : null;
+  const moveTo = (day: Date) => {
+    const offset = Math.min(0, differenceInCalendarDays(day, parseISO(date)));
+    onChange({ ...draft, exercises: draft.exercises.map(e => ({ ...e, dayOffset: offset || undefined })) });
+  };
+
   const dayTag = (offset?: number) =>
-    !offset ? null : offset === -1 ? 'Yesterday' : format(addDays(parseISO(date), offset), 'EEE, MMM d');
+    !offset || backfill !== null ? null : offset === -1 ? 'Yesterday' : format(addDays(parseISO(date), offset), 'EEE, MMM d');
 
   return (
     <Animated.View entering={FadeInDown.springify().damping(17)} layout={LinearTransition}>
@@ -69,6 +82,28 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
         <Text variant="bodyMedium" style={[styles.summary, { color: colors.textSecondary }]}>
           {workoutSummary(draft.exercises)}
         </Text>
+
+        {backfill !== null && (
+          <View style={[styles.backfill, { backgroundColor: colors.cobalt + '14' }]}>
+            <SymbolView name="calendar" size={16} tintColor={colors.cobalt} />
+            {Platform.OS === 'ios' ? (
+              <DateTimePicker
+                value={addDays(parseISO(date), backfill)}
+                mode="date"
+                display="compact"
+                maximumDate={parseISO(date)}
+                onChange={(_, day) => day && moveTo(day)}
+                accentColor={colors.sunrise}
+                accessibilityLabel="Day this workout goes on"
+              />
+            ) : (
+              <Text variant="bodyMedium" style={{ color: colors.text }}>{format(addDays(parseISO(date), backfill), 'EEEE, MMM d')}</Text>
+            )}
+            <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+              {backfill === 0 ? 'Today' : backfill === -1 ? 'Yesterday' : `${-backfill} days ago`}
+            </Text>
+          </View>
+        )}
 
         {lowConfidence && (
           <View style={[styles.banner, { backgroundColor: colors.warning + '1A' }]} accessibilityLiveRegion="polite">
@@ -287,6 +322,15 @@ const styles = StyleSheet.create({
   summary: {
     marginLeft: 28,
     marginTop: 2,
+    marginBottom: spacing.sm,
+  },
+  backfill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.gap,
     marginBottom: spacing.sm,
   },
   banner: {

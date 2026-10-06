@@ -8,10 +8,8 @@ import { Pill } from '../../components/Glass';
 import { useWorkoutStore, DeletedWorkouts } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
-import MuscleGroupBalance from '../../components/MuscleGroupBalance';
 import WeeklyWorkoutPattern from '../../components/WeeklyWorkoutPattern';
 import WeekSelector from '../../components/WeekSelector';
-import InsightCards from '../../components/InsightCards';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
 import { fonts, radius, spacing } from '../../constants/theme';
 import { format, isFuture, parseISO } from 'date-fns';
@@ -292,7 +290,7 @@ export default function HistoryScreen() {
 
   const tiles = [
     { value: stats.streak.current, label: 'Day streak' },
-    { value: stats.thisWeek, label: 'This week' },
+    { value: sky.done, label: 'Last 7 days' }, // training days, the same rolling window as the sky
     { value: stats.thisMonth, label: 'This month' },
     { value: stats.totalWorkouts, label: 'All time' },
   ];
@@ -342,28 +340,17 @@ export default function HistoryScreen() {
           />
         </SkyCard>
 
-        {/* Weekly analytics */}
+        {/* Weekly pattern; what's due by muscle group is on Progress */}
         <SkyCard>
           <WeekSelector
             selectedWeek={selectedWeek}
             onWeekChange={setSelectedWeek}
           />
-          <MuscleGroupBalance
-            workouts={workouts}
-            selectedWeek={selectedWeek}
-          />
-        </SkyCard>
-
-        <SkyCard>
           <WeeklyWorkoutPattern
             workouts={workouts}
             selectedWeek={selectedWeek}
           />
         </SkyCard>
-
-        <View style={styles.insightCardsContainer}>
-          <InsightCards stats={stats} />
-        </View>
 
         {stats.streak.longest > 0 && (
           <Text variant="bodySmall" style={[styles.longestStreak, { color: colors.textTertiary }]}>
@@ -661,9 +648,6 @@ const styles = StyleSheet.create({
   planBannerText: {
     flex: 1,
     fontWeight: '500',
-  },
-  insightCardsContainer: {
-    marginBottom: spacing.md,
   },
   longestStreak: {
     textAlign: 'center',

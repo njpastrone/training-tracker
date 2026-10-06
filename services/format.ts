@@ -50,3 +50,10 @@ export function draftToText(exercises: ExerciseValues[], notes?: string): string
   if (notes) lines.push(`Notes: ${notes}`);
   return lines.join('\n');
 }
+
+// "today", "yesterday", "6 days ago"
+export const daysAgo = (n: number) => (n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`);
+
+// When an exercise was last done and how often lately: "last done 3 days ago · 4× in 4 wks"
+export const lastDoneLine = (e: { lastDoneDaysAgo: number; timesLast28Days: number }) =>
+  `last done ${daysAgo(e.lastDoneDaysAgo)}${e.timesLast28Days ? ` · ${e.timesLast28Days}× in 4 wks` : ''}`;

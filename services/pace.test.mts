@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { trainingWindow, usualPerWeek, onPace, perWeekRate, reportDays } from './pace';
+import { trainingWindow, usualPerWeek, onPace, perWeekRate } from './pace';
 
 const THU = new Date(2026, 9, 8, 9); // Thu 2026-10-08
 const paceOf = (dates: string[], perWeek: number, days = 7) => {
@@ -68,11 +68,4 @@ test('usual frequency comes from the 4 weeks before the last 7 days', () => {
   const dates = ['2026-09-04', '2026-09-06', '2026-09-11', '2026-09-13', '2026-09-18', '2026-09-20', '2026-09-25', '2026-10-01', '2026-10-05', '2026-10-06'];
   assert.equal(usualPerWeek(dates, THU), 2);
   assert.equal(usualPerWeek(['2026-09-30'], THU), 1);
-});
-
-test('the report window is longer for people who train less', () => {
-  assert.equal(reportDays(1), 14);
-  assert.equal(reportDays(3), 14);
-  assert.equal(reportDays(4), 12);
-  assert.equal(reportDays(6), 10);
 });

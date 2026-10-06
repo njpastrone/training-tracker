@@ -88,7 +88,7 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 - **Sheets**: Plan is a native form sheet (`presentation: 'formSheet'` in `app/_layout.tsx`) with a grabber and a close button.
 - **Headers**: pushed screens use the native stack header, transparent over the sky, with a minimal back button (`app/_layout.tsx`).
 - **Tab bar**: native tabs (`expo-router/unstable-native-tabs`) with SF Symbols, tinted sunrise, minimising on scroll.
-- **Icons**: SF Symbols (`expo-symbols`) for UI icons. AI features (coach, parsing) use the LiftText mark (`components/LogoMark.tsx`; the Coach tab uses `assets/tab-logo.png`). No emoji as icons.
+- **Icons**: SF Symbols (`expo-symbols`) for UI icons. AI features (coach, parsing) use the LiftText mark (`components/LogoMark.tsx`). No emoji as icons.
 - **Haptics**: `expo-haptics`, success on logging and planning, selection on toggles.
 
 ## Motion

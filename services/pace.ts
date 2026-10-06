@@ -49,6 +49,3 @@ export const perWeekRate = (count: number, elapsed: number) =>
 // share of the week counted so far, after it the whole target. A fraction is never owed.
 export const onPace = (rate: number, perWeek: number, elapsed: number) =>
   rate >= Math.floor(expectedSoFar(perWeek, Math.min(elapsed, 7)) + 1e-9);
-
-// The report card looks further back for people who train less, so it sees enough sessions
-export const reportDays = (perWeek: number) => (perWeek >= 5 ? 10 : perWeek >= 4 ? 12 : 14);
