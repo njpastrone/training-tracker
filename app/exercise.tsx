@@ -7,6 +7,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill } from '../components/Glass';
 import WorkoutList from '../components/WorkoutList';
+import { UndoToast } from '../components/SelectableWorkoutList';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { digest, target } from '../services/insights';
@@ -123,6 +124,7 @@ export default function ExerciseScreen() {
           </>
         )}
       </ScrollView>
+      <UndoToast />
     </SkyScreen>
   );
 }
