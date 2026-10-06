@@ -96,7 +96,7 @@ Server tests (Node 22.18+): `cd server && npm test`
 
 Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 
-Nothing is saved until you review the parsed workout. A typed fix under the review card ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, exercises, draft, fix } }`: correction mode returns the whole draft with the fix applied, plus a short `reply` when the fix is a question ("is pec deck machine flys?"), which the app shows under the box; a fix that changes nothing and asks nothing says so instead of doing nothing. When the question shows you call an exercise something else, the reply offers "Call it 'Machine flys' from now on", which saves your words as its name and alias, and cards then show "Machine flys · Pec Deck". A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
+Nothing is saved until you review the parsed workout. A typed fix in the chat bar while the review card is open ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, exercises, draft, fix } }`: correction mode returns the whole draft with the fix applied, plus a short `reply` when the fix is a question ("is pec deck machine flys?"), which the app shows on the card; a fix that changes nothing and asks nothing says so instead of doing nothing. When the question shows you call an exercise something else, the reply offers "Call it 'Machine flys' from now on", which saves your words as its name and alias, and cards then show "Machine flys · Pec Deck". A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
 
 ## Project Structure
 
@@ -141,7 +141,7 @@ You can log several days at once ("yesterday squats 5x5 225, today bench 3x8 185
 
 ### Planning a Week
 
-Tap **Plan your week** on the Log tab (shown when nothing is scheduled) or the **Plan** chip on the History calendar. Describe what you want, adjust the plan with the tweak chips or a short note, then tap **Plan it** to add the sessions to your calendar. Plan it replaces any not-completed sessions on the same dates. Undo from the History banner, or tap a planned day on the calendar and choose **Delete Plan** to remove its upcoming sessions (completed workouts stay).
+Type what you want in the chat bar on the History tab ("Plan your week…"), or tap **Plan it for me** on the Log tab (shown when nothing is scheduled) to start there. The plan shows as a card on the page; adjust it with the tweak chips or a short note in the same bar, then tap **Plan it** to add the sessions to your calendar. Plan it replaces any not-completed sessions on the same dates. Undo from the History banner, or tap a planned day on the calendar and choose **Delete Plan** to remove its upcoming sessions (completed workouts stay).
 
 ### Viewing History
 

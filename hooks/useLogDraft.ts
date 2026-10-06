@@ -107,6 +107,7 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
   };
 
   const discard = () => {
+    setText('');
     setSent(null);
     setDraft(null);
     setTemplateId(undefined);
