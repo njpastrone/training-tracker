@@ -75,9 +75,10 @@ export default function LogScreen() {
 
   // Just finished setup: the first log happens here, then the planner is offered for the rest of the week
   const firstRun = !!settings.onboardedAt && workouts.length === 0;
-  const justStarted = !!settings.onboardedAt && workouts.length === 1;
+  const justStarted = !!settings.onboardedAt && workouts.length === 1 && workouts[0].date === today;
+  const weeklyTarget = settings.weeklyTarget ?? 3;
   const planRest = () =>
-    router.push({ pathname: '/plan', params: { request: `The rest of this week, ${settings.weeklyTarget ?? 3} days a week.` } });
+    router.push({ pathname: '/plan', params: { request: `The rest of this week, ${weeklyTarget} days a week.` } });
 
   const log = useLogDraft({
     date: today,
@@ -242,7 +243,7 @@ export default function LogScreen() {
             <SkyCard>
               <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
               <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
-                {sky.done} of {sky.target} so far. I'll fit the rest around what you just did.
+                You're aiming for {weeklyTarget} days a week. I'll fit the rest around what you just did.
               </Text>
               <View style={styles.actions}>
                 <Pill icon="logo" label="Plan my week" onPress={planRest} style={styles.primaryAction} />
