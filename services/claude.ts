@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import { addDays, format, parseISO } from 'date-fns';
 import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
@@ -12,6 +13,21 @@ import { flagGuesses, keepIdentity } from './draft';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
 export class ApiError extends Error {}
+
+const INSTALL_ID_STORAGE_KEY = '@training-tracker/install-id';
+let installId: Promise<string> | undefined;
+
+// A random id made once per install and kept on the phone, so the Worker can cap each device's daily
+// AI requests. It is not tied to who you are.
+function getInstallId(): Promise<string> {
+  installId ??= AsyncStorage.getItem(INSTALL_ID_STORAGE_KEY).then(async (saved) => {
+    if (saved) return saved;
+    const id = uuidv4();
+    await AsyncStorage.setItem(INSTALL_ID_STORAGE_KEY, id);
+    return id;
+  }).catch(() => uuidv4()); // storage failing must not block AI requests; the id then lasts this session
+  return installId;
+}
 
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model
 export async function callClaude(
@@ -29,6 +45,7 @@ export async function callClaude(
     headers: {
       'content-type': 'application/json',
       'x-app-password': process.env.EXPO_PUBLIC_APP_PASSWORD ?? '',
+      'x-install-id': await getInstallId(),
     },
     body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, parse }),
   });

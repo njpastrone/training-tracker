@@ -3,20 +3,20 @@ import assert from 'node:assert/strict';
 import worker, { type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 
-function makeEnv(cap = '2', count?: number) {
+function makeEnv(cap = '2', count?: number, deviceCap = '50', legacyCap = '50') {
   const store = new Map<string, string>();
   if (count !== undefined) store.set(`count:${new Date().toISOString().slice(0, 10)}`, String(count));
   const USAGE = {
     get: async (k: string) => store.get(k) ?? null,
     put: async (k: string, v: string) => void store.set(k, v),
   } as unknown as KVNamespace;
-  return { env: { ANTHROPIC_API_KEY: 'sk-test', APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: cap, USAGE } as Env, store };
+  return { env: { ANTHROPIC_API_KEY: 'sk-test', APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: cap, DEVICE_DAILY_CAP: deviceCap, LEGACY_DAILY_CAP: legacyCap, USAGE } as Env, store };
 }
 
-function req(password?: string, body: unknown = { system: 's', messages: [{ role: 'user', content: 'hi' }], max_tokens: 99999 }) {
+function req(password?: string, body: unknown = { system: 's', messages: [{ role: 'user', content: 'hi' }], max_tokens: 99999 }, installId?: string) {
   return new Request('https://worker.test/', {
     method: 'POST',
-    headers: password === undefined ? {} : { 'x-app-password': password },
+    headers: { ...(password === undefined ? {} : { 'x-app-password': password }), ...(installId === undefined ? {} : { 'x-install-id': installId }) },
     body: JSON.stringify(body),
   });
 }
@@ -60,6 +60,37 @@ test('enforces the daily cap', async () => {
   assert.equal(blocked.status, 429);
   assert.match(blocked.body.error!, /Daily AI limit/);
   assert.equal(upstream.length, 0);
+});
+
+test('caps each install separately and still counts it against the global cap', async () => {
+  const { env, store } = makeEnv('3', undefined, '2');
+  const a = (id: string) => call(req('pw', undefined, id), env);
+  assert.equal((await a('device-aaaa')).status, 200);
+  assert.equal((await a('device-aaaa')).status, 200);
+  const blocked = await a('device-aaaa');
+  assert.equal(blocked.status, 429);
+  assert.match(blocked.body.error!, /on this phone/);
+  assert.equal(upstream.length, 0);
+  assert.equal((await a('device-bbbb')).status, 200); // another tester is unaffected
+  assert.equal((await a('device-cccc')).status, 429); // until the global cap is reached
+  assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '3');
+});
+
+test('apps without an install id share one small bucket; malformed ids are rejected', async () => {
+  const { env, store } = makeEnv('5', undefined, '5', '2');
+  assert.equal((await call(req('pw', undefined, 'bad id!'), env)).status, 400);
+  assert.equal(store.size, 0);
+  assert.equal((await call(req('pw'), env)).status, 200);
+  assert.equal((await call(req('pw'), env)).status, 200);
+  const blocked = await call(req('pw'), env);
+  assert.equal(blocked.status, 429);
+  assert.match(blocked.body.error!, /on this phone/);
+  assert.equal((await call(req('pw', undefined, 'device-aaaa'), env)).status, 200); // newer builds are unaffected
+  assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '3');
+});
+
+test('a missing or invalid device cap blocks that device', async () => {
+  assert.equal((await call(req('pw', undefined, 'device-aaaa'), makeEnv('2', undefined, '').env)).status, 429);
 });
 
 test('a missing or invalid cap blocks instead of allowing unlimited use', async () => {

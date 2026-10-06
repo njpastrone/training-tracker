@@ -184,4 +184,4 @@ A Worker deployed before parse mode, which drops `temperature: 0`, scores 0.995 
 
 Cost: a full 100-case run is about $0.20 with the eval's prompt caching, or $0.57 uncached. A live
 parse costs about $0.0058 (4.9k input tokens), against $0.0032 for the old, shorter prompt. At the
-Worker's cap of 200 requests a day, that's at most about $1.20 a day.
+Worker's global cap of 450 requests a day, that's at most about $2.60 a day.
