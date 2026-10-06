@@ -108,8 +108,19 @@ export function digest(workouts: Workout[], library: ExerciseLibrary, unit: Weig
   // No sessions in those 4 weeks means no usual yet (pace.ts would assume 3 a week)
   const hasUsual = trainingWindow(dates, 28, subDays(usualNow, 7)).trained.size > 0;
 
-  const groupLast: Partial<Record<MuscleGroup, string>> = {};
-  for (const w of past) for (const g of w.muscleGroups) if (!groupLast[g] || w.date > groupLast[g]!) groupLast[g] = w.date;
+  const groupDays: Partial<Record<MuscleGroup, Set<string>>> = {};
+  for (const w of past) for (const g of w.muscleGroups) (groupDays[g] ??= new Set()).add(w.date);
+  const groupLast = Object.fromEntries(Object.entries(groupDays).map(([g, ds]) => [g, [...ds].sort().at(-1)!])) as Partial<Record<MuscleGroup, string>>;
+  // Stale: 10+ days since, for a group the user trained on 2+ days in the 8 weeks before that
+  const staleGroups = (Object.keys(groupLast) as MuscleGroup[]).filter((g) => {
+    const last = groupLast[g]!;
+    const before = [...groupDays[g]!].filter((d) => daysBetween(last, d) < 56);
+    return daysBetween(today, last) >= 10 && before.length >= 2;
+  });
+
+  // Rolling 7-day blocks ending today with at least one session, back to the first empty one
+  let weeksInARow = 0;
+  while (days.length && trainingWindow(dates, 7, subDays(now, 7 * weeksInARow)).trained.size > 0) weeksInARow++;
 
   return {
     today,
@@ -119,9 +130,14 @@ export function digest(workouts: Workout[], library: ExerciseLibrary, unit: Weig
     weeklySessionsLast8: Array.from({ length: 8 }, (_, i) => trainingWindow(dates, 7, subDays(now, 7 * (7 - i))).trained.size),
     daysSinceLastWorkout: days.length ? daysBetween(today, days[days.length - 1]) : null,
     comeback,
+    weeksInARow,
+    totalSessions: days.length, // distinct training days ever
     daysSinceGroupTrained: Object.fromEntries(Object.entries(groupLast).map(([g, d]) => [g, daysBetween(today, d!)])) as Partial<Record<MuscleGroup, number>>,
+    staleGroups,
     exercises,
     liftTrends,
+    // Lifts whose latest top set, in the last 14 days, is their best ever
+    prsLast14Days: liftTrends.filter((t) => t.isAllTimeBest && t.recent[0].date > since(14)).map((t) => t.id),
     runs: all
       .filter((x) => x.id === 'running' && x.e.distance && x.e.duration)
       .map((x) => ({ date: x.date, distance: x.e.distance!, distanceUnit: x.e.distanceUnit ?? 'km', minutes: x.e.duration! }))

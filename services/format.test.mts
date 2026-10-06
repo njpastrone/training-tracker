@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exerciseNumbers, workoutSummary, draftToText, formatDuration } from './format';
+import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine } from './format';
 
 const bench = { name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const };
 const run = { name: 'Run', muscleGroup: 'cardio' as const, duration: 25, distance: 5, distanceUnit: 'km' as const };
@@ -30,4 +30,10 @@ test('draftToText writes a draft back as a plain log', () => {
     draftToText([{ ...bench, notes: 'felt easy' }, run], 'Good day'),
     'Bench Press 3x8, 135 lb (felt easy)\nRun 25 min, 5 km\nNotes: Good day'
   );
+});
+
+test('lastDoneLine reads well for any recency, and leaves out an empty count', () => {
+  assert.equal(lastDoneLine({ lastDoneDaysAgo: 0, timesLast28Days: 1 }), 'last done today · 1× in 4 wks');
+  assert.equal(lastDoneLine({ lastDoneDaysAgo: 1, timesLast28Days: 4 }), 'last done yesterday · 4× in 4 wks');
+  assert.equal(lastDoneLine({ lastDoneDaysAgo: 40, timesLast28Days: 0 }), 'last done 40 days ago');
 });

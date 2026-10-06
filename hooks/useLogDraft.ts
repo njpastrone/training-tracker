@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { parseWorkout, correctWorkout, workoutsFromParse, ApiError } from '../services/claude';
-import { ParsedWorkoutResponse } from '../types/workout';
+import { ParsedWorkoutResponse, Workout } from '../types/workout';
 import { NOTHING_CHANGED, sameDraft } from '../services/draft';
 import type { FixReplyState } from '../components/ParsedCard';
 
@@ -10,7 +10,7 @@ export type Draft = ParsedWorkoutResponse;
 
 // Type it → review the parsed card → fix by typing or tapping a number → Save.
 // Nothing is stored until save(); date is the day being logged.
-export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (workoutId: string, templateId?: string) => void }) {
+export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (workoutId: string, templateId?: string, saved?: Workout[]) => void }) {
   const { addWorkout, markTemplateUsed, settings } = useWorkoutStore();
   const [text, setText] = useState(''); // what's in the composer
   const [sent, setSent] = useState<string | null>(null); // the log as typed, shown as your bubble
@@ -103,7 +103,7 @@ export function useLogDraft({ date, onLogged }: { date: string; onLogged?: (work
     }
     const loggedTemplate = templateId;
     discard();
-    onLogged?.(workouts[workouts.length - 1].id, loggedTemplate); // latest day, i.e. today's session
+    onLogged?.(workouts[workouts.length - 1].id, loggedTemplate, workouts); // latest day, i.e. today's session
   };
 
   const discard = () => {

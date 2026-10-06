@@ -8,7 +8,7 @@ This directory contains all routes using Expo Router's file-based routing.
   - `_layout.tsx`: Tab bar configuration
   - `index.tsx`: Log tab (home) - workout input + recent workouts
   - `history.tsx`: History tab - calendar, streaks, analytics
-  - `coach.tsx`: Coach tab - weekly report card and follow-up chat
+  - `progress.tsx`: Progress tab - exercises (last done, how often, PRs), days since trained, and a box for adding missed workouts
   - `settings.tsx`: Settings tab - preferences, data management
 
 ## Routing Conventions
