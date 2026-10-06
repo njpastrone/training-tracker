@@ -56,9 +56,9 @@ export default function HistoryScreen() {
 
   // planId: set after Plan it, so this tab can offer Undo. request: a plan asked for from the Log tab
   const { planId, request } = useLocalSearchParams<{ planId?: string; request?: string }>();
-  const planner = usePlanner({ onPlanned: plan => router.setParams({ planId: plan.id }) });
-  const planning = !!planner.sent || !!planner.draft;
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
+  const planner = usePlanner({ plans, onPlanned: plan => router.setParams({ planId: plan.id }) });
+  const planning = !!planner.sent || !!planner.draft;
   const addedPlan = plans.find(p => p.id === planId && p.status === 'active');
   const addedCount = schedule.filter(s => s.planId === planId).length;
   const [selectedWeek, setSelectedWeek] = useState(new Date()); // Start with current week
@@ -320,7 +320,7 @@ export default function HistoryScreen() {
         value: planner.text,
         onChangeText: planner.setText,
         onSend: () => planner.send(planner.text),
-        placeholder: planner.draft ? 'Tell me what to change…' : 'Plan your week…',
+        placeholder: planner.draft ? 'Fix or ask…' : 'Plan your week…',
         chips: planner.draft ? (planner.draft.chips.length ? planner.draft.chips : DEFAULT_TWEAKS) : STARTERS,
         onChip: planner.send,
         busy: planner.busy,
@@ -332,8 +332,8 @@ export default function HistoryScreen() {
     >
       <LargeTitle title="History" subtitle={`${sky.done} of ${sky.target} ${sky.planned ? 'planned workouts' : 'workouts'} in the last 7 days`} />
 
-      {/* The goal is asked once before planning, then remembered (Settings can change it) */}
-      {!planning && !settings.goal && (
+      {/* The goal is asked once planning starts, then remembered (Settings can change it) */}
+      {(planning || !!planner.text.trim()) && !settings.goal && (
         <SkyCard>
           <SectionLabel>What are you training for?</SectionLabel>
           <View style={styles.goalRow}>

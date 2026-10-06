@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { format, subDays } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { ApiError } from '../services/claude';
-import { getPlans, planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
+import { planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
 import { GOALS } from '../services/onboarding';
 import { PlannerResponse, TrainingPlan } from '../types/plan';
 
@@ -13,9 +13,8 @@ const RETRY_MESSAGE = "Couldn't build that, try again.";
 
 // Say what you want → review the plan card → tweak by typing or a chip → Plan it.
 // Nothing is scheduled until planIt().
-export function usePlanner({ onPlanned }: { onPlanned: (plan: TrainingPlan) => void }) {
+export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlanned: (plan: TrainingPlan) => void }) {
   const { workouts, schedule, settings, loadSchedule, loadTemplates } = useWorkoutStore();
-  const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [text, setText] = useState(''); // what's in the chat bar
   const [messages, setMessages] = useState<string[]>([]);
   const [sending, setSending] = useState<string | null>(null); // shown as your bubble while the plan builds
@@ -25,10 +24,6 @@ export function usePlanner({ onPlanned }: { onPlanned: (plan: TrainingPlan) => v
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getPlans().then(setPlans);
-  }, [schedule]);
 
   const history = useMemo(
     () => ({ ...summarizeHistory(workouts, schedule, plans, settings.weightUnit), daysPerWeek: settings.weeklyTarget, goal: settings.goal }),
