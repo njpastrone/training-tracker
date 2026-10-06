@@ -162,6 +162,8 @@ const muscleGroupKeywords: Record<string, MuscleGroup> = {
   'press': 'shoulders',
   'bicep': 'biceps',
   'curl': 'biceps',
+  'leg curl': 'hamstrings',
+  'leg press': 'quads',
   'tricep': 'triceps',
   'pushdown': 'triceps',
   'leg': 'quads',
@@ -172,13 +174,18 @@ const muscleGroupKeywords: Record<string, MuscleGroup> = {
   'glute': 'glutes',
   'hip thrust': 'glutes',
   'calf': 'calves',
+  'calves': 'calves',
   'core': 'core',
   'ab': 'core',
   'plank': 'core',
+  'crunch': 'core',
   'cardio': 'cardio',
   'run': 'cardio',
+  'running': 'cardio',
   'bike': 'cardio',
 };
+
+const keywordsLongestFirst = Object.keys(muscleGroupKeywords).sort((a, b) => b.length - a.length);
 
 // Simple fallback parser when AI is off or unavailable: one exercise per line or comma, numbers filled in by hand
 function fallbackParse(input: string): ParsedWorkoutResponse | null {
@@ -188,7 +195,7 @@ function fallbackParse(input: string): ParsedWorkoutResponse | null {
     .filter(Boolean)
     .map(part => {
       const lower = part.toLowerCase();
-      const keyword = Object.keys(muscleGroupKeywords).find(k => lower.includes(k));
+      const keyword = keywordsLongestFirst.find(k => new RegExp(`\\b${k}(e?s)?\\b`).test(lower));
       return { name: part.substring(0, 50), muscleGroup: keyword ? muscleGroupKeywords[keyword] : 'full_body' as MuscleGroup };
     });
 
