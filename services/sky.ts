@@ -39,7 +39,7 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
   const planned = plannedDates.length > 0;
   // A new user's first 7 days only ask for the days they've been here, and pace never fails them:
   // day one is dawn, and logging that day is full daylight
-  const daysHere = prefs.startedAt ? differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1 : Infinity;
+  const daysHere = prefs.startedAt ? Math.max(1, differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1) : Infinity;
   const firstWeek = !planned && daysHere <= 7;
   const usual = prefs.weeklyTarget ?? usualPerWeek(dates, now);
   const target = planned ? plannedDates.length : firstWeek ? Math.min(usual, daysHere) : usual;

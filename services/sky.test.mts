@@ -85,6 +85,13 @@ test('a new user is never behind in their first 7 days, and the target is only t
   assert.equal(weekSky(w('2026-10-08'), [], THU, { weeklyTarget: 4, startedAt: '2026-10-08' }).phase, 'day');
 });
 
+test('a setup date after today (clock moved back, date line) still gives a target of at least 1', () => {
+  const sky = weekSky([], [], THU, { weeklyTarget: 4, startedAt: '2026-10-10' });
+  assert.equal(sky.target, 1);
+  assert.notEqual(sky.phase, 'dusk');
+  assert.ok(Number.isFinite(sky.progress));
+});
+
 test('after the first 7 days the full target and pace are back', () => {
   const sky = weekSky(w('2026-10-01'), [], THU, { weeklyTarget: 4, startedAt: '2026-10-01' });
   assert.equal(sky.target, 4);
