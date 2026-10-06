@@ -77,6 +77,6 @@ test('with AI off a typed log becomes one exercise per line or comma, sent nowhe
   const parsed = await parseWorkout('bench press, squats\nplank', { date: '2026-10-06', unit: 'lbs' });
   assert.equal(sent, 0);
   assert.deepEqual(parsed?.exercises.map(e => [e.name, e.muscleGroup]), [['bench press', 'chest'], ['squats', 'quads'], ['plank', 'core']]);
-  const lines = await parseWorkout('leg curl\nleg press\ncrunches\nrunning', { date: '2026-10-06', unit: 'lbs' });
-  assert.deepEqual(lines?.exercises.map(e => e.muscleGroup), ['hamstrings', 'quads', 'core', 'cardio']);
+  const lines = await parseWorkout('leg curl\nleg press\ncrunches\nrunning\nlat pulldown\npullups\nbenching', { date: '2026-10-06', unit: 'lbs' });
+  assert.deepEqual(lines?.exercises.map(e => e.muscleGroup), ['hamstrings', 'quads', 'core', 'cardio', 'back', 'back', 'chest']);
 });

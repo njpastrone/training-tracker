@@ -181,7 +181,6 @@ const muscleGroupKeywords: Record<string, MuscleGroup> = {
   'crunch': 'core',
   'cardio': 'cardio',
   'run': 'cardio',
-  'running': 'cardio',
   'bike': 'cardio',
 };
 
@@ -195,7 +194,7 @@ function fallbackParse(input: string): ParsedWorkoutResponse | null {
     .filter(Boolean)
     .map(part => {
       const lower = part.toLowerCase();
-      const keyword = keywordsLongestFirst.find(k => new RegExp(`\\b${k}(e?s)?\\b`).test(lower));
+      const keyword = keywordsLongestFirst.find(k => new RegExp(`\\b${k}`).test(lower));
       return { name: part.substring(0, 50), muscleGroup: keyword ? muscleGroupKeywords[keyword] : 'full_body' as MuscleGroup };
     });
 
