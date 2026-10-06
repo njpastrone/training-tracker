@@ -186,7 +186,10 @@ function NewGoal({ unit, first, onAdd }: { unit: WeightUnit; first: boolean; onA
       {kind === 'lift' ? (
         <Field label={`Weight (${unit})`} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} placeholder={unit === 'kg' ? '100' : '225'} />
       ) : (
-        <Segmented value={perWeek} options={['1', '2', '3', '4', '5'].map(n => ({ value: n, label: `${n}× a week` }))} onChange={setPerWeek} />
+        <View>
+          <Text variant="bodySmall" style={[styles.hint, { color: colors.textSecondary }]}>Days a week</Text>
+          <Segmented value={perWeek} options={['1', '2', '3', '4', '5'].map(n => ({ value: n, label: `${n}×` }))} onChange={setPerWeek} />
+        </View>
       )}
       <Pill icon="plus" label="Add goal" disabled={!ready} onPress={add} />
       <ExercisePicker visible={picking} onPick={e => { setExercise(e); setPicking(false); }} onDismiss={() => setPicking(false)} />
