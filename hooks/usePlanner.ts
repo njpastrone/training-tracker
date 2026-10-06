@@ -34,13 +34,12 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
   const send = async (raw: string) => {
     const message = raw.trim();
     if (!message || busy) return;
-    if (turns >= MAX_TURNS) {
+    if (draft && turns >= MAX_TURNS) {
       setError('Start a new plan to keep going.');
       return;
     }
     setBusy(true);
     setError(null);
-    setTurns(turns + 1);
     setSending(message);
     try {
       const result = await planWorkouts(message, draft?.plan ?? null, history, messages);
@@ -50,6 +49,7 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
       }
       setPrevious(draft);
       setDraft(result);
+      setTurns(draft ? turns + 1 : 1);
       setMessages([...messages, message]);
       setText('');
     } catch (err) {
