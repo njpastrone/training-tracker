@@ -9,11 +9,13 @@ import { Pill } from './Glass';
 
 const SENT = [
   'What you type in a chat bar or fix box, and the workout card you are fixing',
+  'Anything you type, including notes like pain or injuries',
   'Exercise names: the ones you use and the catalog matches',
   'Your weight unit and the date',
   'When you plan a week: a summary of your recent training and your goals',
+  'A random ID for this phone',
 ];
-const NOT_SENT = ['Your full workout history', 'Photos', 'Health data'];
+const NOT_SENT = ['Your full workout history', 'Photos', 'Apple Health data'];
 
 // Asks once, before the first AI call, whether typed text may go to Anthropic. Settings opens it again.
 // Mounted once in the root layout; services/aiConsent.ts shows it and remembers the answer.
@@ -57,8 +59,9 @@ export default function AiConsentSheet() {
           {list(NOT_SENT)}
         </View>
         <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-          Our server stores nothing but a count of requests each day. Your workouts stay saved on this phone.
+          Anthropic deletes it within 30 days and doesn't use it to train its AI. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days). Your workouts stay saved on this phone.
         </Text>
+        {/* TODO(privacy-policy): link the privacy policy here once it exists */}
         <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
           Not now keeps AI off: each line or comma you type becomes an exercise you fill in by hand. You can change this anytime in Settings.
         </Text>

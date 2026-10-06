@@ -186,7 +186,7 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
-          <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server, which stores only a daily request count." />
+          <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days)." />
         </SkyCard>
       </ScrollView>
     </SkyScreen>
