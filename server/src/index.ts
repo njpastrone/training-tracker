@@ -6,6 +6,7 @@ export interface Env {
   APP_PASSWORD: string;
   DAILY_REQUEST_CAP: string;
   DEVICE_DAILY_CAP: string;
+  LEGACY_DAILY_CAP: string;
   USAGE: KVNamespace;
 }
 
@@ -35,18 +36,18 @@ const json = (status: number, body: unknown) => Response.json(body, { status });
 
 // ponytail: KV read-then-write is not atomic and is eventually consistent, so bursts can
 // overshoot the caps a little. Move the counters to a Durable Object if they must be exact.
-// Takes one slot from the global count and, when the app sent an install id, from that device's
-// count; returns which cap was hit, or null. Each allowed request costs one KV write per counter.
-export async function takeDailySlot(kv: KVNamespace, cap: number, now = new Date(), device?: { id: string; cap: number }): Promise<'device' | 'global' | null> {
+// Takes one slot from the global count and from the device's count; returns which cap was hit,
+// or null. Each allowed request costs one KV write per counter.
+export async function takeDailySlot(kv: KVNamespace, cap: number, now: Date, device: { id: string; cap: number }): Promise<'device' | 'global' | null> {
   const day = now.toISOString().slice(0, 10); // UTC day
   const globalKey = `count:${day}`;
-  const deviceKey = device && `device:${device.id}:${day}`;
-  const [count, deviceCount] = await Promise.all([kv.get(globalKey), deviceKey ? kv.get(deviceKey) : null]).then((v) => v.map((c) => Number(c) || 0));
+  const deviceKey = `device:${device.id}:${day}`;
+  const [count, deviceCount] = await Promise.all([kv.get(globalKey), kv.get(deviceKey)]).then((v) => v.map((c) => Number(c) || 0));
   // Written as !(count < cap) so a missing or non-numeric cap (NaN) blocks instead of allowing everything.
-  if (device && !(deviceCount < device.cap)) return 'device';
+  if (!(deviceCount < device.cap)) return 'device';
   if (!(count < cap)) return 'global';
   const ttl = { expirationTtl: 2 * 24 * 60 * 60 };
-  await Promise.all([kv.put(globalKey, String(count + 1), ttl), deviceKey && kv.put(deviceKey, String(deviceCount + 1), ttl)]);
+  await Promise.all([kv.put(globalKey, String(count + 1), ttl), kv.put(deviceKey, String(deviceCount + 1), ttl)]);
   return null;
 }
 
@@ -99,12 +100,13 @@ export default {
       };
     }
 
-    // Apps from before install ids send none and count against the global cap only
+    // Apps from before install ids send none and all share one small 'legacy' bucket (too short to clash with a real id)
     const installId = request.headers.get('x-install-id');
     if (installId !== null && !/^[A-Za-z0-9-]{8,64}$/.test(installId)) return json(400, { error: 'Invalid request.' });
+    const device = installId ? { id: installId, cap: Number(env.DEVICE_DAILY_CAP) } : { id: 'legacy', cap: Number(env.LEGACY_DAILY_CAP) };
     let hit: 'device' | 'global' | null;
     try {
-      hit = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), installId ? { id: installId, cap: Number(env.DEVICE_DAILY_CAP) } : undefined);
+      hit = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), device);
     } catch (err) {
       console.error('Usage counter error', err);
       return json(503, { error: 'Server busy, please try again in a moment.' });

@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import worker, { type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 
-function makeEnv(cap = '2', count?: number, deviceCap = '50') {
+function makeEnv(cap = '2', count?: number, deviceCap = '50', legacyCap = '50') {
   const store = new Map<string, string>();
   if (count !== undefined) store.set(`count:${new Date().toISOString().slice(0, 10)}`, String(count));
   const USAGE = {
     get: async (k: string) => store.get(k) ?? null,
     put: async (k: string, v: string) => void store.set(k, v),
   } as unknown as KVNamespace;
-  return { env: { ANTHROPIC_API_KEY: 'sk-test', APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: cap, DEVICE_DAILY_CAP: deviceCap, USAGE } as Env, store };
+  return { env: { ANTHROPIC_API_KEY: 'sk-test', APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: cap, DEVICE_DAILY_CAP: deviceCap, LEGACY_DAILY_CAP: legacyCap, USAGE } as Env, store };
 }
 
 function req(password?: string, body: unknown = { system: 's', messages: [{ role: 'user', content: 'hi' }], max_tokens: 99999 }, installId?: string) {
@@ -76,12 +76,17 @@ test('caps each install separately and still counts it against the global cap', 
   assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '3');
 });
 
-test('apps without an install id fall back to the global cap; malformed ids are rejected', async () => {
-  const { env, store } = makeEnv('1', undefined, '0');
+test('apps without an install id share one small bucket; malformed ids are rejected', async () => {
+  const { env, store } = makeEnv('5', undefined, '5', '2');
   assert.equal((await call(req('pw', undefined, 'bad id!'), env)).status, 400);
   assert.equal(store.size, 0);
   assert.equal((await call(req('pw'), env)).status, 200);
-  assert.equal((await call(req('pw'), env)).status, 429);
+  assert.equal((await call(req('pw'), env)).status, 200);
+  const blocked = await call(req('pw'), env);
+  assert.equal(blocked.status, 429);
+  assert.match(blocked.body.error!, /on this phone/);
+  assert.equal((await call(req('pw', undefined, 'device-aaaa'), env)).status, 200); // newer builds are unaffected
+  assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '3');
 });
 
 test('a missing or invalid device cap blocks that device', async () => {
