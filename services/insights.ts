@@ -70,10 +70,15 @@ export function digest(workouts: Workout[], library: ExerciseLibrary, unit: Weig
   // Weighted lifts done at least twice, last within 4 weeks. Unsure entries wait for the user,
   // as they do for PRs (services/progress.ts).
   const liftTrends: LiftTrend[] = [...byId.entries()].flatMap(([id, xs]) => {
-    const sets = xs
-      .filter((x) => x.e.weight && x.e.match !== 'unsure')
-      .map((x) => ({ date: x.date, weight: x.e.weight!, unit: x.e.unit ?? unit, reps: x.e.reps, sets: x.e.sets, note: x.e.notes }))
-      .sort((a, b) => b.date.localeCompare(a.date));
+    // One top set per day (heaviest, then most reps): warm-ups and repeated entries aren't sessions
+    const top = new Map<string, LiftSet>();
+    for (const x of xs) {
+      if (!x.e.weight || x.e.match === 'unsure') continue;
+      const s = { date: x.date, weight: x.e.weight, unit: x.e.unit ?? unit, reps: x.e.reps, sets: x.e.sets, note: x.e.notes };
+      const t = top.get(s.date);
+      if (!t || s.weight > t.weight || (s.weight === t.weight && (s.reps ?? 0) > (t.reps ?? 0))) top.set(s.date, s);
+    }
+    const sets = [...top.values()].sort((a, b) => b.date.localeCompare(a.date));
     const latest = sets[0];
     // Stored units are never converted, so only sets in the latest unit compare
     const same = sets.filter((s) => s.unit === latest?.unit);
@@ -187,7 +192,8 @@ export const unknownExercises = (names: string[], d: Digest) => {
 
 // Numbers in a reply that appear nowhere in what the model was given. 1-3 are too common to check.
 export function inventedNumbers(text: string, given: unknown): string[] {
-  const source = JSON.stringify(given);
-  const nums = text.match(/\d+(?:\.\d+)?/g) ?? [];
-  return [...new Set(nums.filter((n) => !/^[123]$/.test(n) && !source.includes(n)))];
+  const NUM = /\d+(?:\.\d+)?/g;
+  const source = new Set((JSON.stringify(given).match(NUM) ?? []).map(Number));
+  const nums = text.match(NUM) ?? [];
+  return [...new Set(nums.filter((n) => !/^[123]$/.test(n) && !source.has(Number(n))))];
 }

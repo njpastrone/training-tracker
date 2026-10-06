@@ -107,4 +107,19 @@ test('code checks: nagging, unknown exercises, invented numbers', () => {
   const given = { d: s, targets: s.liftTrends.map(target) };
   assert.deepEqual(inventedNumbers('Bench 150x8 x3 after 145 felt easy; squat 165x7', given), []);
   assert.deepEqual(inventedNumbers('Back to normal in about 10 days, aim for 157 next week', given), ['157']);
+  // 65 and 75 are only substrings of 165 and 275
+  assert.deepEqual(inventedNumbers('Aim for 65, then add 75', given), ['65', '75']);
+});
+
+test('warm-up sets on one day count as one session at the top set', () => {
+  const ws = [
+    workout('2026-10-07', { weight: 135, reps: 10 }, { weight: 155, reps: 8 }, { weight: 175, reps: 5, notes: 'felt easy' }),
+    workout('2026-10-05', { weight: 170, reps: 5 }, { weight: 170, reps: 5 }),
+    workout('2026-10-02', { weight: 165, reps: 5 }),
+  ];
+  const [t] = digest(ws, lib, 'lbs', NOW).liftTrends;
+  assert.deepEqual(t.recent.map((s) => [s.date, s.weight, s.reps]), [['2026-10-07', 175, 5], ['2026-10-05', 170, 5], ['2026-10-02', 165, 5]]);
+  assert.equal(t.isAllTimeBest, true);
+  assert.equal(t.sessionsAtSameTopSet, 1);
+  assert.equal(target(t).next, '180x5');
 });
