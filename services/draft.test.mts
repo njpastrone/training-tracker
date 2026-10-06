@@ -65,6 +65,13 @@ test('guessed numbers, units, days and names are flagged', () => {
   ]);
 });
 
+test('a backfill on a date of the month is not flagged as a guessed day', () => {
+  const p = parsed([{ name: 'Leg Workout', muscleGroup: 'quads', dayOffset: -10 }]);
+  assert.deepEqual(flagGuesses(p, 'legs on the 28th, forgot to put it in').unsure, []);
+  assert.deepEqual(flagGuesses(p, 'legs on the 28, forgot to put it in').unsure, []);
+  assert.deepEqual(flagGuesses(p, 'legs, forgot to put it in').unsure, [{ exercise: 0, field: 'name' }]);
+});
+
 test('missing detail is never flagged: a name-only log saves cleanly', () => {
   const p = parsed([
     { name: 'Bench Press', muscleGroup: 'chest' },

@@ -70,7 +70,7 @@ const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'sev
 const MULTIPLES: Record<string, number> = { double: 2, triple: 3 };
 const words = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).map(w => w.replace(/s$/, '')).filter(Boolean);
 const UNIT_WORDS = /(kgs?|kilos?|kilograms?|lbs?|pounds?)\b/i;
-const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur|sun)day|\b(mon|tue|wed|thu|fri|sat|sun)\b/i;
+const DAY_WORDS = /yesterday|last night|\bago\b|(mon|tues|wednes|thurs|fri|satur|sun)day|\b(mon|tue|wed|thu|fri|sat|sun)\b|\b\d{1,2}(st|nd|rd|th)\b|\bon the \d{1,2}\b/i;
 
 // Flags genuine ambiguity in a first parse, never missing detail (sets, reps and weight are optional):
 // an exercise the log doesn't name, a weight or rep count that isn't in the log (digits or number words) (plate math, "same as

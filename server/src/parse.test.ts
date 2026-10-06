@@ -128,3 +128,10 @@ test('finalizeWithNames returns a correction reply and renumbers callIt past mer
   assert.equal(none.reply, undefined);
   assert.equal(none.callIt, undefined);
 });
+
+test('buildParseRequest spells out the 13 days before the logging date, so a late add is a lookup', () => {
+  const content = buildParseRequest('forgot to log last Tuesday: legs', { date: '2026-10-08', unit: 'lbs' }).messages[0].content;
+  assert.match(content, /^Logging date: Thursday 2026-10-08\. Earlier days: Wednesday 2026-10-07 = -1; Tuesday 2026-10-06 = -2;/);
+  assert.match(content, /Monday 2026-09-28 = -10;/);
+  assert.match(content, /Friday 2026-09-25 = -13\. A bare weekday/);
+});
