@@ -81,7 +81,6 @@ export interface ExerciseReference {
 // User settings/preferences
 export interface UserSettings {
   weightUnit: WeightUnit;
-  showStreakNotifications: boolean;
   weeklyTarget?: number; // days a week from setup or Settings (3, 4 or 5); unset = the usual count
   goal?: TrainingGoal; // asked the first time the user plans; unset = general fitness
   onboardedAt?: string; // yyyy-MM-dd setup was finished or skipped; unset for users from before setup
@@ -102,27 +101,6 @@ export interface Goals {
 export type CustomGoal =
   | { id: string; kind: 'lift'; exerciseId: string; weight: number; unit: WeightUnit }
   | { id: string; kind: 'often'; exerciseId: string; perWeek: number };
-
-// Analytics data types
-export interface WorkoutStreak {
-  current: number;
-  longest: number;
-  lastWorkoutDate: string | null;
-}
-
-export interface WorkoutStats {
-  totalWorkouts: number;
-  thisWeek: number;
-  thisMonth: number;
-  thisYear: number;
-  averagePerWeek: number;
-  streak: WorkoutStreak;
-  workoutsByMuscleGroup: Record<MuscleGroup, number>;
-  workoutsByDayOfWeek: Record<string, number>;
-  mostTrainedMuscleGroup: { group: MuscleGroup; count: number } | null;
-  leastTrainedMuscleGroup: { group: MuscleGroup; count: number } | null;
-  favoriteDay: { day: string; count: number } | null;
-}
 
 // Response from Claude API parsing
 export interface ParsedWorkoutResponse {

@@ -12,6 +12,7 @@ import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import Ring from '../../components/Ring';
 import WorkoutList from '../../components/WorkoutList';
+import { UndoToast } from '../../components/SelectableWorkoutList';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLogDraft } from '../../hooks/useLogDraft';
@@ -149,7 +150,7 @@ export default function LogScreen() {
   const reviewing = !!log.sent || !!log.draft || !!example;
 
   return (
-    <ChatScreen bar={logBar(log, "What'd you do today?", LOG_CHIPS, () => setExample(null))} follow={reviewing}>
+    <ChatScreen bar={logBar(log, "What'd you do today?", LOG_CHIPS, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
       <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
 
       {logged && (

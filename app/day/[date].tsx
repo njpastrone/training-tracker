@@ -1,24 +1,34 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useWorkoutStore, DeletedWorkouts } from '../../stores/workoutStore';
+import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
-import { format, parseISO, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
+import { format, parseISO, isToday, isYesterday, isFuture, formatDistanceToNow } from 'date-fns';
 import { fonts, radius, spacing } from '../../constants/theme';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
-import { SkyScreen, SkyCard, LargeTitle } from '../../components/Sky';
+import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
+import { deletePlan } from '../../services/planner';
+import { emptyDay } from '../../services/format';
 
 export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
-  const { getWorkoutsByDate } = useWorkoutStore();
+  const { getWorkoutsByDate, schedule, getTemplate, loadSchedule, loadTemplates, cancelScheduledWorkout, deleteRecurringSeries } = useWorkoutStore();
   const { colors } = useTheme();
-  const [removed, setRemoved] = useState<DeletedWorkouts | null>(null);
 
   const workouts = getWorkoutsByDate(date);
   const dateObj = parseISO(date);
+  const future = isFuture(dateObj) && !isToday(dateObj);
+  const planned = schedule.find(s => s.date === date && !s.completed && !s.skipped);
+  const plannedTemplate = planned ? getTemplate(planned.templateId) : undefined;
+  const empty = emptyDay(date, format(new Date(), 'yyyy-MM-dd'), workouts.length > 0, !!planned);
+
+  useEffect(() => {
+    loadSchedule();
+    loadTemplates();
+  }, []);
 
   const getDateLabel = () => {
     if (isToday(dateObj)) return 'Today';
@@ -39,6 +49,35 @@ export default function DayDetailScreen() {
     });
   };
 
+  // Plan a day in History's chat bar
+  const planThisDay = () =>
+    router.navigate({ pathname: '/(tabs)/history', params: { request: `A workout on ${format(dateObj, 'EEEE, MMMM d')}` } });
+
+  const removePlanned = () => {
+    if (!planned) return;
+    const run = (action: () => Promise<unknown>) => () =>
+      action().catch(() => Alert.alert('Error', "Couldn't change the plan. Try again."));
+    const buttons: AlertButton[] = [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove this day', style: 'destructive', onPress: run(() => cancelScheduledWorkout(date)) },
+    ];
+    if (planned.planId) {
+      const id = planned.planId;
+      buttons.push({
+        text: 'Delete the whole plan',
+        style: 'destructive',
+        onPress: run(async () => {
+          await deletePlan(id);
+          await Promise.all([loadSchedule(), loadTemplates()]);
+        }),
+      });
+    } else if (planned.isRecurring && planned.recurringPattern) {
+      const { templateId, recurringPattern, recurringDays } = planned;
+      buttons.push({ text: 'Remove every repeat', style: 'destructive', onPress: run(() => deleteRecurringSeries(templateId, recurringPattern, recurringDays)) });
+    }
+    Alert.alert('Remove the planned workout?', 'Logged workouts stay.', buttons);
+  };
+
   const totalExercises = workouts.reduce((sum, w) => sum + w.exercises.length, 0);
   const allMuscleGroups = [...new Set(workouts.flatMap(w => w.muscleGroups))];
   const tiles = [
@@ -52,11 +91,35 @@ export default function DayDetailScreen() {
       <Stack.Screen
         options={{
           title: '',
-          headerRight: () => <HeaderButton icon="plus" label="Add workout" onPress={handleQuickAdd} />,
+          headerRight: future ? undefined : () => <HeaderButton icon="plus" label="Add workout" onPress={handleQuickAdd} />,
         }}
       />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
         <LargeTitle title={getDateLabel()} subtitle={getRelativeTime()} />
+
+        {planned && (
+          <SkyCard>
+            <SectionLabel>Planned</SectionLabel>
+            <Text variant="titleMedium" style={[styles.plannedName, { color: colors.text }]}>
+              {plannedTemplate?.name ?? 'Workout'}
+            </Text>
+            {!!plannedTemplate?.exercises.length && (
+              <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+                {plannedTemplate.exercises.map(e => e.name).join(', ')}
+              </Text>
+            )}
+            {planned.note && (
+              <Text variant="bodyMedium" style={[styles.note, { color: colors.text }]}>{planned.note}</Text>
+            )}
+            <View style={styles.actions}>
+              {isToday(dateObj) && (
+                // Start lives on the Log tab, which shows today's planned workout
+                <Pill icon="play.fill" label="Start on Log" onPress={() => router.navigate('/(tabs)')} />
+              )}
+              <Pill variant="glass" label="Remove" onPress={removePlanned} />
+            </View>
+          </SkyCard>
+        )}
 
         {workouts.length > 0 ? (
           <>
@@ -69,21 +132,22 @@ export default function DayDetailScreen() {
               ))}
             </View>
 
-            <SelectableWorkoutList label="Workouts" workouts={workouts} groupByDate={false} enableSwipe onDeleted={setRemoved} />
+            <SelectableWorkoutList label="Workouts" workouts={workouts} groupByDate={false} enableSwipe />
           </>
-        ) : (
+        ) : empty && (
           <SkyCard style={styles.empty}>
-            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>
-              No workouts on this day
-            </Text>
+            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>{empty.title}</Text>
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-              {isToday(dateObj) ? "Ready to log today's workout?" : 'Add a workout for this day'}
+              {empty.plan ? 'Plan a workout and it shows up on your calendar.' : 'Add a workout for this day'}
             </Text>
-            <Pill icon="plus" label="Add workout" onPress={handleQuickAdd} style={styles.emptyButton} />
+            {empty.plan && <Pill icon="logo" label="Plan this day" onPress={planThisDay} style={styles.emptyButton} />}
+            {empty.log && (
+              <Pill variant={empty.plan ? 'glass' : undefined} icon="plus" label="Add workout" onPress={handleQuickAdd} style={styles.emptyButton} />
+            )}
           </SkyCard>
         )}
       </ScrollView>
-      <UndoToast removed={removed} onClose={() => setRemoved(null)} />
+      <UndoToast />
     </SkyScreen>
   );
 }
@@ -111,6 +175,16 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
+  },
+  plannedName: {
+    marginTop: spacing.xs,
+  },
+  note: {
+    marginTop: spacing.sm,
+  },
+  actions: {
+    gap: spacing.sm,
+    marginTop: spacing.gap,
   },
   empty: {
     alignItems: 'center',

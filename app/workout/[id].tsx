@@ -27,7 +27,7 @@ const muscleGroups: MuscleGroup[] = [
 export default function WorkoutEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { workouts, updateWorkout, deleteWorkout, getWorkoutsByDate, settings, exerciseLibrary } = useWorkoutStore();
+  const { workouts, updateWorkout, deleteWorkout, deleteWithUndo, getWorkoutsByDate, settings, exerciseLibrary } = useWorkoutStore();
   const { colors } = useTheme();
   
   const workout = workouts.find(w => w.id === id);
@@ -103,8 +103,9 @@ export default function WorkoutEditScreen() {
       muscleGroups,
       notes: notes.trim() || undefined,
     });
-    // Navigate back to home screen instead of using back()
-    router.replace('/');
+    // Back to where it was opened (History, a day, an exercise), else home
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   };
   
   const mergeWorkouts = (existingWorkout: Workout, dateString: string, muscleGroups: MuscleGroup[]) => {
@@ -120,29 +121,12 @@ export default function WorkoutEditScreen() {
       notes: mergedNotes || undefined,
     });
     
-    // Delete the current workout since we merged it
+    // Delete the current workout since we merged it; the !workout effect navigates back
     deleteWorkout(id);
-    // Navigate back to home screen instead of using back()
-    router.replace('/');
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Workout',
-      'Are you sure you want to delete this workout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // The !workout effect navigates back once it's gone
-            deleteWorkout(id);
-          },
-        },
-      ]
-    );
-  };
+  // No confirm: the screen it goes back to offers Undo. The !workout effect navigates back once it's gone.
+  const handleDelete = () => deleteWithUndo([id]);
 
   const updateExercise = (exerciseId: string, field: keyof Exercise, value: any) => {
     setExercises(prev => prev.map(e => 

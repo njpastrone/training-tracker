@@ -6,7 +6,6 @@ import { analyzeWeeklyVolume } from './coach';
 import { trainingWindow } from './pace';
 import { templateService } from './templates';
 import { scheduleService } from './schedule';
-import { calculateStats } from '../stores/workoutStore';
 import { Exercise, MuscleGroup, TrainingGoal, WeightUnit, Workout } from '../types/workout';
 import { TemplateExercise, TemplateSchedule } from '../types/template';
 import { PlanDay, PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
@@ -56,7 +55,11 @@ export function summarizeHistory(
   const lastDate = workouts.reduce<string | null>((max, w) => (!max || w.date > max ? w.date : max), null);
 
   // Usual days come from the last 12 weeks so old habits don't win
-  const byDay = calculateStats(between(daysAgo(84), today)).workoutsByDayOfWeek;
+  const byDay: Record<string, number> = {};
+  for (const w of between(daysAgo(84), today)) {
+    const day = DAY_NAMES[getDay(parseISO(w.date))];
+    byDay[day] = (byDay[day] ?? 0) + 1;
+  }
   const busiest = Math.max(0, ...Object.values(byDay));
   const usualDays = busiest === 0 ? [] : DAY_NAMES.filter(d => (byDay[d] ?? 0) >= busiest / 2).map(d => d.slice(0, 3));
 

@@ -50,7 +50,7 @@ export default function ProgressScreen() {
     { value: d.weeksInARow, label: d.weeksInARow === 1 ? 'Week in a row' : 'Weeks in a row' },
     d.liftTrends.length
       ? { value: d.prsLast14Days.length, label: 'PRs · 14 days' }
-      : { value: d.totalSessions, label: 'Sessions logged' },
+      : { value: d.totalSessions, label: d.totalSessions === 1 ? 'Training day' : 'Training days' },
   ];
   const groups = (Object.keys(muscleGroupColors) as MuscleGroup[]).filter(g => d.daysSinceGroupTrained[g] !== undefined);
   const shown = showAll ? d.exercises : d.exercises.slice(0, SHOWN);
