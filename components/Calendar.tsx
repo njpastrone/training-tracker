@@ -1,6 +1,6 @@
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths, isToday, isPast } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, subMonths, addMonths, isToday, isPast, startOfWeek, subWeeks, addDays } from 'date-fns';
 import { useState, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
@@ -8,6 +8,7 @@ import { Workout } from '../types/workout';
 import { TemplateSchedule } from '../types/template';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, spacing } from '../constants/theme';
+import { Pill } from './Glass';
 
 interface Props {
   workouts: Workout[];
@@ -17,11 +18,13 @@ interface Props {
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Month grid: logged = sunrise disc, planned = cobalt ring, today = a ring around the date.
+// Last week, this week and next week; "Show full month" opens the month grid.
+// Logged = sunrise disc, planned = cobalt ring, today = a ring around the date.
 // Every day opens the day screen, which shows what was logged or planned there.
 export default function Calendar({ workouts, schedule = [] }: Props) {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [fullMonth, setFullMonth] = useState(false);
   const router = useRouter();
 
   const workoutDates = useMemo(() => {
@@ -37,6 +40,10 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
   }, [schedule]);
 
   const calendarDays = useMemo(() => {
+    if (!fullMonth) {
+      const start = subWeeks(startOfWeek(new Date(), { weekStartsOn: 1 }), 1);
+      return eachDayOfInterval({ start, end: addDays(start, 20) });
+    }
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -47,20 +54,32 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
     const paddedDays: (Date | null)[] = Array(startDay).fill(null);
 
     return [...paddedDays, ...days];
-  }, [currentMonth]);
+  }, [currentMonth, fullMonth]);
 
   const goToPrevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  const toggleFullMonth = () => {
+    setCurrentMonth(new Date());
+    setFullMonth(!fullMonth);
+  };
+  const first = calendarDays[0]!;
+  const last = calendarDays[calendarDays.length - 1]!;
 
   return (
     <View>
-      <View style={styles.header}>
-        <NavButton icon="chevron.left" label="Previous month" onPress={goToPrevMonth} />
-        <Text variant="titleMedium" style={{ color: colors.text }}>
-          {format(currentMonth, 'MMMM yyyy')}
+      {fullMonth ? (
+        <View style={styles.header}>
+          <NavButton icon="chevron.left" label="Previous month" onPress={goToPrevMonth} />
+          <Text variant="titleMedium" style={{ color: colors.text }}>
+            {format(currentMonth, 'MMMM yyyy')}
+          </Text>
+          <NavButton icon="chevron.right" label="Next month" onPress={goToNextMonth} />
+        </View>
+      ) : (
+        <Text variant="titleMedium" style={[styles.range, { color: colors.text }]}>
+          {format(first, 'MMM d')} – {format(last, first.getMonth() === last.getMonth() ? 'd' : 'MMM d')}
         </Text>
-        <NavButton icon="chevron.right" label="Next month" onPress={goToNextMonth} />
-      </View>
+      )}
 
       <View style={styles.row}>
         {DAYS.map((day, i) => (
@@ -120,6 +139,8 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
         <LegendItem label="Planned" swatch={{ borderWidth: 2, borderColor: colors.cobalt }} />
         <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
       </View>
+
+      <Pill variant="glass" size="small" label={fullMonth ? 'Show 3 weeks' : 'Show full month'} onPress={toggleFullMonth} style={styles.toggle} />
     </View>
   );
 }
@@ -154,6 +175,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  range: {
+    textAlign: 'center',
     marginBottom: spacing.sm,
   },
   nav: {
@@ -200,6 +225,7 @@ const styles = StyleSheet.create({
   },
   legend: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.gap,
     marginTop: spacing.sm,
   },
@@ -212,5 +238,9 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  toggle: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.gap,
   },
 });

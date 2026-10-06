@@ -1,4 +1,4 @@
-import { StyleSheet, Alert, ScrollView, ActionSheetIOS } from 'react-native';
+import { StyleSheet, Alert, ScrollView, ActionSheetIOS, View } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
@@ -107,14 +107,15 @@ export default function SettingsScreen() {
             icon="calendar"
             title="Days a week"
             subtitle={settings.weeklyTarget ? 'Full daylight at this many' : 'From your usual week'}
-            right={
-              <Segmented
-                value={String(settings.weeklyTarget ?? '')}
-                options={[...DAYS_OPTIONS]}
-                onChange={value => updateSettings({ weeklyTarget: Number(value) })}
-              />
-            }
           />
+          {/* Full width under its row: beside the title it ran off a 375pt screen */}
+          <View style={styles.below}>
+            <Segmented
+              value={String(settings.weeklyTarget ?? '')}
+              options={[...DAYS_OPTIONS]}
+              onChange={value => updateSettings({ weeklyTarget: Number(value) })}
+            />
+          </View>
           <Row
             icon="target"
             title="Training for"
@@ -192,5 +193,8 @@ const styles = StyleSheet.create({
   card: {
     paddingVertical: spacing.xs,
     marginBottom: spacing.lg,
+  },
+  below: {
+    paddingBottom: spacing.sm,
   },
 });

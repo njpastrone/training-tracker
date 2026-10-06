@@ -1,4 +1,4 @@
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -61,6 +61,7 @@ export default function LogScreen() {
   const [logged, setLogged] = useState<string | null>(null); // toast after saving
   const [example, setExample] = useState<ParsedWorkoutResponse | null>(null);
   const [notNow, setNotNow] = useState(false);
+  const [howTo, setHowTo] = useState(false);
 
   const now = new Date();
   const today = format(now, 'yyyy-MM-dd');
@@ -220,18 +221,29 @@ export default function LogScreen() {
         </SkyCard>
       )}
 
+      {/* After the first log the how-to folds away so Recent fits on a small phone */}
       {!reviewing && !todaysSchedule && !firstRun && (
-        <SkyCard style={styles.hint}>
-          <SymbolView name="bubble.left.and.text.bubble.right" size={30} tintColor={colors.sunrise} />
-          <Text variant="titleMedium" style={{ color: colors.text }}>Just say what you did</Text>
-          <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-            Type or dictate it. The exercises are enough; add numbers only if you want.
-          </Text>
-          <View style={styles.examples}>
-            {EXAMPLES.map(example => (
-              <Text key={example} variant="bodyMedium" style={[styles.center, { color: colors.textTertiary }]}>“{example}”</Text>
-            ))}
-          </View>
+        <SkyCard style={styles.howTo}>
+          <Pressable
+            onPress={() => setHowTo(!howTo)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: howTo }}
+            style={styles.howToHeader}
+          >
+            <SymbolView name="bubble.left.and.text.bubble.right" size={20} tintColor={colors.sunrise} />
+            <Text variant="titleSmall" style={[styles.fill, { color: colors.text }]}>How to use this</Text>
+            <SymbolView name={howTo ? 'chevron.up' : 'chevron.down'} size={13} weight="semibold" tintColor={colors.textTertiary} />
+          </Pressable>
+          {howTo && (
+            <View style={styles.examples}>
+              <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+                Just say what you did. Type or dictate it. The exercises are enough; add numbers only if you want.
+              </Text>
+              {EXAMPLES.map(example => (
+                <Text key={example} variant="bodyMedium" style={{ color: colors.textTertiary }}>“{example}”</Text>
+              ))}
+            </View>
+          )}
         </SkyCard>
       )}
 
@@ -441,6 +453,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 22,
+  },
+  howTo: {
+    paddingVertical: spacing.gap,
+  },
+  howToHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 32,
   },
   firstActions: {
     flexDirection: 'row',
