@@ -10,6 +10,7 @@ import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWor
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
 import { deletePlan } from '../../services/planner';
+import { emptyDay } from '../../services/format';
 
 export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
@@ -22,6 +23,7 @@ export default function DayDetailScreen() {
   const future = isFuture(dateObj) && !isToday(dateObj);
   const planned = schedule.find(s => s.date === date && !s.completed && !s.skipped);
   const plannedTemplate = planned ? getTemplate(planned.templateId) : undefined;
+  const empty = emptyDay(date, format(new Date(), 'yyyy-MM-dd'), workouts.length > 0, !!planned);
 
   useEffect(() => {
     loadSchedule();
@@ -132,23 +134,16 @@ export default function DayDetailScreen() {
 
             <SelectableWorkoutList label="Workouts" workouts={workouts} groupByDate={false} enableSwipe />
           </>
-        ) : planned ? null : future ? (
+        ) : empty && (
           <SkyCard style={styles.empty}>
-            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>Nothing planned</Text>
+            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>{empty.title}</Text>
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-              Plan a workout and it shows up on your calendar.
+              {empty.plan ? 'Plan a workout and it shows up on your calendar.' : 'Add a workout for this day'}
             </Text>
-            <Pill icon="logo" label="Plan this day" onPress={planThisDay} style={styles.emptyButton} />
-          </SkyCard>
-        ) : (
-          <SkyCard style={styles.empty}>
-            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>
-              No workouts on this day
-            </Text>
-            <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-              {isToday(dateObj) ? "Ready to log today's workout?" : 'Add a workout for this day'}
-            </Text>
-            <Pill icon="plus" label="Add workout" onPress={handleQuickAdd} style={styles.emptyButton} />
+            {empty.plan && <Pill icon="logo" label="Plan this day" onPress={planThisDay} style={styles.emptyButton} />}
+            {empty.log && (
+              <Pill variant={empty.plan ? 'glass' : undefined} icon="plus" label="Add workout" onPress={handleQuickAdd} style={styles.emptyButton} />
+            )}
           </SkyCard>
         )}
       </ScrollView>
