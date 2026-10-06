@@ -2,12 +2,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Workout, WorkoutStats, WorkoutStreak, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
+import { Workout, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
 import { emptyLibrary, migrateToV1, rememberName, withIdentity } from '../services/exerciseIdentity';
-import { format, startOfWeek, startOfMonth, startOfYear, differenceInDays, parseISO, isAfter, subDays, getDay } from 'date-fns';
+import { format } from 'date-fns';
 
 // Undo payload: the deleted workouts and the plan sessions their delete reopened
 export interface DeletedWorkouts {
@@ -30,9 +30,11 @@ interface WorkoutState {
   deleteWorkout: (id: string) => void;
   deleteWorkouts: (ids: string[]) => DeletedWorkouts;
   restoreWorkouts: (deleted: DeletedWorkouts) => void;
+  // The last delete the user can still undo; <UndoToast> shows it on whichever screen they land on
+  undo: (DeletedWorkouts & { at: number }) | null;
+  deleteWithUndo: (ids: string[]) => void;
+  clearUndo: () => void;
   getWorkoutsByDate: (date: string) => Workout[];
-  getWorkoutDates: () => Set<string>;
-  getStats: () => WorkoutStats;
   updateSettings: (settings: Partial<UserSettings>) => void;
   createCustomExercise: (name: string, muscleGroup: MuscleGroup) => string;
   rememberName: (exerciseId: string, words: string) => void;
@@ -50,144 +52,11 @@ interface WorkoutState {
   
   // Schedule actions
   loadSchedule: () => Promise<void>;
-  scheduleWorkout: (date: string, templateId: string, isRecurring?: boolean, pattern?: 'weekly' | 'biweekly' | 'monthly') => Promise<void>;
   cancelScheduledWorkout: (date: string) => Promise<void>;
   deleteRecurringSeries: (templateId: string, recurringPattern: 'weekly' | 'biweekly' | 'monthly' | 'custom', customDays?: string[]) => Promise<number>;
   markWorkoutCompleted: (date: string, workoutId?: string) => Promise<void>;
   markWorkoutSkipped: (date: string, reason?: string) => Promise<void>;
   getTodaysScheduledWorkout: () => TemplateSchedule | null;
-  getWeekSchedule: (weekStart: Date) => Promise<TemplateSchedule[]>;
-}
-
-// Helper to calculate streak
-function calculateStreak(workouts: Workout[]): WorkoutStreak {
-  if (workouts.length === 0) {
-    return { current: 0, longest: 0, lastWorkoutDate: null };
-  }
-
-  // Sort by date descending
-  const sortedWorkouts = [...workouts].sort((a, b) =>
-    b.date.localeCompare(a.date)
-  );
-
-  const today = format(new Date(), 'yyyy-MM-dd');
-  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
-  const lastWorkoutDate = sortedWorkouts[0].date;
-
-  // Get unique workout dates
-  const workoutDates = [...new Set(sortedWorkouts.map((w) => w.date))].sort(
-    (a, b) => b.localeCompare(a)
-  );
-
-  // Calculate current streak
-  let currentStreak = 0;
-  const startDate = lastWorkoutDate === today || lastWorkoutDate === yesterday ? lastWorkoutDate : null;
-
-  if (startDate) {
-    let checkDate = startDate;
-    for (const date of workoutDates) {
-      if (date === checkDate) {
-        currentStreak++;
-        checkDate = format(subDays(parseISO(checkDate), 1), 'yyyy-MM-dd');
-      } else if (date < checkDate) {
-        break;
-      }
-    }
-  }
-
-  // Calculate longest streak
-  let longestStreak = 0;
-  let tempStreak = 1;
-  for (let i = 0; i < workoutDates.length - 1; i++) {
-    const current = parseISO(workoutDates[i]);
-    const next = parseISO(workoutDates[i + 1]);
-    const diff = differenceInDays(current, next);
-
-    if (diff === 1) {
-      tempStreak++;
-    } else {
-      longestStreak = Math.max(longestStreak, tempStreak);
-      tempStreak = 1;
-    }
-  }
-  longestStreak = Math.max(longestStreak, tempStreak, currentStreak);
-
-  return {
-    current: currentStreak,
-    longest: longestStreak,
-    lastWorkoutDate,
-  };
-}
-
-// Helper to calculate stats
-export function calculateStats(workouts: Workout[]): WorkoutStats {
-  const today = new Date();
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const monthStart = startOfMonth(today);
-  const yearStart = startOfYear(today);
-
-  const thisWeek = workouts.filter((w) =>
-    isAfter(parseISO(w.date), weekStart) || format(parseISO(w.date), 'yyyy-MM-dd') === format(weekStart, 'yyyy-MM-dd')
-  ).length;
-
-  const thisMonth = workouts.filter((w) =>
-    isAfter(parseISO(w.date), monthStart) || format(parseISO(w.date), 'yyyy-MM-dd') === format(monthStart, 'yyyy-MM-dd')
-  ).length;
-
-  const thisYear = workouts.filter((w) =>
-    isAfter(parseISO(w.date), yearStart) || format(parseISO(w.date), 'yyyy-MM-dd') === format(yearStart, 'yyyy-MM-dd')
-  ).length;
-
-  // Calculate average workouts per week (over last 4 weeks)
-  const fourWeeksAgo = subDays(today, 28);
-  const recentWorkouts = workouts.filter((w) => isAfter(parseISO(w.date), fourWeeksAgo));
-  const averagePerWeek = Math.round((recentWorkouts.length / 4) * 10) / 10;
-
-  // Muscle group analysis
-  const workoutsByMuscleGroup = workouts.reduce((acc, workout) => {
-    workout.muscleGroups.forEach((group) => {
-      acc[group] = (acc[group] || 0) + 1;
-    });
-    return acc;
-  }, {} as Record<MuscleGroup, number>);
-
-  // Find most and least trained muscle groups (only if there are workouts)
-  const muscleGroupEntries = Object.entries(workoutsByMuscleGroup) as [MuscleGroup, number][];
-  const mostTrainedMuscleGroup = muscleGroupEntries.length > 0 
-    ? muscleGroupEntries.reduce((max, curr) => curr[1] > max[1] ? curr : max)
-    : null;
-  const leastTrainedMuscleGroup = muscleGroupEntries.length > 0
-    ? muscleGroupEntries.reduce((min, curr) => curr[1] < min[1] ? curr : min)
-    : null;
-
-  // Day of week analysis
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const workoutsByDayOfWeek = workouts.reduce((acc, workout) => {
-    const dayOfWeek = getDay(parseISO(workout.date));
-    const dayName = dayNames[dayOfWeek];
-    acc[dayName] = (acc[dayName] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  // Find favorite day
-  const dayEntries = Object.entries(workoutsByDayOfWeek);
-  const favoriteDay = dayEntries.length > 0
-    ? dayEntries.reduce((max, curr) => curr[1] > max[1] ? curr : max)
-    : null;
-
-  return {
-    totalWorkouts: workouts.length,
-    thisWeek,
-    thisMonth,
-    thisYear,
-    averagePerWeek,
-    streak: calculateStreak(workouts),
-    workoutsByMuscleGroup,
-    workoutsByDayOfWeek,
-    mostTrainedMuscleGroup: mostTrainedMuscleGroup ? { group: mostTrainedMuscleGroup[0], count: mostTrainedMuscleGroup[1] } : null,
-    leastTrainedMuscleGroup: leastTrainedMuscleGroup ? { group: leastTrainedMuscleGroup[0], count: leastTrainedMuscleGroup[1] } : null,
-    favoriteDay: favoriteDay ? { day: favoriteDay[0], count: favoriteDay[1] } : null,
-  };
 }
 
 const STORAGE_KEY = '@training-tracker/storage';
@@ -207,7 +76,6 @@ async function backupV0() {
 
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
-  showStreakNotifications: true,
 };
 
 export const useWorkoutStore = create<WorkoutState>()(
@@ -220,10 +88,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       schedule: [],
       isLoading: false,
       error: null,
-
-      getStats: () => {
-        return calculateStats(get().workouts);
-      },
+      undo: null,
 
       addWorkout: (newWorkout) => {
         const { workout, library } = withIdentity(newWorkout, get().exerciseLibrary);
@@ -249,7 +114,8 @@ export const useWorkoutStore = create<WorkoutState>()(
           library = r.library;
           return r.workout;
         });
-        set({ workouts, exerciseLibrary: library });
+        // A new date moves it: Log's Recent and the Select list read the order as is
+        set({ workouts: workouts.sort((a, b) => b.date.localeCompare(a.date)), exerciseLibrary: library });
       },
 
       deleteWorkout: (id) => {
@@ -275,6 +141,12 @@ export const useWorkoutStore = create<WorkoutState>()(
         return { workouts: removed, sessions };
       },
 
+      deleteWithUndo: (ids) => {
+        set({ undo: { ...get().deleteWorkouts(ids), at: Date.now() } });
+      },
+
+      clearUndo: () => set({ undo: null }),
+
       // Undo for deleteWorkouts. Stats, PRs and streaks derive from workouts, so they follow.
       restoreWorkouts: ({ workouts: restored, sessions }) => {
         set((state) => {
@@ -296,10 +168,6 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       getWorkoutsByDate: (date) => {
         return get().workouts.filter((w) => w.date === date);
-      },
-
-      getWorkoutDates: () => {
-        return new Set(get().workouts.map((w) => w.date));
       },
 
       createCustomExercise: (name, muscleGroup) => {
@@ -405,18 +273,6 @@ export const useWorkoutStore = create<WorkoutState>()(
         }
       },
 
-      scheduleWorkout: async (date, templateId, isRecurring = false, pattern) => {
-        try {
-          const scheduledWorkout = await scheduleService.scheduleWorkout(date, templateId, isRecurring, pattern);
-          const schedule = await scheduleService.getSchedule();
-          set({ schedule });
-        } catch (error) {
-          console.error('Error scheduling workout:', error);
-          set({ error: 'Failed to schedule workout' });
-          throw error; // Re-throw error so calling function can catch it
-        }
-      },
-
       cancelScheduledWorkout: async (date) => {
         try {
           await scheduleService.cancelScheduledWorkout(date);
@@ -465,15 +321,6 @@ export const useWorkoutStore = create<WorkoutState>()(
       getTodaysScheduledWorkout: () => {
         const today = format(new Date(), 'yyyy-MM-dd');
         return get().schedule.find(s => s.date === today && !s.completed && !s.skipped) || null;
-      },
-
-      getWeekSchedule: async (weekStart) => {
-        try {
-          return await scheduleService.getWeekSchedule(weekStart);
-        } catch (error) {
-          console.error('Error getting week schedule:', error);
-          return [];
-        }
       },
     }),
     {

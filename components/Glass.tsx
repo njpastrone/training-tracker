@@ -66,6 +66,7 @@ export function Pill({ label, onPress, icon, variant = 'filled', disabled, loadi
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!(disabled || loading) }}
+      hitSlop={small ? 4 : undefined} // 36 pt tall + 4 each side = a 44 pt tap target
       style={({ pressed }) => [small ? styles.pillSmall : styles.pill, { opacity: disabled ? 0.45 : pressed ? 0.8 : 1 }, style]}
     >
       {filled ? (

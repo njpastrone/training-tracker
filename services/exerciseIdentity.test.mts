@@ -32,7 +32,7 @@ const V0 = {
       { id: 'w6', date: '2026-09-28', rawInput: 'rows 3x8 185', muscleGroups: ['cardio'], createdAt: 't',
         exercises: [ex('e10', 'Rowing', { muscleGroup: 'cardio', sets: 3, reps: 8, weight: 185, unit: 'lbs' })] },
     ],
-    settings: { weightUnit: 'lbs', showStreakNotifications: true },
+    settings: { weightUnit: 'lbs' },
   },
   version: 0,
 };

@@ -1,4 +1,4 @@
-import { StyleSheet, Alert, ScrollView, Switch, ActionSheetIOS } from 'react-native';
+import { StyleSheet, Alert, ScrollView, ActionSheetIOS } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
@@ -120,18 +120,6 @@ export default function SettingsScreen() {
             title="Training for"
             subtitle={GOALS.find(g => g.value === settings.goal)?.label ?? 'Not set'}
             onPress={pickGoal}
-          />
-          <Row
-            icon="bell"
-            title="Streak notifications"
-            subtitle="Get reminders to maintain your streak"
-            right={
-              <Switch
-                value={settings.showStreakNotifications}
-                onValueChange={(value) => updateSettings({ showStreakNotifications: value })}
-                trackColor={{ true: colors.sunrise }}
-              />
-            }
           />
         </SkyCard>
 

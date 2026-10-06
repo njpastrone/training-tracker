@@ -13,12 +13,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface Props {
   workout: Workout;
-  onDuplicate?: (workout: Workout) => void;
 }
 
-export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
+export default function SwipeableWorkoutCard({ workout }: Props) {
   const router = useRouter();
-  const { deleteWorkout, addWorkout } = useWorkoutStore();
+  const { deleteWithUndo, addWorkout } = useWorkoutStore();
   const { colors } = useTheme();
   let swipeableRef: Swipeable | null = null;
 
@@ -35,35 +34,11 @@ export default function SwipeableWorkoutCard({ workout, onDuplicate }: Props) {
     
     addWorkout(duplicatedWorkout);
     swipeableRef?.close();
-    
-    if (onDuplicate) {
-      onDuplicate(duplicatedWorkout);
-    }
-    
     Alert.alert('Workout Duplicated', 'Workout has been copied to today');
   };
 
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Workout',
-      'Are you sure you want to delete this workout?',
-      [
-        { 
-          text: 'Cancel', 
-          style: 'cancel',
-          onPress: () => swipeableRef?.close()
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            deleteWorkout(workout.id);
-            Alert.alert('Deleted', 'Workout has been removed');
-          },
-        },
-      ]
-    );
-  };
+  // No confirm: the screen's <UndoToast> offers Undo
+  const handleDelete = () => deleteWithUndo([workout.id]);
 
   const renderLeftActions = () => {
     return (

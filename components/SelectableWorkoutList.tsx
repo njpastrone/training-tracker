@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { SymbolView, SFSymbol } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { Workout } from '../types/workout';
-import { useWorkoutStore, DeletedWorkouts } from '../stores/workoutStore';
+import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import { SectionLabel } from './Sky';
@@ -12,18 +12,19 @@ import { Pill } from './Glass';
 import WorkoutList from './WorkoutList';
 
 const plural = (n: number) => `${n} workout${n === 1 ? '' : 's'}`;
+const TOAST_MS = 6000;
 
 interface Props {
   label: string;
   workouts: Workout[];
   groupByDate?: boolean;
   enableSwipe?: boolean;
-  onDeleted: (removed: DeletedWorkouts) => void; // the screen shows <UndoToast> for these
+  byMonth?: boolean;
 }
 
 // A workout list with a Select mode for deleting several at once
-export default function SelectableWorkoutList({ label, workouts, groupByDate, enableSwipe, onDeleted }: Props) {
-  const deleteWorkouts = useWorkoutStore(s => s.deleteWorkouts);
+export default function SelectableWorkoutList({ label, workouts, groupByDate, enableSwipe, byMonth }: Props) {
+  const deleteWithUndo = useWorkoutStore(s => s.deleteWithUndo);
   const [selected, setSelected] = useState<Set<string> | null>(null);
 
   const toggle = (id: string) => setSelected(prev => {
@@ -40,7 +41,7 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          onDeleted(deleteWorkouts([...selected]));
+          deleteWithUndo([...selected]);
           setSelected(null);
         },
       },
@@ -83,6 +84,7 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
         workouts={workouts}
         groupByDate={groupByDate}
         enableSwipe={enableSwipe}
+        byMonth={byMonth}
         selected={selected ?? undefined}
         onToggle={toggle}
       />
@@ -90,17 +92,21 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
   );
 }
 
-// Floats over the bottom of the screen for a few seconds after a delete
-export function UndoToast({ removed, onClose }: { removed: DeletedWorkouts | null; onClose: () => void }) {
+// Floats over the bottom of the screen for a few seconds after any delete (deleteWithUndo), also on
+// the screen you land on after deleting from the workout screen
+export function UndoToast() {
+  const undo = useWorkoutStore(s => s.undo);
   const restoreWorkouts = useWorkoutStore(s => s.restoreWorkouts);
-  if (!removed?.workouts.length) return null;
+  const clearUndo = useWorkoutStore(s => s.clearUndo);
+  // A delete made where no toast shows isn't offered later, out of context
+  if (!undo?.workouts.length || Date.now() - undo.at > TOAST_MS) return null;
   return (
     <Toast
-      key={removed.workouts.map(w => w.id).join()}
+      key={undo.workouts.map(w => w.id).join()}
       icon="trash"
-      text={`Deleted ${plural(removed.workouts.length)}`}
-      onUndo={() => restoreWorkouts(removed)}
-      onClose={onClose}
+      text={`Deleted ${plural(undo.workouts.length)}`}
+      onUndo={() => restoreWorkouts(undo)}
+      onClose={clearUndo}
     />
   );
 }
@@ -111,7 +117,7 @@ export function Toast({ icon, text, onUndo, onClose }: { icon: SFSymbol; text: s
   const { colors } = useTheme();
 
   useEffect(() => {
-    const timer = setTimeout(onClose, 6000);
+    const timer = setTimeout(onClose, TOAST_MS);
     return () => clearTimeout(timer);
   }, []);
 

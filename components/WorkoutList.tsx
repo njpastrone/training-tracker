@@ -1,21 +1,27 @@
+import { Fragment } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { Text } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { format, parseISO } from 'date-fns';
 import { Workout } from '../types/workout';
 import WorkoutCard from './WorkoutCard';
 import SwipeableWorkoutCard from './SwipeableWorkoutCard';
 import GroupedWorkoutCard from './GroupedWorkoutCard';
 import { spacing } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   workouts: Workout[];
-  onWorkoutPress?: (workout: Workout) => void;
   groupByDate?: boolean;
+  byMonth?: boolean; // grouped list: a month name above each month's days
   enableSwipe?: boolean;
   selected?: Set<string>; // select mode: a flat list where a tap toggles the workout
   onToggle?: (id: string) => void;
 }
 
-export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = true, enableSwipe = false, selected, onToggle }: Props) {
+export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, enableSwipe = false, selected, onToggle }: Props) {
+  const { colors } = useTheme();
+
   if (selected && onToggle) {
     return (
       <View style={styles.container}>
@@ -37,11 +43,7 @@ export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = tr
                 workout={workout}
               />
             ) : (
-              <WorkoutCard
-                key={workout.id}
-                workout={workout}
-                onPress={onWorkoutPress ? () => onWorkoutPress(workout) : undefined}
-              />
+              <WorkoutCard key={workout.id} workout={workout} />
             )
           ))}
         </View>
@@ -65,32 +67,24 @@ export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = tr
   return (
     <GestureHandlerRootView>
       <View style={styles.container}>
-        {sortedDates.map((date) => {
+        {sortedDates.map((date, i) => {
           const dateWorkouts = groupedWorkouts[date];
-          if (dateWorkouts.length === 1) {
-            // Single workout - use swipeable or regular card
-            return enableSwipe ? (
-              <SwipeableWorkoutCard
-                key={dateWorkouts[0].id}
-                workout={dateWorkouts[0]}
-              />
-            ) : (
-              <WorkoutCard
-                key={dateWorkouts[0].id}
-                workout={dateWorkouts[0]}
-                onPress={onWorkoutPress ? () => onWorkoutPress(dateWorkouts[0]) : undefined}
-              />
-            );
-          } else {
-            // Multiple workouts - use grouped card
-            return (
-              <GroupedWorkoutCard
-                key={date}
-                date={date}
-                workouts={dateWorkouts}
-              />
-            );
-          }
+          const single = dateWorkouts.length === 1 && dateWorkouts[0];
+          return (
+            <Fragment key={date}>
+              {byMonth && date.slice(0, 7) !== sortedDates[i - 1]?.slice(0, 7) && (
+                <Text variant="titleSmall" accessibilityRole="header" style={[styles.month, { color: colors.textSecondary }]}>
+                  {format(parseISO(date), 'MMMM yyyy')}
+                </Text>
+              )}
+              {/* One workout: its own card (swipeable where asked); several: one card for the day */}
+              {single ? (
+                enableSwipe ? <SwipeableWorkoutCard workout={single} /> : <WorkoutCard workout={single} />
+              ) : (
+                <GroupedWorkoutCard date={date} workouts={dateWorkouts} />
+              )}
+            </Fragment>
+          );
         })}
       </View>
     </GestureHandlerRootView>
@@ -100,5 +94,9 @@ export default function WorkoutList({ workouts, onWorkoutPress, groupByDate = tr
 const styles = StyleSheet.create({
   container: {
     gap: spacing.gap,
+  },
+  month: {
+    marginTop: spacing.sm,
+    marginLeft: spacing.xs,
   },
 });

@@ -12,15 +12,14 @@ import { fonts, spacing } from '../constants/theme';
 interface Props {
   workouts: Workout[];
   schedule?: TemplateSchedule[];
-  onDatePress?: (date: string) => void;
-  onDateSelect?: (date: string) => void;
 }
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Month grid: logged = sunrise disc, planned = cobalt ring, today = a ring around the date
-export default function Calendar({ workouts, schedule = [], onDatePress, onDateSelect }: Props) {
+// Month grid: logged = sunrise disc, planned = cobalt ring, today = a ring around the date.
+// Every day opens the day screen, which shows what was logged or planned there.
+export default function Calendar({ workouts, schedule = [] }: Props) {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const router = useRouter();
@@ -83,23 +82,13 @@ export default function Calendar({ workouts, schedule = [], onDatePress, onDateS
           const today = isToday(day);
           const past = isPast(day) && !today;
 
-          const handlePress = () => {
-            if (onDatePress) {
-              onDatePress(dateStr);
-            } else if (onDateSelect) {
-              onDateSelect(dateStr);
-            } else {
-              router.push(`/day/${dateStr}`);
-            }
-          };
-
           const state = [hasWorkout && 'workout logged', hasScheduled && 'workout planned', today && 'today'].filter(Boolean).join(', ');
 
           return (
             <Pressable
               key={dateStr}
               style={({ pressed }) => [styles.cell, { opacity: pressed ? 0.6 : 1 }]}
-              onPress={handlePress}
+              onPress={() => router.push(`/day/${dateStr}`)}
               accessibilityRole="button"
               accessibilityLabel={`${format(day, 'EEEE, MMMM d')}${state ? `, ${state}` : ''}`}
             >
@@ -114,8 +103,9 @@ export default function Calendar({ workouts, schedule = [], onDatePress, onDateS
                 <Text
                   style={[
                     styles.dayText,
-                    { color: hasWorkout ? colors.onSunrise : hasScheduled ? colors.cobalt : past ? colors.textTertiary : colors.text },
+                    { color: hasWorkout ? colors.onSunrise : hasScheduled ? colors.cobalt : past ? colors.textSecondary : colors.text },
                   ]}
+                  maxFontSizeMultiplier={1.4} // stays inside the 34 pt disc
                 >
                   {format(day, 'd')}
                 </Text>
@@ -191,7 +181,7 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: `${100 / 7}%`,
-    height: 40,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
