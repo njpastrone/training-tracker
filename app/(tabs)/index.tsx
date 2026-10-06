@@ -222,6 +222,7 @@ export default function LogScreen() {
 
           {log.draft && (
             <ParsedCard
+              key={log.templateId ?? 'parsed'}
               draft={log.draft}
               date={today}
               title={log.templateId ? scheduledTemplate?.name : undefined}

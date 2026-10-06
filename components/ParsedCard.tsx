@@ -52,7 +52,11 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
 
   // A late add ("did legs six days ago") goes to one past day: show that day up top, tappable to change
   const offsets = [...new Set(draft.exercises.map(e => e.dayOffset ?? 0))];
-  const backfill = offsets.length === 1 && offsets[0] < 0 ? offsets[0] : null;
+  const single = offsets.length === 1 ? offsets[0] : null;
+  // Once shown, the day row stays for this draft, so moving it to today and back to a past day still works
+  const [pinned, setPinned] = useState(false);
+  if (!pinned && single !== null && single < 0) setPinned(true);
+  const backfill = pinned ? single : null;
   const moveTo = (day: Date) => {
     const offset = Math.min(0, differenceInCalendarDays(day, parseISO(date)));
     onChange({ ...draft, exercises: draft.exercises.map(e => ({ ...e, dayOffset: offset || undefined })) });
@@ -96,7 +100,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
               <Text variant="bodyMedium" style={{ color: colors.text }}>{format(addDays(parseISO(date), backfill), 'EEEE, MMM d')}</Text>
             )}
             <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-              {backfill === -1 ? 'Yesterday' : `${-backfill} days ago`}
+              {backfill === 0 ? 'Today' : backfill === -1 ? 'Yesterday' : `${-backfill} days ago`}
             </Text>
           </View>
         )}
