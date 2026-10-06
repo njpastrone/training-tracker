@@ -63,3 +63,30 @@ test('with a plan the target is the planned days in the last 7, and missing one 
   // Planned days outside the last 7 don't count
   assert.equal(weekSky([], [...PLAN, ...w('2026-10-01', '2026-10-09')], THU).target, 4);
 });
+
+test('a picked weekly target wins over the usual count', () => {
+  assert.equal(weekSky(USUAL, [], THU, { weeklyTarget: 5 }).target, 5);
+  assert.equal(weekSky(USUAL, PLAN, THU, { weeklyTarget: 5 }).target, 4); // a plan still wins
+});
+
+test('a new user is never behind in their first 7 days, and the target is only the days they have been here', () => {
+  for (const weeklyTarget of [3, 4, 5]) {
+    for (let start = 0; start < 7; start++) {
+      const startedAt = `2026-10-0${2 + start}`; // Fri Oct 2 .. Thu Oct 8 (today)
+      const daysHere = 7 - start;
+      const before = weekSky([], [], THU, { weeklyTarget, startedAt });
+      assert.notEqual(before.phase, 'dusk');
+      assert.equal(before.target, Math.min(weeklyTarget, daysHere));
+      // One workout on the first day, nothing since
+      assert.notEqual(weekSky(w(startedAt), [], THU, { weeklyTarget, startedAt }).phase, 'dusk');
+    }
+  }
+  // Starting today and logging today is full daylight
+  assert.equal(weekSky(w('2026-10-08'), [], THU, { weeklyTarget: 4, startedAt: '2026-10-08' }).phase, 'day');
+});
+
+test('after the first 7 days the full target and pace are back', () => {
+  const sky = weekSky(w('2026-10-01'), [], THU, { weeklyTarget: 4, startedAt: '2026-10-01' });
+  assert.equal(sky.target, 4);
+  assert.equal(sky.phase, 'dusk'); // nothing in the last 7 days
+});

@@ -1,13 +1,14 @@
-import { StyleSheet, Alert, ScrollView, Switch } from 'react-native';
+import { StyleSheet, Alert, ScrollView, Switch, ActionSheetIOS } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
-import { Pill } from '../../components/Glass';
+import { Pill, Segmented } from '../../components/Glass';
 import Row from '../../components/Row';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
+import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 
 export default function SettingsScreen() {
@@ -82,6 +83,12 @@ export default function SettingsScreen() {
     });
   };
 
+  const pickGoal = () =>
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: 'Training for', options: [...GOALS.map(g => g.label), 'Cancel'], cancelButtonIndex: GOALS.length },
+      i => i < GOALS.length && updateSettings({ goal: GOALS[i].value })
+    );
+
   return (
     <SkyScreen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -95,6 +102,24 @@ export default function SettingsScreen() {
             title="Weight unit"
             subtitle={settings.weightUnit === 'lbs' ? 'Pounds (lbs)' : 'Kilograms (kg)'}
             right={<Pill variant="glass" size="small" label={settings.weightUnit} onPress={toggleUnit} />}
+          />
+          <Row
+            icon="calendar"
+            title="Days a week"
+            subtitle={settings.weeklyTarget ? 'Full daylight at this many' : 'From your usual week'}
+            right={
+              <Segmented
+                value={String(settings.weeklyTarget ?? '')}
+                options={[...DAYS_OPTIONS]}
+                onChange={value => updateSettings({ weeklyTarget: Number(value) })}
+              />
+            }
+          />
+          <Row
+            icon="target"
+            title="Training for"
+            subtitle={GOALS.find(g => g.value === settings.goal)?.label ?? 'Not set'}
+            onPress={pickGoal}
           />
           <Row
             icon="bell"

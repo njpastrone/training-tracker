@@ -7,7 +7,7 @@ import { trainingWindow } from './pace';
 import { templateService } from './templates';
 import { scheduleService } from './schedule';
 import { calculateStats } from '../stores/workoutStore';
-import { Exercise, MuscleGroup, WeightUnit, Workout } from '../types/workout';
+import { Exercise, MuscleGroup, TrainingGoal, WeightUnit, Workout } from '../types/workout';
 import { TemplateExercise, TemplateSchedule } from '../types/template';
 import { PlanDay, PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
 
@@ -38,6 +38,8 @@ async function savePlans(plans: TrainingPlan[]): Promise<void> {
 }
 
 export type HistorySummary = ReturnType<typeof summarizeHistory>;
+// What the user told setup and the planner: days a week and what they're training for
+export type PlannerHistory = HistorySummary & { daysPerWeek?: number; goal?: TrainingGoal };
 
 // Compact, local (no AI) picture of the user's training that rides along with every planner call.
 // This is how the planner "learns": skipped days and partial weeks from the last plan show up here.
@@ -189,6 +191,7 @@ const PLANNER_PROMPT = `<role>Strength coach planning workouts for a LiftText us
 - Use <history> to fit the plan: after >14 days off start at ~70-80% of recent working weights and fewer sets;
   prefer the user's usual days; avoid training the same muscle group on consecutive days.
 - If <history> shows the last plan had skipped or missed days, plan fewer days or move them off those weekdays.
+- If <history> has "daysPerWeek" or "goal" (strength, muscle, fitness or comeback), plan for them unless the request says otherwise.
 - If the user gives their own workouts, keep them exactly and mark those days "source": "mine"; only fill what they asked you to suggest.
 - If <current_plan> is present, change only what the user asked for and keep the rest.
 - One session per date, dates between <window> start and end, never before today. Write only the first week of sessions; use "repeatWeeks" (1-12) for longer blocks.
@@ -219,7 +222,7 @@ const PLANNER_PROMPT = `<role>Strength coach planning workouts for a LiftText us
 export async function planWorkouts(
   message: string,
   draft: PlanDraft | null,
-  history: HistorySummary,
+  history: PlannerHistory,
   recentMessages: string[],
   now: Date = new Date()
 ): Promise<PlannerResponse | null> {

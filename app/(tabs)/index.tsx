@@ -18,10 +18,23 @@ import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { templateService } from '../../services/templates';
 import { getPlans } from '../../services/planner';
 import { TrainingPlan } from '../../types/plan';
+import { ParsedWorkoutResponse } from '../../types/workout';
 import LogoMark from '../../components/LogoMark';
 
 // Detail is optional: names alone are a complete log, numbers are welcome
 const EXAMPLES = ['chest and back today: bench, rows, pull-ups', 'legs: squats, RDLs, lunges, felt strong', 'ran 3 miles then some core', 'squats 5x5 at 225, then lunges'];
+
+// "Show me an example" for a first-time user: detail on one lift, names for the rest. Never saved.
+const exampleLog = (kg: boolean) => `chest and back today: bench, rows, pull-ups. bench was 3 sets of 8 at ${kg ? 60 : 135}`;
+const exampleDraft = (kg: boolean): ParsedWorkoutResponse => ({
+  exercises: [
+    { name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, weight: kg ? 60 : 135, unit: kg ? 'kg' : 'lbs' },
+    { name: 'Barbell Row', muscleGroup: 'back' },
+    { name: 'Pull-ups', muscleGroup: 'back' },
+  ],
+  muscleGroups: ['chest', 'back'],
+  confidence: 1,
+});
 
 const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
 
@@ -35,12 +48,15 @@ export default function LogScreen() {
     markWorkoutCompleted,
     loadSchedule,
     loadTemplates,
+    settings,
   } = useWorkoutStore();
   const { colors, sky } = useTheme();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [logged, setLogged] = useState<string | null>(null); // toast after saving
+  const [example, setExample] = useState<ParsedWorkoutResponse | null>(null);
+  const [notNow, setNotNow] = useState(false);
 
   const now = new Date();
   const today = format(now, 'yyyy-MM-dd');
@@ -56,6 +72,12 @@ export default function LogScreen() {
   const todaysPlan = plans.find(p => p.id === todaysSchedule?.planId);
   const planSessions = todaysPlan ? schedule.filter(s => s.planId === todaysPlan.id).sort((a, b) => a.date.localeCompare(b.date)) : [];
   const hasUpcoming = schedule.some(s => s.date >= today && !s.completed && !s.skipped);
+
+  // Just finished setup: the first log happens here, then the planner is offered for the rest of the week
+  const firstRun = !!settings.onboardedAt && workouts.length === 0;
+  const justStarted = !!settings.onboardedAt && workouts.length === 1;
+  const planRest = () =>
+    router.push({ pathname: '/plan', params: { request: `The rest of this week, ${settings.weeklyTarget ?? 3} days a week.` } });
 
   const log = useLogDraft({
     date: today,
@@ -119,7 +141,7 @@ export default function LogScreen() {
     ]);
   };
 
-  const reviewing = !!log.sent || !!log.draft;
+  const reviewing = !!log.sent || !!log.draft || !!example;
 
   return (
     // The composer sits above the tab bar, so pad the bottom edge too
@@ -187,7 +209,21 @@ export default function LogScreen() {
             </SkyCard>
           )}
 
-          {!reviewing && !todaysSchedule && (
+          {!reviewing && !todaysSchedule && firstRun && (
+            <SkyCard style={styles.hint}>
+              <LogoMark size={30} color={colors.sunrise} />
+              <Text variant="titleMedium" style={{ color: colors.text }}>Log your first workout</Text>
+              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+                Just say what you did, like “chest and back today: bench, rows, pull-ups”. Sets and weights are optional. Or use the mic on the keyboard.
+              </Text>
+              <View style={styles.firstActions}>
+                <Pill variant="glass" size="small" label="Show me an example" onPress={() => setExample(exampleDraft(settings.weightUnit === 'kg'))} />
+                <Pill variant="glass" size="small" label="I haven't trained yet" onPress={planRest} />
+              </View>
+            </SkyCard>
+          )}
+
+          {!reviewing && !todaysSchedule && !firstRun && (
             <SkyCard style={styles.hint}>
               <SymbolView name="bubble.left.and.text.bubble.right" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Just say what you did</Text>
@@ -202,7 +238,20 @@ export default function LogScreen() {
             </SkyCard>
           )}
 
-          {!reviewing && !hasUpcoming && (
+          {!reviewing && !hasUpcoming && justStarted && !notNow && (
+            <SkyCard>
+              <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
+              <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
+                {sky.done} of {sky.target} so far. I'll fit the rest around what you just did.
+              </Text>
+              <View style={styles.actions}>
+                <Pill icon="logo" label="Plan my week" onPress={planRest} style={styles.primaryAction} />
+                <Pill variant="glass" label="Not now" onPress={() => setNotNow(true)} style={styles.secondaryAction} />
+              </View>
+            </SkyCard>
+          )}
+
+          {!reviewing && !hasUpcoming && !(justStarted && !notNow) && (
             <SkyCard>
               <Text variant="titleMedium" style={{ color: colors.text }}>Plan your week</Text>
               <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
@@ -216,6 +265,25 @@ export default function LogScreen() {
             <Animated.View entering={FadeInDown.springify().damping(17)}>
               <UserBubble text={log.sent} />
             </Animated.View>
+          )}
+
+          {example && (
+            <>
+              <Animated.View entering={FadeInDown.springify().damping(17)}>
+                <UserBubble text={exampleLog(settings.weightUnit === 'kg')} />
+              </Animated.View>
+              <ParsedCard
+                example
+                draft={example}
+                date={today}
+                title="Here's how that reads"
+                onChange={setExample}
+                onSave={() => {}}
+                onDiscard={() => setExample(null)}
+                onFix={async () => false}
+                busy={null}
+              />
+            </>
           )}
 
           {log.busy === 'parse' && <ReadingCard />}
@@ -259,7 +327,10 @@ export default function LogScreen() {
           <Composer
             value={log.text}
             onChangeText={log.setText}
-            onSend={log.parse}
+            onSend={() => {
+              setExample(null);
+              log.parse();
+            }}
             placeholder="What'd you do today?"
             busy={log.busy === 'parse'}
           />
@@ -399,6 +470,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingVertical: 22,
+  },
+  firstActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.gap,
   },
   examples: {
     gap: 2,

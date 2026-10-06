@@ -82,7 +82,12 @@ export interface ExerciseReference {
 export interface UserSettings {
   weightUnit: WeightUnit;
   showStreakNotifications: boolean;
+  weeklyTarget?: number; // days a week from setup or Settings (3, 4 or 5); unset = the usual count
+  goal?: TrainingGoal; // asked the first time the user plans; unset = general fitness
+  onboardedAt?: string; // yyyy-MM-dd setup was finished or skipped; unset for users from before setup
 }
+
+export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'comeback';
 
 // Analytics data types
 export interface WorkoutStreak {
