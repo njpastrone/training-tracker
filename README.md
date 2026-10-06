@@ -67,7 +67,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 
 ## API Server
 
-The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (`claude-haiku-4-5-20251001`), caps `max_tokens`, checks a shared app password, and enforces a global daily request cap (`DAILY_REQUEST_CAP` in `server/wrangler.jsonc`, default 200/day UTC).
+The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (`claude-haiku-4-5-20251001`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 50, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 200). App builds from before install ids count against the global cap only.
 
 The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks.
 
@@ -90,7 +90,7 @@ EXPO_PUBLIC_API_URL=https://training-tracker-api.<your-subdomain>.workers.dev
 EXPO_PUBLIC_APP_PASSWORD=<the password you chose>
 ```
 
-Restart `npm start` so Expo picks up the new values. To change the daily cap, edit `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep it under 1000: each request is one KV write, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
+Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 500: each request is two KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
 
 Server tests (Node 22.18+): `cd server && npm test`
 

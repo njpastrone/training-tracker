@@ -5,6 +5,7 @@ export interface Env {
   ANTHROPIC_API_KEY: string;
   APP_PASSWORD: string;
   DAILY_REQUEST_CAP: string;
+  DEVICE_DAILY_CAP: string;
   USAGE: KVNamespace;
 }
 
@@ -33,14 +34,20 @@ function parseCandidates(v: unknown): ParseOptions['exercises'] | undefined {
 const json = (status: number, body: unknown) => Response.json(body, { status });
 
 // ponytail: KV read-then-write is not atomic and is eventually consistent, so bursts can
-// overshoot the cap a little. Move the counter to a Durable Object if it must be exact.
-export async function takeDailySlot(kv: KVNamespace, cap: number, now = new Date()): Promise<boolean> {
-  const key = `count:${now.toISOString().slice(0, 10)}`; // UTC day
-  const count = Number(await kv.get(key)) || 0;
+// overshoot the caps a little. Move the counters to a Durable Object if they must be exact.
+// Takes one slot from the global count and, when the app sent an install id, from that device's
+// count; returns which cap was hit, or null. Each allowed request costs one KV write per counter.
+export async function takeDailySlot(kv: KVNamespace, cap: number, now = new Date(), device?: { id: string; cap: number }): Promise<'device' | 'global' | null> {
+  const day = now.toISOString().slice(0, 10); // UTC day
+  const globalKey = `count:${day}`;
+  const deviceKey = device && `device:${device.id}:${day}`;
+  const [count, deviceCount] = await Promise.all([kv.get(globalKey), deviceKey ? kv.get(deviceKey) : null]).then((v) => v.map((c) => Number(c) || 0));
   // Written as !(count < cap) so a missing or non-numeric cap (NaN) blocks instead of allowing everything.
-  if (!(count < cap)) return false;
-  await kv.put(key, String(count + 1), { expirationTtl: 2 * 24 * 60 * 60 });
-  return true;
+  if (device && !(deviceCount < device.cap)) return 'device';
+  if (!(count < cap)) return 'global';
+  const ttl = { expirationTtl: 2 * 24 * 60 * 60 };
+  await Promise.all([kv.put(globalKey, String(count + 1), ttl), deviceKey && kv.put(deviceKey, String(deviceCount + 1), ttl)]);
+  return null;
 }
 
 export default {
@@ -92,14 +99,18 @@ export default {
       };
     }
 
-    let allowed: boolean;
+    // Apps from before install ids send none and count against the global cap only
+    const installId = request.headers.get('x-install-id');
+    if (installId !== null && !/^[A-Za-z0-9-]{8,64}$/.test(installId)) return json(400, { error: 'Invalid request.' });
+    let hit: 'device' | 'global' | null;
     try {
-      allowed = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP));
+      hit = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), installId ? { id: installId, cap: Number(env.DEVICE_DAILY_CAP) } : undefined);
     } catch (err) {
       console.error('Usage counter error', err);
       return json(503, { error: 'Server busy, please try again in a moment.' });
     }
-    if (!allowed) return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
+    if (hit === 'device') return json(429, { error: "You've used today's AI requests on this phone. They reset at midnight UTC." });
+    if (hit) return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

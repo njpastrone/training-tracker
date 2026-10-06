@@ -3,9 +3,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "vars": {
-    // Max Claude requests per UTC day across all users. Keep well under 1000:
-    // each request is one KV write and the free plan allows 1000 writes/day.
-    "DAILY_REQUEST_CAP": "200"
+    // Max Claude requests per UTC day across all users. Each request is two KV writes (this count
+    // and the device's), and the free plan allows 1000 writes/day, so keep this under 500.
+    "DAILY_REQUEST_CAP": "200",
+    // Max Claude requests per UTC day from one app install (the app's x-install-id header).
+    "DEVICE_DAILY_CAP": "50"
   },
   "kv_namespaces": [
     // Replace the id with the one printed by `npx wrangler kv namespace create USAGE`.
