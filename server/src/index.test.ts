@@ -182,6 +182,11 @@ test('rejects oversized raw prompts and parse input', async () => {
   assert.equal((await call(parse('x'.repeat(4001)), env)).status, 400);
   assert.equal((await call(parse('x'.repeat(4000)), env)).status, 200);
   assert.equal(upstream.length, 1);
+  const correct = (draft: unknown, fix: string) => req('pw', { parse: { input: 'x', date: '2026-01-01', unit: 'lbs', draft, fix } });
+  assert.equal((await call(correct({ exercises: [] }, 'x'.repeat(4001)), env)).status, 400);
+  assert.equal((await call(correct({ exercises: [], notes: 'x'.repeat(80_000) }, 'x'), env)).status, 413);
+  assert.equal((await call(correct({ exercises: Array(5000).fill({ name: 'x'.repeat(20) }) }, 'x'), env)).status, 413);
+  assert.equal(upstream.length, 0);
 });
 
 test('accepts the largest requests the app sends', async () => {

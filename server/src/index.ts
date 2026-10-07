@@ -79,7 +79,7 @@ export default {
       // Correction mode: apply a typed fix to the draft under review. `input` (the draft as text plus
       // the fix) is what Workers deployed before this mode parse instead.
       if (fix !== undefined) {
-        if (typeof fix !== 'string' || !fix.trim() || !Array.isArray((draft as { exercises?: unknown })?.exercises)) {
+        if (typeof fix !== 'string' || !fix.trim() || fix.length > MAX_INPUT_CHARS || !Array.isArray((draft as { exercises?: unknown })?.exercises)) {
           return json(400, { error: 'Invalid request.' });
         }
         upstream = buildCorrectionRequest(draft as Parameters<typeof buildCorrectionRequest>[0], fix, { date, unit, exercises: candidates });
@@ -90,7 +90,6 @@ export default {
       if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
         return json(400, { error: 'Invalid request.' });
       }
-      if (JSON.stringify({ system, messages }).length > MAX_PROMPT_CHARS) return json(413, { error: 'Request too large.' });
       upstream = {
         model: MODEL,
         max_tokens: Number.isInteger(max_tokens) && (max_tokens as number) > 0 ? Math.min(max_tokens as number, MAX_TOKENS) : MAX_TOKENS,
@@ -98,6 +97,7 @@ export default {
         messages,
       };
     }
+    if (JSON.stringify({ system: upstream.system, messages: upstream.messages }).length > MAX_PROMPT_CHARS) return json(413, { error: 'Request too large.' });
 
     // Apps from before install ids send none and all share one small 'legacy' bucket (too short to clash with a real id)
     const installId = request.headers.get('x-install-id');
