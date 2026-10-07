@@ -149,7 +149,7 @@ Type what you want in the chat bar on the History tab ("Plan your week…"), or 
 ### Viewing History
 
 History is the record; how it's going (streaks, PRs, goals) is on Progress. The History tab shows:
-- Training days this month
+- This week's logged and planned training days
 - A calendar of logged and planned days: last week, this week and next week (**Show full month** for the whole month)
 - Your workouts by month, a few months at a time (**Show earlier** for more)
 
