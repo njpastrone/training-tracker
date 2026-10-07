@@ -15,12 +15,13 @@ import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
 import { spacing } from '../../constants/theme';
-import { format } from 'date-fns';
+import { endOfWeek, format, startOfWeek } from 'date-fns';
 import { getPlans, deletePlan } from '../../services/planner';
+import { planChips, toChips } from '../../services/suggestions';
+import { weekLine } from '../../services/format';
 import { TrainingPlan } from '../../types/plan';
 
-// Chat bar chips: a new plan from a starter, an open plan from its own tweaks
-const STARTERS = ['Re-entry week', 'Next week', 'PPL split', 'Upper / lower', '3 days a week'];
+// Chat bar chips: a new plan from your own week (services/suggestions.ts), an open plan from its own tweaks
 const DEFAULT_TWEAKS = ['Easier', 'Harder', '45 min max', 'Different days', 'Add cardio'];
 const MONTHS_PER_PAGE = 3;
 
@@ -44,10 +45,16 @@ export default function HistoryScreen() {
   const oldestShown = months[Math.min(pages * MONTHS_PER_PAGE, months.length) - 1];
   const shown = useMemo(() => workouts.filter(w => w.date.slice(0, 7) >= oldestShown), [workouts, oldestShown]);
 
-  // Training days, the unit the sky and Progress count in
-  const now = new Date();
-  const thisMonth = format(now, 'yyyy-MM');
-  const daysThisMonth = useMemo(() => new Set(workouts.filter(w => w.date.startsWith(thisMonth)).map(w => w.date)).size, [workouts, thisMonth]);
+  // This calendar week (Monday first, like the calendar) in training days: logged, and planned from today on
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const thisWeek = useMemo(() => {
+    const monday = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const sunday = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const logged = new Set(workouts.filter(w => w.date >= monday && w.date <= sunday).map(w => w.date));
+    const planned = new Set(schedule.filter(s => s.date >= today && s.date <= sunday && !s.completed && !s.skipped && !logged.has(s.date)).map(s => s.date));
+    return weekLine(logged.size, planned.size);
+  }, [workouts, schedule, today]);
+  const starters = useMemo(() => planChips(workouts, settings.weeklyTarget), [workouts, settings.weeklyTarget]);
 
   useEffect(() => {
     loadTemplates();
@@ -70,7 +77,7 @@ export default function HistoryScreen() {
       await Promise.all([loadSchedule(), loadTemplates()]);
       if (id === planId) router.setParams({ planId: '' });
     } catch (error) {
-      Alert.alert('Error', 'Failed to delete the plan.');
+      Alert.alert("Couldn't delete the plan", 'Try again.');
     }
   };
 
@@ -81,7 +88,7 @@ export default function HistoryScreen() {
         onChangeText: planner.setText,
         onSend: () => planner.send(planner.text),
         placeholder: planner.draft ? 'Fix or ask…' : 'Plan your week…',
-        chips: planner.draft ? (planner.draft.chips.length ? planner.draft.chips : DEFAULT_TWEAKS) : STARTERS,
+        chips: planner.draft ? toChips(planner.draft.chips.length ? planner.draft.chips : DEFAULT_TWEAKS) : planner.text.trim() ? [] : starters,
         onChip: planner.send,
         busy: planner.busy,
         disabled: planner.saving,
@@ -90,10 +97,7 @@ export default function HistoryScreen() {
       follow={planning}
       overlay={<UndoToast />}
     >
-      <LargeTitle
-        title="History"
-        subtitle={daysThisMonth ? `${daysThisMonth} training day${daysThisMonth === 1 ? '' : 's'} in ${format(now, 'MMMM')}` : undefined}
-      />
+      <LargeTitle title="History" subtitle={thisWeek} />
 
       {/* The goal is asked once planning starts, then remembered (Settings can change it) */}
       {(planning || !!planner.text.trim()) && !settings.goal && (
@@ -153,6 +157,7 @@ export default function HistoryScreen() {
             </>
           ) : (
             <SkyCard style={styles.empty}>
+              <SymbolView name="calendar" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={[styles.center, { color: colors.text }]}>Your workouts show up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
                 Log one on the Log tab, or plan your week below.

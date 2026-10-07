@@ -72,17 +72,17 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 ## Components
 
 - **`SkyScreen`** (`components/Sky.tsx`): the sky background plus a top safe area. Native tabs inset the scroll view for the tab bar, so content scrolls under the glass. Pushed screens pass `edges={['bottom']}` (or `[]`) and set `contentInsetAdjustmentBehavior="automatic"` on their scroll view, because their native header is transparent.
-- **`LargeTitle`**: the screen's large rounded title and an optional subtitle, as the first item in the scroll view.
+- **`LargeTitle`**: the screen's large rounded title and its subtitle line, as the first item in the scroll view (see Consistency).
 - **`SkyCard`**: a content card (material over the sky, solid under Reduce Transparency).
-- **`SectionLabel`**: the small caps label above a section or inside a card.
+- **`SectionLabel`**: the small caps label above a section's card; inside a card only for a sub-part of it.
 - **`Pill`** (`components/Glass.tsx`): 50 pt pill button, `filled` (sunrise) for the main action and `glass` for the rest; `size="small"` for chips and inline actions.
 - **`GlassSurface`**: Liquid Glass (`expo-glass-effect`) for controls, with a translucent fallback before iOS 26 and a solid one under Reduce Transparency.
 - **`Composer`**: the Messages-style glass capsule with a send button. Dictation is the keyboard's mic key.
-- **`ChatBar`**, **`ChatScreen`** (`components/ChatBar.tsx`): the one chat bar Log, History and Progress share, pinned above the tab bar (keyboard and safe area handled by `ChatScreen`): suggestion chips, always visible, over a `Composer`. Your message shows as a `UserBubble` and the answer as a card in the page, which hides the rest of the page while it's open. Only the placeholder, chips and what a send does change per tab: Log logs ("What'd you do today?"), History plans ("Plan your week…", answered by a `PlanCard`), Progress adds a missed workout ("Forgot something? 'legs on Wed'"). While a parsed card is open, the bar fixes it.
+- **`ChatBar`**, **`ChatScreen`** (`components/ChatBar.tsx`): the one chat bar Log, History and Progress share, pinned above the tab bar (keyboard and safe area handled by `ChatScreen`): suggestion chips (only when something is timely, see Consistency) over a `Composer`. Your message shows as a `UserBubble` and the answer as a card in the page, which hides the rest of the page while it's open. Only the placeholder, chips and what a send does change per tab: Log logs ("What'd you do today?"), History plans ("Plan your week…", answered by a `PlanCard`), Progress adds a missed workout ("Forgot something? 'legs on Wed'"). Chips come from `services/suggestions.ts`. While a parsed card is open, the bar fixes it.
 - **`Segmented`**, **`HeaderButton`**: a capsule option switch, and an SF Symbol button for the native header.
 - **`Field`** (`components/Field.tsx`): a text field on a quiet fill with a small caps label.
 - **`Row`** (`components/Row.tsx`): a settings-style row with a symbol tile, title, subtitle and accessory.
-- **`GoalsCard`** (`components/GoalsCard.tsx`): goals on Progress. Each muscle is a tile (name, "1 of 2 times", "6+ of 8 sets" with a bar, when last trained), two to a row, one to a row when Dynamic Type is above 130%. Labels are spelled out and wrap; nothing truncates. A green edge and a checkmark mark a muscle whose goals are met. Your own goals are full-width rows below.
+- **`GoalsCard`** (`components/GoalsCard.tsx`): goals on Progress, first on the page, with "Goals · last 7 days" and Edit above the card. With no goals, a "Set a weekly goal" prompt takes its place (Each muscle 2× a week, My own goals, Not now; Not now is for good). Each muscle is a tile (name, "1 of 2 times", "6+ of 8 sets" with a bar, when last trained), two to a row, one to a row when Dynamic Type is above 130%. Labels are spelled out and wrap; nothing truncates. A green edge and a checkmark mark a muscle whose goals are met. Your own goals are full-width rows below.
 - **`Ring`** (`components/Ring.tsx`): progress ring or open gauge (`react-native-svg`), sunrise gradient by default.
 - **`UserBubble`** (`components/Chat.tsx`): your message on the right in sunrise.
 - **`ParsedCard`** (`components/ParsedCard.tsx`): the parsed workout reviewed before saving. It shows only what was said: detail is optional, so an exercise with no numbers shows an "Add details" link instead of empty chips. Numbers are tappable chips; values flagged `unsure` (genuine ambiguity the app spots in a first parse, `flagGuesses` in `services/draft.ts`, plus what a typed fix left uncertain; never missing detail) are outlined in warning; a low `confidence` shows a banner asking for a check; Save, Discard and, outside the chat tabs (where the chat bar does it), a **`FixBox`** for typed fixes and questions, with a **`FixReply`** for the answer (or "I didn't change anything") and the one-tap "Call it '…' from now on". The flow lives in `hooks/useLogDraft.ts` (Log, Progress and Add Workout); the workout screen reuses `FixBox` and `FixReply`.
@@ -102,6 +102,35 @@ Numbers use the rounded font with `fontVariant: ['tabular-nums']`.
 
 - Icon: the AI mark below over a dawn sky, with dark (night sky) and tinted variants (`ios.icon` in `app.json`). Sources are in `assets/source/*.svg` (the bubble and barbell layers for Icon Composer in `assets/source/layers/`); render with `rsvg-convert -w 1024 -h 1024`. The AI mark (`components/LogoMark.tsx`, `assets/tab-logo*.png` at 26/52/78 px) is the new "Messages curl" bubble with the "Heavy bar" barbell cut out, one path, `assets/source/logo-glyph.svg`. The app icon uses the same mark.
 - Splash: the bubble mark on `#FADCE6`, and on night `#141938` in Dark Mode.
+
+## Consistency
+
+Rules that keep the four tabs one app. Check every UI change against them on a 375 pt iPhone at the default, the largest standard and the largest Accessibility text size, in dark and light.
+
+**Titles and subtitles.** Every tab has a large title and exactly one subtitle line, always present. The title is the tab's name, except Log, which greets you ("Good evening"). The subtitle is one live fact, about 36 characters at most so it fits one line at 375 pt (it may wrap at larger text, never truncate):
+
+| Tab | Subtitle | With nothing to count |
+|---|---|---|
+| Log | Today's date, "Tuesday, October 6" | (always a date) |
+| History | This calendar week, "2 logged · 2 planned this week" | "Nothing logged yet this week" |
+| Progress | The sky's pace, "2 of 3 training days in the last 7" | "No training days in the last 7" |
+| Settings | The weekly backup, "Backed up Oct 5" | "Not backed up yet" |
+
+Pushed screens follow the same pattern: the thing as the title, one line of context.
+
+**Section labels** sit outside and above the card they label, with at most one action on the same line (`labelLarge` in sunrise: "Edit", "Select", "Set goals"): 8 pt above the card, 24 pt below the previous one. A label inside a card is only for a sub-part of it.
+
+**Surfaces.** Three, each with one job: a card (`SkyCard`) for a block of content; a tile (`dim` fill, 14 pt corners, clear edge, `mint` when met, `warning` when stale) for grid cells inside a card; a row (`Row`, hairline between rows) for lists inside a card. No card in a card, no glass on content, one idea per card.
+
+**Numbers.** A number earns space only if it changes what you'd do next, and goes in a sentence first (Progress's pace is its subtitle, not a tile). If a tile is ever needed: two to a row at most at 375 pt, one above 130% text, the value states its scale ("2 of 3"), and the label wraps.
+
+**Empty states and prompts.** An empty state is a centered card: SF Symbol (30 pt, sunrise), a `titleMedium` line saying what will show up, one sentence on how, at most one action. A first-use prompt (like goals) is the same card left-aligned at the top of its screen: a filled one-tap setup, a glass "choose my own", and "Not now", which hides it for good. One at a time per screen.
+
+**Chat suggestions** come from the user's own log and plan (`services/suggestions.ts`) and show only when something is timely; otherwise there's no chips row. Log: today's planned workout if it isn't logged ("Today's plan · Legs"), then the two most recent different workouts from the last 4 weeks ("Like Monday · chest, shoulders, biceps +1"); a tap fills the box with the exercises to edit. History: "Repeat this week", "Next week, N days", and "Re-entry week" after two weeks off; these send. Progress: planned days in the last week with nothing logged ("Log Wednesday · Legs"). New users (under 3 training days) get whole examples instead on Log and the usual plan starters on History. Chips are whole phrases in the user's voice, never fragments; they hide while you type (fix chips on an open card stay); the row runs to the screen edge so a cut-off chip reads as "scroll for more". The placeholder says what the bar does on that tab.
+
+**No text bleed.** Copy we write never truncates: labels, titles, buttons and chips wrap. `numberOfLines` only on text the user typed. A row's right-hand slot holds only small things (chevron, switch, short pill or value); a segmented control or button set goes on its own line under the row's title. If a label doesn't fit, drop a column, not letters. `maxFontSizeMultiplier` only inside fixed shapes (the calendar's day discs).
+
+**Copy.** Plain English, American spelling, second person, sentence case everywhere including alerts. Alert titles say what happened or ask the question ("Couldn't delete the plan", "Skip today's workout?"), never "Error" or "Success". No exclamation marks, no grades, no nagging about missing detail. "This week" is the calendar week; "the last 7 days" is the rolling window. One name per thing: workout, training day, plan, goal; "session" is one exercise on one day.
 
 ## Accessibility
 

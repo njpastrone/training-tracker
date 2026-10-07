@@ -1,6 +1,6 @@
 import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
@@ -19,6 +19,7 @@ import { useLogDraft } from '../../hooks/useLogDraft';
 import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import { templateService } from '../../services/templates';
 import { getPlans } from '../../services/planner';
+import { logChips } from '../../services/suggestions';
 import { TrainingPlan } from '../../types/plan';
 import { ParsedWorkoutResponse } from '../../types/workout';
 import LogoMark from '../../components/LogoMark';
@@ -37,9 +38,6 @@ const exampleDraft = (kg: boolean): ParsedWorkoutResponse => ({
   muscleGroups: ['chest', 'back'],
   confidence: 1,
 });
-
-// Chat bar starters: they begin the message, you finish it
-const LOG_CHIPS = ['Chest and back:', 'Legs:', 'Push day:', 'Ran 3 miles'];
 
 const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
 
@@ -72,6 +70,8 @@ export default function LogScreen() {
   // Get today's scheduled workout
   const todaysSchedule = getTodaysScheduledWorkout();
   const scheduledTemplate = todaysSchedule ? getTemplate(todaysSchedule.templateId) : null;
+  // Chat bar chips: today's plan and your last different workouts to log again, or examples while you're new
+  const chips = useMemo(() => logChips(workouts, scheduledTemplate), [workouts, scheduledTemplate]);
 
   // "Re-entry week · 1 of 4" when today's session comes from a plan
   const todaysPlan = plans.find(p => p.id === todaysSchedule?.planId);
@@ -118,30 +118,29 @@ export default function LogScreen() {
 
   const handleStartScheduledWorkout = () => {
     if (!scheduledTemplate) {
-      Alert.alert('Error', 'No scheduled template found');
+      Alert.alert("Couldn't find today's template", 'Try planning the day again.');
       return;
     }
     try {
       log.startFromTemplate(templateService.templateToWorkout(scheduledTemplate), scheduledTemplate.id);
     } catch (error) {
       console.error('Error in handleStartScheduledWorkout:', error);
-      Alert.alert('Error', 'Failed to start scheduled workout');
+      Alert.alert("Couldn't start the workout", 'Try again.');
     }
   };
 
   const handleSkipScheduledWorkout = () => {
     if (!todaysSchedule) return;
-    Alert.alert('Skip Workout', "Are you sure you want to skip today's scheduled workout?", [
+    Alert.alert("Skip today's workout?", 'You can plan it again anytime.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Skip',
         style: 'destructive',
         onPress: async () => {
           try {
-            await markWorkoutSkipped(todaysSchedule.date, 'User skipped');
-            Alert.alert('Workout Skipped', "Don't worry, you can reschedule it anytime!");
+            await markWorkoutSkipped(todaysSchedule.date, 'User skipped'); // the Today card going away confirms it
           } catch (error) {
-            Alert.alert('Error', 'Failed to skip workout.');
+            Alert.alert("Couldn't skip the workout", 'Try again.');
           }
         },
       },
@@ -151,7 +150,7 @@ export default function LogScreen() {
   const reviewing = !!log.sent || !!log.draft || !!example;
 
   return (
-    <ChatScreen bar={logBar(log, "What'd you do today?", LOG_CHIPS, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
+    <ChatScreen bar={logBar(log, "What'd you do today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
       <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
 
       {logged && (

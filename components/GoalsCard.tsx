@@ -21,6 +21,7 @@ interface Props {
 
 // Goals on Progress: each muscle's days and sets against its goals (it replaces "Days since trained"),
 // then your own goals. Two muscles a row; one at large text sizes. Labels wrap, never truncate.
+// The section label and Edit sit above the card, like every section label.
 export default function GoalsCard({ progress, daysSince }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
@@ -35,28 +36,30 @@ export default function GoalsCard({ progress, daysSince }: Props) {
   ].filter(Boolean).join(' · ');
 
   return (
-    <SkyCard>
+    <>
       <View style={styles.header}>
         <SectionLabel style={styles.fill}>Goals · last 7 days</SectionLabel>
         <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" accessibilityLabel="Edit goals" hitSlop={10}>
           <Text variant="labelLarge" style={{ color: colors.sunrise }}>Edit</Text>
         </Pressable>
       </View>
-      {summary ? <Text variant="bodyMedium" style={[styles.summary, { color: colors.textSecondary }]}>{summary}</Text> : null}
+      <SkyCard>
+        {summary ? <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{summary}</Text> : null}
 
-      {rows.map(row => (
-        <View key={row[0].group} style={styles.gridRow}>
-          {row.map(m => (
-            <MuscleTile key={m.group} m={m} days={daysSince[m.group]} onPress={() => router.push({ pathname: '/exercise', params: { group: m.group } })} />
-          ))}
-          {row.length < perRow && <View style={styles.fill} />}
-        </View>
-      ))}
+        {rows.map(row => (
+          <View key={row[0].group} style={styles.gridRow}>
+            {row.map(m => (
+              <MuscleTile key={m.group} m={m} days={daysSince[m.group]} onPress={() => router.push({ pathname: '/exercise', params: { group: m.group } })} />
+            ))}
+            {row.length < perRow && <View style={styles.fill} />}
+          </View>
+        ))}
 
-      {custom.map((c, i) => (
-        <CustomRow key={c.goal.id} c={c} first={i === 0 && total === 0} />
-      ))}
-    </SkyCard>
+        {custom.map((c, i) => (
+          <CustomRow key={c.goal.id} c={c} first={i === 0 && total === 0} />
+        ))}
+      </SkyCard>
+    </>
   );
 }
 
@@ -137,9 +140,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  summary: {
-    marginTop: spacing.xs,
+    marginHorizontal: spacing.xs,
+    marginBottom: spacing.sm,
   },
   gridRow: {
     flexDirection: 'row',

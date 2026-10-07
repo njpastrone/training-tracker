@@ -60,8 +60,8 @@ export default function SettingsScreen() {
 
   const handleClearData = () => {
     Alert.alert(
-      'Clear All Data',
-      'Are you sure you want to delete all your workout data? This action cannot be undone.',
+      'Clear all data?',
+      "This deletes your workouts and settings on this phone. It can't be undone.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -71,7 +71,7 @@ export default function SettingsScreen() {
             setIsClearing(true);
             await clearAllData();
             setIsClearing(false);
-            Alert.alert('Success', 'All data has been cleared.');
+            Alert.alert('All data cleared');
           },
         },
       ]
@@ -93,7 +93,7 @@ export default function SettingsScreen() {
   return (
     <SkyScreen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LargeTitle title="Settings" />
+        <LargeTitle title="Settings" subtitle={lastWeekly ? `Backed up ${format(parseISO(lastWeekly), 'MMM d')}` : 'Not backed up yet'} />
 
         <SectionLabel style={styles.label}>Preferences</SectionLabel>
         <SkyCard style={styles.card}>
