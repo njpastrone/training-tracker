@@ -9,6 +9,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
 import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
+import { askAiConsent } from '../../services/aiConsent';
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 
 export default function SettingsScreen() {
@@ -122,6 +123,18 @@ export default function SettingsScreen() {
             subtitle={GOALS.find(g => g.value === settings.goal)?.label ?? 'Not set'}
             onPress={pickGoal}
           />
+          <Row
+            icon="sparkles"
+            title="AI reading"
+            subtitle={
+              settings.aiConsent === 'granted'
+                ? 'On: what you type goes to Anthropic to be read'
+                : settings.aiConsent === 'declined'
+                  ? 'Off: each line you type becomes an exercise'
+                  : 'Asks before the first time'
+            }
+            onPress={askAiConsent}
+          />
         </SkyCard>
 
         <SectionLabel style={styles.label}>Training</SectionLabel>
@@ -174,7 +187,7 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
-          <Row icon="lock.shield" title="Privacy" subtitle="Your data stays on your device" />
+          <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days)." />
         </SkyCard>
       </ScrollView>
     </SkyScreen>
