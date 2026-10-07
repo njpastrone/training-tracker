@@ -86,6 +86,7 @@ export interface UserSettings {
   onboardedAt?: string; // yyyy-MM-dd setup was finished or skipped; unset for users from before setup
   goals?: Goals; // checked against the log on Progress; "days a week" is weeklyTarget
   aiConsent?: 'granted' | 'declined'; // asked before the first AI call (services/aiConsent.ts); unset = not asked yet
+  goalsPromptDismissed?: boolean; // "Not now" on Progress's set-a-goal prompt: it doesn't come back
 }
 
 export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'comeback';

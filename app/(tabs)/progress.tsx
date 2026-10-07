@@ -16,42 +16,32 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useLogDraft } from '../../hooks/useLogDraft';
 import { digest, target, ExerciseSummary, LiftTrend, Target } from '../../services/insights';
-import { daysAgo, lastDoneLine } from '../../services/format';
-import { goalProgress, muscleName } from '../../services/goals';
-import { fonts, muscleGroupColors, radius, spacing } from '../../constants/theme';
+import { daysAgo, lastDoneLine, paceLine } from '../../services/format';
+import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName } from '../../services/goals';
+import { missedChips } from '../../services/suggestions';
+import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import type { MuscleGroup, Workout } from '../../types/workout';
 
 const SHOWN = 8; // exercises before "Show all"
-// Chat bar starters for a missed workout: they begin the message, you finish it
-const FIX_LOG_CHIPS = ['Legs on Wed:', 'Yesterday I did', 'Forgot Monday:'];
 
-// How you're doing, from your own log. Detail is optional: every exercise shows when it was last
-// done and how often, and PRs, trends and next targets appear only where there are numbers.
-// Missed a workout? Say so in the chat bar and it goes on the right day.
+// How you're doing, from your own log: goals first (or a prompt to set them), then every exercise with
+// when it was last done and how often; PRs, trends and next targets only where there are numbers.
+// Missed a workout? Say so in the chat bar and it goes on the right day; a planned day you never logged is a chip.
 export default function ProgressScreen() {
-  const { colors } = useTheme();
+  const { colors, sky } = useTheme();
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
-  const { workouts, exerciseLibrary, settings, deleteWorkouts } = useWorkoutStore();
+  const { workouts, exerciseLibrary, settings, updateSettings, deleteWorkouts, schedule, templates } = useWorkoutStore();
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
   const trends = useMemo(() => new Map(d.liftTrends.map(t => [t.id, { trend: t, target: target(t) }])), [d]);
   const goals = useMemo(() => settings.goals && goalProgress(settings.goals, workouts, exerciseLibrary), [settings.goals, workouts, exerciseLibrary]);
+  const hasGoals = !!goals && (goals.muscles.length > 0 || goals.custom.length > 0);
+  const chips = useMemo(() => missedChips(workouts, schedule, templates), [workouts, schedule, templates]);
   const [showAll, setShowAll] = useState(false);
   const [logged, setLogged] = useState<Workout[] | null>(null);
 
   const log = useLogDraft({ date: d.today, onLogged: (_id, _template, saved) => setLogged(saved ?? null) });
 
-  const tiles = [
-    {
-      value: d.sessionsLast7,
-      label: 'Last 7 days',
-      note: settings.weeklyTarget ? `goal ${settings.weeklyTarget}` : d.usualPerWeek !== null ? `usual ${d.usualPerWeek}` : undefined,
-    },
-    { value: d.weeksInARow, label: d.weeksInARow === 1 ? 'Week in a row' : 'Weeks in a row' },
-    d.liftTrends.length
-      ? { value: d.prsLast14Days.length, label: 'PRs · 14 days' }
-      : { value: d.totalSessions, label: d.totalSessions === 1 ? 'Training day' : 'Training days' },
-  ];
   const groups = (Object.keys(muscleGroupColors) as MuscleGroup[]).filter(g => d.daysSinceGroupTrained[g] !== undefined);
   const shown = showAll ? d.exercises : d.exercises.slice(0, SHOWN);
   const loggedDays = logged ? [...new Set(logged.map(w => w.date))] : [];
@@ -59,7 +49,7 @@ export default function ProgressScreen() {
 
   return (
     <ChatScreen
-      bar={logBar(log, "Forgot something? 'legs on Wed'", FIX_LOG_CHIPS)}
+      bar={logBar(log, "Forgot something? 'legs on Wed'", chips)}
       follow={reviewing}
       overlay={
         logged && (
@@ -73,7 +63,7 @@ export default function ProgressScreen() {
         )
       }
     >
-      <LargeTitle title="Progress" />
+      <LargeTitle title="Progress" subtitle={paceLine(sky.done, sky.target)} />
 
       {/* Corrections: a missed workout in plain words goes to its own day */}
       {log.sent && <UserBubble text={log.sent} />}
@@ -100,22 +90,21 @@ export default function ProgressScreen() {
         </SkyCard>
       ) : (
         <>
-          <View style={styles.tiles}>
-            {tiles.map(tile => (
-              <SkyCard key={tile.label} style={styles.tile}>
-                <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
-                <Text variant="labelMedium" style={{ color: colors.textSecondary }} numberOfLines={1}>{tile.label}</Text>
-                {tile.note && (
-                  <Text variant="labelSmall" style={{ color: colors.textTertiary }} numberOfLines={1}>{tile.note}</Text>
-                )}
-              </SkyCard>
-            ))}
-          </View>
+          {/* Goals lead the page; until there are some, a prompt to set them (it stays gone after Not now) */}
+          {hasGoals ? (
+            <GoalsCard progress={goals} daysSince={d.daysSinceGroupTrained} />
+          ) : (
+            !settings.goalsPromptDismissed && (
+              <GoalsPrompt
+                onPreset={() => updateSettings({ goals: { ...(settings.goals ?? NO_GOALS), muscles: settings.goals?.muscles.length ? settings.goals.muscles : DEFAULT_MUSCLES, timesPerWeek: 2 } })}
+                onOwn={() => router.push('/goals')}
+                onNotNow={() => updateSettings({ goalsPromptDismissed: true })}
+              />
+            )
+          )}
 
-          {goals && (goals.muscles.length > 0 || goals.custom.length > 0) && <GoalsCard progress={goals} daysSince={d.daysSinceGroupTrained} />}
-
+          <SectionLabel style={styles.label}>Your exercises</SectionLabel>
           <SkyCard>
-            <SectionLabel>Your exercises</SectionLabel>
             {shown.map((e, i) => (
               <ExerciseRow
                 key={e.id}
@@ -138,44 +127,46 @@ export default function ProgressScreen() {
 
           {/* With muscle goals on, the goals card shows each muscle instead */}
           {!goals?.muscles.length && (
-            <SkyCard>
-              <View style={styles.header}>
+            <>
+              <View style={[styles.header, styles.label]}>
                 <SectionLabel style={styles.fill}>Days since trained</SectionLabel>
-                {!goals?.custom.length && (
+                {!goals?.custom.length && settings.goalsPromptDismissed && (
                   <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" hitSlop={10}>
                     <Text variant="labelLarge" style={{ color: colors.sunrise }}>Set goals</Text>
                   </Pressable>
                 )}
               </View>
-              <View style={styles.groups}>
-                {groups.map(g => {
-                  const days = d.daysSinceGroupTrained[g]!;
-                  const stale = d.staleGroups.includes(g);
-                  return (
-                    <Pressable
-                      key={g}
-                      onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${muscleName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
-                      style={({ pressed }) => [
-                        styles.group,
-                        { width: fontScale > LIST_AT_FONT_SCALE ? '100%' : '48%' }, // two a row so names fit; one at large text
-                        { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <View style={styles.groupName}>
-                        <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
-                        <Text variant="labelMedium" style={[styles.shrink, { color: colors.textSecondary }]}>{muscleName(g)}</Text>
-                      </View>
-                      <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
-                        {days === 0 ? 'Today' : `${days}d`}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </SkyCard>
+              <SkyCard>
+                <View style={styles.groups}>
+                  {groups.map(g => {
+                    const days = d.daysSinceGroupTrained[g]!;
+                    const stale = d.staleGroups.includes(g);
+                    return (
+                      <Pressable
+                        key={g}
+                        onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${muscleName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
+                        style={({ pressed }) => [
+                          styles.group,
+                          { width: fontScale > LIST_AT_FONT_SCALE ? '100%' : '48%' }, // two a row so names fit; one at large text
+                          { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <View style={styles.groupName}>
+                          <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
+                          <Text variant="labelMedium" style={[styles.shrink, { color: colors.textSecondary }]}>{muscleName(g)}</Text>
+                        </View>
+                        <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
+                          {days === 0 ? 'Today' : `${days}d`}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </SkyCard>
+            </>
           )}
         </>
       )}
@@ -188,6 +179,33 @@ const loggedOn = (date: string) => {
   const label = dayLabel(date);
   return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
 };
+
+// The first-use prompt for goals: the owner's own goal in one tap, your own on the Goals screen
+function GoalsPrompt({ onPreset, onOwn, onNotNow }: { onPreset: () => void; onOwn: () => void; onNotNow: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <SkyCard>
+      <View style={styles.promptTop}>
+        <View style={[styles.promptIcon, { backgroundColor: colors.dim }]}>
+          <SymbolView name="target" size={17} weight="semibold" tintColor={colors.sunrise} />
+        </View>
+        <View style={styles.fill}>
+          <Text variant="titleMedium" style={{ color: colors.text }}>Set a weekly goal</Text>
+          <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+            See which muscles you've covered in the last 7 days, and what's left.
+          </Text>
+        </View>
+      </View>
+      <View style={styles.promptActions}>
+        <Pill size="small" label="Each muscle 2× a week" onPress={onPreset} />
+        <Pill variant="glass" size="small" label="My own goals" onPress={onOwn} />
+      </View>
+      <Pressable onPress={onNotNow} accessibilityRole="button" hitSlop={10} style={styles.notNow}>
+        <Text variant="labelMedium" style={{ color: colors.textTertiary }}>Not now</Text>
+      </Pressable>
+    </SkyCard>
+  );
+}
 
 // One exercise: when and how often for everyone; trend, PR and next target only with numbers
 function ExerciseRow({ exercise, lift, first, onPress }: { exercise: ExerciseSummary; lift?: { trend: LiftTrend; target: Target }; first: boolean; onPress: () => void }) {
@@ -254,24 +272,34 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.lg,
   },
-  tiles: {
+  label: {
+    marginHorizontal: spacing.xs,
+    marginTop: spacing.gap, // 24 pt below the card above
+    marginBottom: spacing.sm,
+  },
+  promptTop: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.gap,
+  },
+  promptIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promptActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.gap,
+    marginTop: spacing.md,
   },
-  tile: {
-    flex: 1,
-    marginBottom: 0,
-    borderRadius: radius.tile,
-    paddingHorizontal: 10,
-    paddingVertical: spacing.gap,
-  },
-  tileValue: {
-    fontFamily: fonts.rounded,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
+  notNow: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.gap,
+    minHeight: 24,
+    justifyContent: 'center',
   },
   row: {
     flexDirection: 'row',
@@ -302,7 +330,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   group: {
     borderRadius: 14,

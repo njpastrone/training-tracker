@@ -6,21 +6,23 @@ import { spacing } from '../constants/theme';
 import { SkyScreen } from './Sky';
 import { Composer, Pill } from './Glass';
 import type { useLogDraft } from '../hooks/useLogDraft';
+import { toChips, type Chip } from '../services/suggestions';
 
 export interface ChatBarProps {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
   placeholder: string;
-  chips: string[];
-  onChip: (chip: string) => void;
+  chips: Chip[]; // none: no chips row
+  onChip: (text: string) => void;
   busy?: boolean;
   disabled?: boolean;
   error?: string | null;
 }
 
 // The one chat bar every chat tab shares: suggestion chips over the composer, an error above them.
-// Only the placeholder, chips and what a send does change per tab.
+// Only the placeholder, chips and what a send does change per tab. Chips run to the screen edge,
+// so a cut-off one reads as "scroll for more"; with no chips there's no row.
 export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChip, busy, disabled, error }: ChatBarProps) {
   const { colors } = useTheme();
   return (
@@ -30,22 +32,30 @@ export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChi
           {error}
         </Animated.Text>
       ) : null}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.chips}>
-        {chips.map(chip => (
-          <Pill key={chip} variant="glass" size="small" label={chip} onPress={() => onChip(chip)} disabled={busy || disabled} />
-        ))}
-      </ScrollView>
+      {chips.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          style={styles.chipRow}
+          contentContainerStyle={styles.chips}
+        >
+          {chips.map(chip => (
+            <Pill key={chip.label} variant="glass" size="small" label={chip.label} onPress={() => onChip(chip.text)} disabled={busy || disabled} />
+          ))}
+        </ScrollView>
+      )}
       <Composer value={value} onChangeText={onChangeText} onSend={onSend} placeholder={placeholder} busy={busy} disabled={disabled} />
     </View>
   );
 }
 
 // While a parsed card is open the bar fixes it, so cards need no fix box of their own
-const FIX_CHIPS = ['It was yesterday', 'Drop the last exercise'];
+const FIX_CHIPS = toChips(['It was yesterday', 'Drop the last exercise']);
 
 // The bar for a tab that logs through useLogDraft (Log, Progress): log what you typed, then fix the card.
-// Chips with nothing open start a message; fix chips send right away.
-export function logBar(log: ReturnType<typeof useLogDraft>, placeholder: string, chips: string[], beforeSend?: () => void): ChatBarProps {
+// Chips with nothing open fill the box and hide while you type; fix chips send right away.
+export function logBar(log: ReturnType<typeof useLogDraft>, placeholder: string, chips: Chip[], beforeSend?: () => void): ChatBarProps {
   const fixing = !!log.draft;
   return {
     value: log.text,
@@ -56,8 +66,8 @@ export function logBar(log: ReturnType<typeof useLogDraft>, placeholder: string,
       if (await log.fix(log.text)) log.setText('');
     },
     placeholder: fixing ? 'Fix or ask: "it was rows, not pulldowns"' : placeholder,
-    chips: fixing ? FIX_CHIPS : chips,
-    onChip: chip => (fixing ? log.fix(chip) : log.setText(`${chip} `)),
+    chips: fixing ? FIX_CHIPS : log.text.trim() ? [] : chips,
+    onChip: text => (fixing ? log.fix(text) : log.setText(text)),
     busy: log.busy === 'parse' || log.busy === 'fix',
     disabled: log.busy === 'save',
     error: fixing ? null : log.error, // the card shows its own errors
@@ -109,8 +119,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
   },
+  chipRow: {
+    marginHorizontal: -spacing.md, // to the screen edge
+  },
   chips: {
     gap: 6,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   error: {

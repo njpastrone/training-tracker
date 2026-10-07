@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, emptyDay } from './format';
+import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, emptyDay, weekLine, paceLine } from './format';
 
 const bench = { name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const };
 const run = { name: 'Run', muscleGroup: 'cardio' as const, duration: 25, distance: 5, distanceUnit: 'km' as const };
@@ -46,4 +46,16 @@ test('emptyDay offers Plan today and ahead, logging today and before', () => {
   assert.equal(emptyDay(today, today, false, true), undefined);
   assert.equal(emptyDay('2026-10-07', today, false, true), undefined);
   assert.equal(emptyDay('2026-10-05', today, true, false), undefined);
+});
+
+test('weekLine and paceLine always say something', () => {
+  assert.equal(weekLine(2, 2), '2 logged · 2 planned this week');
+  assert.equal(weekLine(2, 0), '2 logged this week');
+  assert.equal(weekLine(0, 3), '3 planned this week');
+  assert.equal(weekLine(0, 0), 'Nothing logged yet this week');
+  assert.equal(paceLine(2, 3), '2 of 3 training days in the last 7');
+  assert.equal(paceLine(0, 3), 'No training days in the last 7');
+  assert.equal(paceLine(3, 3), '3 training days in the last 7 · goal met');
+  assert.equal(paceLine(3, 2), '3 training days in the last 7 · goal met');
+  assert.equal(paceLine(1, 0), '1 training day in the last 7 · goal met');
 });

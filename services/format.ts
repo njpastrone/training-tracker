@@ -66,3 +66,16 @@ export function emptyDay(date: string, today: string, logged: boolean, planned: 
     ? { title: 'No workouts on this day', plan: false, log: true }
     : { title: 'Nothing planned', plan: true, log: date === today };
 }
+
+// History's subtitle: this calendar week's logged and still-planned training days
+export function weekLine(logged: number, planned: number): string {
+  if (!logged && !planned) return 'Nothing logged yet this week';
+  return [logged && `${logged} logged`, planned && `${planned} planned`].filter(Boolean).join(' · ') + ' this week';
+}
+
+// Progress's subtitle: the sky's training days in the last 7 against its target
+export function paceLine(done: number, target: number): string {
+  if (!done) return 'No training days in the last 7';
+  if (done >= target) return `${done} training day${done === 1 ? '' : 's'} in the last 7 · goal met`;
+  return `${done} of ${target} training days in the last 7`;
+}
