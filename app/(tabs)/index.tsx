@@ -229,7 +229,7 @@ export default function LogScreen() {
             accessibilityState={{ expanded: howTo }}
             style={styles.howToHeader}
           >
-            <SymbolView name="bubble.left.and.text.bubble.right" size={20} tintColor={colors.sunrise} />
+            <LogoMark size={20} color={colors.sunrise} />
             <Text variant="titleSmall" style={[styles.fill, { color: colors.text }]}>How to use this</Text>
             <SymbolView name={howTo ? 'chevron.up' : 'chevron.down'} size={13} weight="semibold" tintColor={colors.textTertiary} />
           </Pressable>

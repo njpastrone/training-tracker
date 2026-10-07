@@ -3,9 +3,10 @@ import { Text } from 'react-native-paper';
 import { SymbolView, SFSymbol } from 'expo-symbols';
 import { useColors } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
+import LogoMark from './LogoMark';
 
 interface Props {
-  icon: SFSymbol;
+  icon: SFSymbol | 'logo'; // 'logo' is the LiftText mark, used for AI settings
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
@@ -32,7 +33,7 @@ export default function Row({ icon, title, subtitle, right, onPress, destructive
       ]}
     >
       <View style={[styles.icon, { backgroundColor: colors.dim }]}>
-        <SymbolView name={icon} size={17} weight="semibold" tintColor={tint} />
+        {icon === 'logo' ? <LogoMark size={19} color={tint} /> : <SymbolView name={icon} size={17} weight="semibold" tintColor={tint} />}
       </View>
       <View style={styles.text}>
         <Text variant="bodyLarge" style={{ color: destructive ? colors.error : colors.text }}>

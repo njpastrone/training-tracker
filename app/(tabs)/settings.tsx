@@ -124,7 +124,7 @@ export default function SettingsScreen() {
             onPress={pickGoal}
           />
           <Row
-            icon="sparkles"
+            icon="logo"
             title="AI reading"
             subtitle={
               settings.aiConsent === 'granted'

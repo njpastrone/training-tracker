@@ -6,6 +6,7 @@ import { spacing } from '../constants/theme';
 import { setAiConsentAsker } from '../services/aiConsent';
 import { SectionLabel } from './Sky';
 import { Pill } from './Glass';
+import LogoMark from './LogoMark';
 
 const SENT = [
   'What you type in a chat bar or fix box, and the workout card you are fixing',
@@ -43,6 +44,7 @@ export default function AiConsentSheet() {
   return (
     <Modal visible={!!answer} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => reply(null)}>
       <ScrollView style={{ backgroundColor: colors.surface }} contentContainerStyle={styles.content}>
+        <LogoMark size={44} color={colors.sunrise} />
         <Text variant="headlineSmall" style={{ color: colors.text }} accessibilityRole="header">
           Use AI to read your logs?
         </Text>
