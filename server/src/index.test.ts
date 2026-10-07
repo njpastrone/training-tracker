@@ -173,3 +173,37 @@ test('parse mode puts the app\'s exercise list in the prompt and rejects malform
     assert.equal((await call(req('pw', { parse: { ...parse, exercises: bad } }), env)).status, 400);
   }
 });
+
+test('rejects oversized raw prompts and parse input', async () => {
+  const { env } = makeEnv();
+  const big = await call(req('pw', { system: 's', messages: [{ role: 'user', content: 'x'.repeat(80_000) }] }), env);
+  assert.equal(big.status, 413);
+  const parse = (input: string) => req('pw', { parse: { input, date: '2026-01-01', unit: 'lbs' } });
+  assert.equal((await call(parse('x'.repeat(4001)), env)).status, 400);
+  assert.equal((await call(parse('x'.repeat(4000)), env)).status, 200);
+  assert.equal(upstream.length, 1);
+  const correct = (draft: unknown, fix: string) => req('pw', { parse: { input: 'x', date: '2026-01-01', unit: 'lbs', draft, fix } });
+  assert.equal((await call(correct({ exercises: [] }, 'x'.repeat(4001)), env)).status, 400);
+  assert.equal((await call(correct({ exercises: [], notes: 'x'.repeat(80_000) }, 'x'), env)).status, 413);
+  assert.equal((await call(correct({ exercises: Array(5000).fill({ name: 'x'.repeat(20) }) }, 'x'), env)).status, 413);
+  assert.equal(upstream.length, 0);
+});
+
+test('accepts the largest requests the app sends', async () => {
+  const { env } = makeEnv('50');
+  const name = (i: number) => `exercise ${i} `.padEnd(80, 'x');
+  const exercises = Array.from({ length: 120 }, (_, i) => ({ name: name(i), muscleGroup: 'chest' as const, also: [name(i + 1), name(i + 2), name(i + 3)], yours: true }));
+  const draft = { isWorkout: true, muscleGroups: ['chest'], notes: 'n'.repeat(500), exercises: Array.from({ length: 30 }, (_, i) => ({ name: name(i), muscleGroup: 'chest', sets: 3, reps: 10, weight: 225 })) } as unknown as Parameters<typeof buildCorrectionRequest>[0];
+  const input = 'x'.repeat(4000);
+  const fix = 'x'.repeat(4000);
+  const options = { date: '2026-01-01', unit: 'lbs' as const, exercises };
+  // Shaped like callClaude: the legacy system/messages ride along with parse
+  const send = (r: { system: string; messages: unknown[]; max_tokens: number }, parse?: unknown) => call(req('pw', { system: r.system, messages: r.messages, max_tokens: r.max_tokens, parse }, 'install-1234'), env);
+  const parseReq = buildParseRequest(input, options);
+  const corrReq = buildCorrectionRequest(draft, fix, options);
+  assert.equal((await send(parseReq, { input, ...options })).status, 200);
+  assert.equal((await send(corrReq, { input, ...options, draft, fix })).status, 200);
+  // Apps from before parse mode send only the raw prompt
+  assert.equal((await send(parseReq)).status, 200);
+  assert.equal((await send(corrReq)).status, 200);
+});

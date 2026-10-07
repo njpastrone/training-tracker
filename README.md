@@ -67,7 +67,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 
 ## API Server
 
-The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (`claude-haiku-4-5-20251001`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 40, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 450). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
+The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (`claude-haiku-4-5-20251001`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 20, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 450). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
 
 The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks. The install id is made up by the app too, so someone with the password can rotate ids to get past the per-install cap; the global cap still bounds the bill, but they can use it up for everyone (App Attest is the planned fix before a public launch).
 

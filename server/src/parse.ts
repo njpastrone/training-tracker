@@ -152,7 +152,7 @@ function userMessage(input: string, options: ParseOptions) {
 export function buildParseRequest(input: string, options: ParseOptions) {
   return {
     model: PARSE_MODEL,
-    max_tokens: 2000,
+    max_tokens: 1200,
     temperature: 0,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user' as const, content: userMessage(input, options) }],

@@ -12,7 +12,8 @@ export interface Env {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1500;
-const MAX_BODY_CHARS = 100_000;
+const MAX_PROMPT_CHARS = 80_000;
+const MAX_INPUT_CHARS = 4000;
 const MAX_CANDIDATES = 120;
 const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
 
@@ -59,12 +60,9 @@ export default {
       return json(401, { error: 'Invalid app password.' });
     }
 
-    const raw = await request.text();
-    if (raw.length > MAX_BODY_CHARS) return json(413, { error: 'Request too large.' });
-
     let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown };
     try {
-      body = JSON.parse(raw);
+      body = await request.json();
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
@@ -75,13 +73,13 @@ export default {
     if (parse !== undefined) {
       const { input, date, unit, exercises, draft, fix } = (parse ?? {}) as Record<string, unknown>;
       const candidates = exercises === undefined ? [] : parseCandidates(exercises);
-      if (typeof input !== 'string' || !input.trim() || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
+      if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
         return json(400, { error: 'Invalid request.' });
       }
       // Correction mode: apply a typed fix to the draft under review. `input` (the draft as text plus
       // the fix) is what Workers deployed before this mode parse instead.
       if (fix !== undefined) {
-        if (typeof fix !== 'string' || !fix.trim() || !Array.isArray((draft as { exercises?: unknown })?.exercises)) {
+        if (typeof fix !== 'string' || !fix.trim() || fix.length > MAX_INPUT_CHARS || !Array.isArray((draft as { exercises?: unknown })?.exercises)) {
           return json(400, { error: 'Invalid request.' });
         }
         upstream = buildCorrectionRequest(draft as Parameters<typeof buildCorrectionRequest>[0], fix, { date, unit, exercises: candidates });
@@ -99,6 +97,7 @@ export default {
         messages,
       };
     }
+    if (JSON.stringify({ system: upstream.system, messages: upstream.messages }).length > MAX_PROMPT_CHARS) return json(413, { error: 'Request too large.' });
 
     // Apps from before install ids send none and all share one small 'legacy' bucket (too short to clash with a real id)
     const installId = request.headers.get('x-install-id');
@@ -128,7 +127,8 @@ export default {
       return json(502, { error: `AI service error (${res.status}).` });
     }
 
-    const data = await res.json<{ content: { type: string; text?: string }[] }>();
+    const data = await res.json<{ content: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } }>();
+    console.log('usage', device.id, data.usage?.input_tokens, data.usage?.output_tokens);
     return json(200, { text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') });
   },
 } satisfies ExportedHandler<Env>;
