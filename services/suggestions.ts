@@ -74,8 +74,6 @@ export function planChips(workouts: Workout[], daysAWeek: number | undefined, no
     chips.push(chip('Repeat this week', `Next week, the same as this week: ${days.join('; ')}`));
   }
   chips.push(chip(daysAWeek ? `Next week, ${daysAWeek} days` : 'Next week'));
-  const last = newestFirst(workouts).find(w => w.date <= today)?.date;
-  if (!last || differenceInCalendarDays(now, parseISO(last)) > 14) chips.push(chip('Re-entry week'));
   return chips;
 }
 

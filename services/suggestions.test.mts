@@ -50,13 +50,13 @@ test('logChips puts the planned workout for today first, for new users too', () 
   assert.deepEqual(logChips([], plan, now)[0], { label: "Today's plan · Legs", text: 'Squat' });
 });
 
-test('planChips repeats this week, uses the days-a-week setting, and offers a re-entry week only after a break', () => {
+test('planChips repeats this week, uses the days-a-week setting', () => {
   assert.deepEqual(planChips([push, back, legs], 4, now), [
     { label: 'Repeat this week', text: 'Next week, the same as this week: Mon chest, shoulders, biceps +1; Tue back' },
     { label: 'Next week, 4 days', text: 'Next week, 4 days' },
   ]);
   const before = ['2026-09-01', '2026-09-02', '2026-09-03'].map(d => workout(d, ['back'], ['Row']));
-  assert.deepEqual(planChips(before, undefined, now).map(c => c.label), ['Next week', 'Re-entry week']);
+  assert.deepEqual(planChips(before, undefined, now).map(c => c.label), ['Next week']);
   assert.equal(planChips([back], 3, now), PLAN_STARTERS);
 });
 

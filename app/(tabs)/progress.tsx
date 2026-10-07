@@ -17,7 +17,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useLogDraft } from '../../hooks/useLogDraft';
 import { digest, target, ExerciseSummary, LiftTrend, Target } from '../../services/insights';
 import { daysAgo, lastDoneLine, paceLine } from '../../services/format';
-import { NO_GOALS, goalProgress, muscleName } from '../../services/goals';
+import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName } from '../../services/goals';
 import { missedChips } from '../../services/suggestions';
 import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import type { MuscleGroup, Workout } from '../../types/workout';
@@ -96,7 +96,7 @@ export default function ProgressScreen() {
           ) : (
             !settings.goalsPromptDismissed && (
               <GoalsPrompt
-                onPreset={() => updateSettings({ goals: { ...(settings.goals ?? NO_GOALS), timesPerWeek: 2 } })}
+                onPreset={() => updateSettings({ goals: { ...(settings.goals ?? NO_GOALS), muscles: settings.goals?.muscles.length ? settings.goals.muscles : DEFAULT_MUSCLES, timesPerWeek: 2 } })}
                 onOwn={() => router.push('/goals')}
                 onNotNow={() => updateSettings({ goalsPromptDismissed: true })}
               />
