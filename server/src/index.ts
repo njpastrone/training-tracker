@@ -12,7 +12,7 @@ export interface Env {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1500;
-const MAX_BODY_CHARS = 20_000;
+const MAX_PROMPT_CHARS = 80_000;
 const MAX_INPUT_CHARS = 4000;
 const MAX_CANDIDATES = 120;
 const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
@@ -60,12 +60,9 @@ export default {
       return json(401, { error: 'Invalid app password.' });
     }
 
-    const raw = await request.text();
-    if (raw.length > MAX_BODY_CHARS) return json(413, { error: 'Request too large.' });
-
     let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown };
     try {
-      body = JSON.parse(raw);
+      body = await request.json();
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
@@ -93,6 +90,7 @@ export default {
       if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
         return json(400, { error: 'Invalid request.' });
       }
+      if (JSON.stringify({ system, messages }).length > MAX_PROMPT_CHARS) return json(413, { error: 'Request too large.' });
       upstream = {
         model: MODEL,
         max_tokens: Number.isInteger(max_tokens) && (max_tokens as number) > 0 ? Math.min(max_tokens as number, MAX_TOKENS) : MAX_TOKENS,
