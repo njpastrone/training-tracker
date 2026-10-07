@@ -140,7 +140,10 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
         <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
       </View>
 
-      <Pill variant="glass" size="small" label={fullMonth ? 'Show 3 weeks' : 'Show full month'} onPress={toggleFullMonth} style={styles.toggle} />
+      {/* A row sizes the pill to its label; alignSelf on the pill itself makes Yoga stretch it down the screen */}
+      <View style={styles.toggleRow}>
+        <Pill variant="glass" size="small" label={fullMonth ? 'Show 3 weeks' : 'Show full month'} onPress={toggleFullMonth} style={styles.toggle} />
+      </View>
     </View>
   );
 }
@@ -239,8 +242,11 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  toggle: {
-    alignSelf: 'flex-start',
+  toggleRow: {
+    flexDirection: 'row',
     marginTop: spacing.gap,
+  },
+  toggle: {
+    flexShrink: 1, // wraps at large text sizes instead of running past the card
   },
 });
