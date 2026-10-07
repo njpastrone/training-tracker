@@ -5,13 +5,14 @@
   "vars": {
     // Max Claude requests per UTC day across all users. Each request is two KV writes (this count
     // and the device's), and the free plan allows 1000 writes/day, so keep this under 500.
-    // 450 / 40 per device means it takes 12 devices at their limit to block everyone else.
+    // 450 / 20 per device means it takes 23 devices at their limit to block everyone else.
     "DAILY_REQUEST_CAP": "450",
     // Max Claude requests per UTC day from one app install (the app's x-install-id header).
-    "DEVICE_DAILY_CAP": "40",
+    "DEVICE_DAILY_CAP": "20",
     // Max Claude requests per UTC day shared by all app builds that send no x-install-id.
     "LEGACY_DAILY_CAP": "30"
   },
+  "observability": { "enabled": true },
   "kv_namespaces": [
     // Replace the id with the one printed by `npx wrangler kv namespace create USAGE`.
     { "binding": "USAGE", "id": "63744af387654f9181642103b84c06be" }

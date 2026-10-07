@@ -12,7 +12,8 @@ export interface Env {
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1500;
-const MAX_BODY_CHARS = 100_000;
+const MAX_BODY_CHARS = 20_000;
+const MAX_INPUT_CHARS = 4000;
 const MAX_CANDIDATES = 120;
 const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
 
@@ -75,7 +76,7 @@ export default {
     if (parse !== undefined) {
       const { input, date, unit, exercises, draft, fix } = (parse ?? {}) as Record<string, unknown>;
       const candidates = exercises === undefined ? [] : parseCandidates(exercises);
-      if (typeof input !== 'string' || !input.trim() || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
+      if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
         return json(400, { error: 'Invalid request.' });
       }
       // Correction mode: apply a typed fix to the draft under review. `input` (the draft as text plus
@@ -128,7 +129,8 @@ export default {
       return json(502, { error: `AI service error (${res.status}).` });
     }
 
-    const data = await res.json<{ content: { type: string; text?: string }[] }>();
+    const data = await res.json<{ content: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } }>();
+    console.log('usage', device.id, data.usage?.input_tokens, data.usage?.output_tokens);
     return json(200, { text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') });
   },
 } satisfies ExportedHandler<Env>;

@@ -173,3 +173,13 @@ test('parse mode puts the app\'s exercise list in the prompt and rejects malform
     assert.equal((await call(req('pw', { parse: { ...parse, exercises: bad } }), env)).status, 400);
   }
 });
+
+test('rejects oversized bodies and parse input', async () => {
+  const { env } = makeEnv();
+  const big = await call(req('pw', { system: 's', messages: [{ role: 'user', content: 'x'.repeat(20_000) }] }), env);
+  assert.equal(big.status, 413);
+  const parse = (input: string) => req('pw', { parse: { input, date: '2026-01-01', unit: 'lbs' } });
+  assert.equal((await call(parse('x'.repeat(4001)), env)).status, 400);
+  assert.equal((await call(parse('x'.repeat(4000)), env)).status, 200);
+  assert.equal(upstream.length, 1);
+});
