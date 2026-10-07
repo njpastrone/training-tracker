@@ -58,7 +58,7 @@ export function logChips(workouts: Workout[], plan?: WorkoutTemplate | null, now
   return [...planned, ...chips];
 }
 
-// History: plan starters from this week, the days-a-week setting and a long break; these send right away
+// History: plan starters from this week and the days-a-week setting; these send right away
 export function planChips(workouts: Workout[], daysAWeek: number | undefined, now: Date = new Date()): Chip[] {
   if (trainingDays(workouts) < NEW_USER_DAYS) return PLAN_STARTERS;
   const today = ymd(now);
