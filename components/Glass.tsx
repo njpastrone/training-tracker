@@ -39,7 +39,8 @@ interface PillProps {
   style?: StyleProp<ViewStyle>;
 }
 
-// 50 pt pill button: sunrise for the main action, glass for the rest
+// 50 pt pill button: sunrise for the main action, glass for the rest.
+// To size one to its label, put it in a row: alignSelf on the pill makes Yoga stretch it down the screen.
 export function Pill({ label, onPress, icon, variant = 'filled', disabled, loading, size = 'regular', style }: PillProps) {
   const { colors } = useTheme();
   const filled = variant === 'filled';
