@@ -74,5 +74,8 @@ export function weekLine(logged: number, planned: number): string {
 }
 
 // Progress's subtitle: the sky's training days in the last 7 against its target
-export const paceLine = (done: number, target: number) =>
-  done ? `${done} of ${target} training days in the last 7` : 'No training days in the last 7';
+export function paceLine(done: number, target: number): string {
+  if (!done) return 'No training days in the last 7';
+  if (done >= target) return `${done} training day${done === 1 ? '' : 's'} in the last 7 · goal met`;
+  return `${done} of ${target} training days in the last 7`;
+}

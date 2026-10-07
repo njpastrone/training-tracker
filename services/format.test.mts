@@ -55,4 +55,7 @@ test('weekLine and paceLine always say something', () => {
   assert.equal(weekLine(0, 0), 'Nothing logged yet this week');
   assert.equal(paceLine(2, 3), '2 of 3 training days in the last 7');
   assert.equal(paceLine(0, 3), 'No training days in the last 7');
+  assert.equal(paceLine(3, 3), '3 training days in the last 7 · goal met');
+  assert.equal(paceLine(3, 2), '3 training days in the last 7 · goal met');
+  assert.equal(paceLine(1, 0), '1 training day in the last 7 · goal met');
 });
