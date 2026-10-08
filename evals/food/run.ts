@@ -15,7 +15,7 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { buildFoodRequest, readFoodItems } from '../../server/src/food.ts';
-import { buildFoodCandidates, candidateName, confidentLocal, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog } from '../../services/foods.ts';
+import { buildFoodCandidates, candidateNames, confidentLocal, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog } from '../../services/foods.ts';
 import { MACROS, scoreFoodCase, type Predicted } from './score.ts';
 import type { FoodCase } from './cases.ts';
 import { callViaCli } from '../cli.ts';
@@ -80,7 +80,7 @@ async function runCase(c: FoodCase) {
     const food = splitLog(c.input).food;
     predicted = { items: food ? localFoodParse(food).items : [] };
   } else {
-    const body: Record<string, unknown> = buildFoodRequest(c.input, { date, foods: candidates.map(candidateName) });
+    const body: Record<string, unknown> = buildFoodRequest(c.input, { date, foods: candidateNames(c.input, candidates) });
     if (args.model) body.model = args.model;
     if (!String(body.model).startsWith('claude-haiku')) delete body.temperature;
     try {

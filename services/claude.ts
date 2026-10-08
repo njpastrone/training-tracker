@@ -7,7 +7,7 @@ import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems, type DraftFoodForModel } from '../server/src/food';
 import { FoodDraft } from '../types/food';
-import { buildFoodCandidates, candidateName, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
+import { buildFoodCandidates, candidateNames, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
 import { foodById } from '../data/foods';
 import { buildCandidates } from '../server/src/identity';
 import { offersName, yourExercises } from './exerciseIdentity';
@@ -142,7 +142,7 @@ export async function parseFood(input: string, date: string, fallbackText = inpu
   const usual = usualPortions(useWorkoutStore.getState().foodEntries);
   try {
     const candidates = buildFoodCandidates(input);
-    const foods = candidates.map(candidateName);
+    const foods = candidateNames(input, candidates);
     const req = buildFoodRequest(input, { date, foods });
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { food: { input, date, foods } });
     const read = readFoodItems(text, candidates.length);
@@ -162,7 +162,7 @@ export async function correctFood(draft: FoodDraft, fix: string, date: string): 
     // The draft's own foods come first, so their keys stay put; then whatever the fix mentions
     const own = draft.items.flatMap((i) => (i.foodId && foodById.get(i.foodId) ? [foodById.get(i.foodId)!] : []));
     const candidates = [...new Map([...own, ...buildFoodCandidates(fix)].map((f) => [f.id, f])).values()].slice(0, 80);
-    const foods = candidates.map(candidateName);
+    const foods = candidateNames(fix, candidates);
     const items: DraftFoodForModel[] = draft.items.map((i) => {
       const k = i.foodId ? candidates.findIndex((f) => f.id === i.foodId) : -1;
       return {

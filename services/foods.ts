@@ -67,25 +67,31 @@ function tableWord(word: string): string | undefined {
 }
 
 // Table ids named outright in the log: whole names or aliases, longest first
-function phraseHits(words: string[], index: Index): string[] {
-  const hits: string[] = [];
+// The phrases in the log that name a food outright, longest first, with the food each names
+function phrasesIn(words: string[], index: Index): [string, string][] {
+  const hits: [string, string][] = [];
   for (let n = 4; n >= 1; n--) {
     for (let i = 0; i + n <= words.length; i++) {
-      const id = index.phrases.get(words.slice(i, i + n).join(' '));
-      if (id) hits.push(id);
+      const phrase = words.slice(i, i + n).join(' ');
+      const id = index.phrases.get(phrase);
+      if (id) hits.push([phrase, id]);
     }
   }
   return hits;
 }
+const phraseHits = (words: string[], index: Index) => phrasesIn(words, index).map(([, id]) => id);
 
 // The foods the model picks from: those the log names outright, then those sharing its words (the
-// most shared words first, plain names before long ones), core table before the long tail
+// most shared words first, plain names before long ones). The long tail only comes in for words the
+// core table doesn't know ("venison", "jicama"), so its near-duplicates of core foods ("Pork, loin,
+// tenderloin" next to "Pork tenderloin") never compete with the usual pick.
 export function buildFoodCandidates(log: string): Food[] {
   const words = logWords(log).map((w) => tableWord(w) ?? w);
-  const ids = [...phraseHits(words, core), ...phraseHits(words, more)];
-  for (const index of [core, more]) {
+  const tail = words.filter((w) => !core.words.has(w) && !FILLER.has(w));
+  const ids = [...phraseHits(words, core), ...phrasesIn(words, more).filter(([p]) => p.split(' ').some((w) => tail.includes(w))).map(([, id]) => id)];
+  for (const [index, ws] of [[core, words], [more, tail]] as const) {
     const score = new Map<string, number>();
-    for (const w of new Set(words)) for (const id of index.words.get(w) ?? []) score.set(id, (score.get(id) ?? 0) + 1);
+    for (const w of new Set(ws)) for (const id of index.words.get(w) ?? []) score.set(id, (score.get(id) ?? 0) + 1);
     ids.push(
       ...[...score]
         .sort(([a, x], [b, y]) => y - x || foodById.get(a)!.name.length - foodById.get(b)!.name.length)
@@ -98,6 +104,20 @@ export function buildFoodCandidates(log: string): Food[] {
 // How a food is listed for the model
 export const candidateName = (f: Food) =>
   (f.state === 'cooked' && !/cook|roast|grill|boil|bake|fried|broil|steam|scrambl|poach/i.test(f.name) ? `${f.name} (cooked)` : f.name).slice(0, 80);
+
+// The candidate list as the model sees it: a food the log's own words name gets "(usual for
+// "greek yogurt")", so the plain default wins over variants nobody asked for
+export function candidateNames(log: string, foods: Food[]): string[] {
+  const usual = new Map<string, string>();
+  for (const [phrase, id] of phrasesIn(logWords(log).map((w) => tableWord(w) ?? w), core)) {
+    if (!usual.has(id) && phrase !== key(foodById.get(id)!.name)) usual.set(id, phrase);
+  }
+  return foods.map((f) => {
+    const name = candidateName(f);
+    const label = usual.get(f.id) && ` (usual for "${usual.get(f.id)}")`;
+    return label && name.length + label.length <= 80 ? name + label : name;
+  });
+}
 
 const EATING = /\b(ate|eat|eaten|eating|breakfast|brunch|lunch|dinner|supper|snack(ed|s)?|meal|drank|drink(ing)?|dessert|munch(ed)?|grabbed a bite)\b/;
 const FOOD_AMOUNT = /\d\s*(g|grams?|oz|ounces?|cups?|tbsp|tsp|tablespoons?|teaspoons?|ml|slices?|scoops?)\b|\b(a|one|two|half a?) (cup|slice|scoop|handful|bowl|glass|tablespoon|teaspoon)s? of\b/;
@@ -128,18 +148,21 @@ const scaleMacros = (m: Macros, k: number): Macros => ({
   ...(m.fiber !== undefined ? { fiber: m.fiber * k } : {}),
 });
 
+const CONTAINERS = new Set<FoodUnit>(['bowl', 'plate', 'glass', 'can', 'bottle']);
+
 // A table food and an amount as an item, weighed by the conversion. When the food has no weight for
-// the unit, or the conversion is more than 4× off the model's own estimate (a misread amount: "200
-// chicken" isn't 200 breasts), the model's grams win and the amount shows in grams, so the amount,
-// the weight and the numbers always agree. A generic convention (a bowl, a handful) yields to the
-// model's weight, which knows a bowl of oatmeal from a bowl of pasta. No amount at all is the
+// the unit, or a count of 50+ with no unit is far off the model's own estimate (a misread amount:
+// "200 chicken" isn't 200 breasts), the model's grams win and the amount shows in grams, so the
+// amount, the weight and the numbers always agree. A generic container (a bowl, a plate) yields to
+// the model's weight, which knows a bowl of oatmeal from a bowl of pasta. No amount at all is the
 // default serving.
 export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string, modelGrams?: number): FoodItem {
   const weighed = toGrams(food, qty, unit);
   const converted = weighed?.grams;
-  const off = !!converted && !!modelGrams && (converted / modelGrams > 4 || modelGrams / converted > 4);
-  if (modelGrams && (off || !converted)) return itemFor(food, Math.round(modelGrams), 'g', said);
-  const grams = Math.round((weighed?.how === 'generic' && modelGrams) || (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
+  const misread = !unit && (qty ?? 0) >= 50 && !!converted && !!modelGrams && converted / modelGrams > 4;
+  if (modelGrams && (misread || !converted)) return itemFor(food, Math.round(modelGrams), 'g', said);
+  const container = !!unit && CONTAINERS.has(unit) && weighed?.how === 'generic';
+  const grams = Math.round((container && modelGrams) || (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
   const amount = converted ? { qty, unit } : { qty: grams, unit: 'g' as const };
   return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }

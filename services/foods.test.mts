@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
-  buildFoodCandidates, candidateName, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
+  buildFoodCandidates, candidateNames, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
   resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices, nextUnit,
 } from './foods';
 
@@ -21,8 +21,18 @@ test('candidates: the foods a log names, their variants, within the cap and the 
   assert.ok(c.length <= 50);
   assert.ok(ids('200g chicken').includes('chicken-breast-raw'), 'raw and cooked variants both listed');
   assert.ok(ids('had a bannana and some brocoli').includes('banana'), 'typos');
-  for (const f of buildFoodCandidates('chicken rice beans cheese milk bread oil yogurt')) assert.ok(candidateName(f).length <= 80 && !/[<>\n]/.test(candidateName(f)));
+  const log = 'chicken rice beans cheese milk bread oil yogurt';
+  for (const name of candidateNames(log, buildFoodCandidates(log))) assert.ok(name.length <= 80 && !/[<>\n]/.test(name), name);
   assert.deepEqual(ids('bench 3x5 at 225'), []);
+});
+
+test('the long tail only comes in for words the core table lacks; plain defaults are labelled', () => {
+  assert.ok(ids('pork tenderloin 6 oz').every(id => !id.startsWith('usda-')));
+  assert.ok(ids('elk steak').some(id => id.startsWith('usda-')));
+  const log = '250g greek yogurt and some milk';
+  const names = candidateNames(log, buildFoodCandidates(log));
+  assert.ok(names.includes('Greek yogurt, nonfat, plain (usual for "greek yogurt")'), names.join(' | '));
+  assert.ok(names.includes('Milk, 2% (usual for "milk")'), names.join(' | '));
 });
 
 test('router: food words send a log to the food parser, workout words to the workout parser', () => {
@@ -156,6 +166,11 @@ test('a misread amount shows in grams, so amount, weight and numbers agree', () 
   assert.deepEqual([misread.qty, misread.unit, misread.grams], [200, 'g', 200]);
   const [wedge] = resolveItems([{ said: 'a wedge of rice', food: 0, qty: 1, unit: 'wedge', grams: 40 }], [food('rice')]);
   assert.deepEqual([wedge.qty, wedge.unit, wedge.grams], [40, 'g', 40]);
+  // A real count wins over a wrong model weight; a bowl goes by the model's weight
+  const [almonds] = resolveItems([{ said: '20 almonds', food: 0, qty: 20, grams: 114 }], [food('almonds')]);
+  assert.equal(almonds.grams, Math.round(20 * food('almonds').units.each!));
+  const [bowl] = resolveItems([{ said: 'a bowl of oatmeal', food: 0, qty: 1, unit: 'bowl', grams: 240 }], [food('oatmeal')]);
+  assert.deepEqual([bowl.qty, bowl.unit, bowl.grams], [1, 'bowl', 240]);
 });
 
 test('typing an estimate amount digit by digit keeps its numbers', () => {
