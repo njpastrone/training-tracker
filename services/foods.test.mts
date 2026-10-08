@@ -98,6 +98,16 @@ test('a name alone means your usual portion of it', () => {
   assert.equal(localFoodParse('rice', usual).items[0].qty, 2);
 });
 
+test('counts are never remembered: "banana" is one banana after "3 bananas"', () => {
+  const banana = food('banana');
+  const usual = usualPortions([
+    { id: 'a', date: '2026-10-05', rawInput: '', createdAt: '2026-10-05T12:00:00Z', items: [{ id: '1', name: 'Banana', foodId: 'banana', qty: 3, macros: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, source: 'usda' }] },
+  ]);
+  assert.equal(usual.has('banana'), false);
+  assert.equal(localFoodParse('banana', usual).items[0].grams, itemFor(banana).grams);
+  assert.equal(resolveItems([{ said: 'banana', food: 0 }], [banana], usual)[0].grams, itemFor(banana).grams);
+});
+
 test('localFoodParse reads amount + food per part, without AI', () => {
   const { items } = localFoodParse('2 eggs and a banana, 200g chicken breast with 1 cup of rice');
   assert.deepEqual(items.map(i => [i.foodId, i.qty, i.unit]), [['egg', 2, undefined], ['banana', 1, undefined], ['chicken-breast', 200, 'g'], ['rice', 1, 'cup']]);
@@ -105,6 +115,15 @@ test('localFoodParse reads amount + food per part, without AI', () => {
   assert.equal(localFoodParse('100g dry rice').items[0].foodId, 'rice-dry');
   const unknown = localFoodParse('a bowl of pho').items[0];
   assert.equal(unknown.source, 'estimate');
+});
+
+test('a food word inside an exercise name is not food', () => {
+  for (const log of ['glute ham raises 3x10', 'foam roll 10 min', 'american swings 3x15', 'pickle ball for an hour']) {
+    assert.equal(mentionsFood(log), false, log);
+  }
+  assert.deepEqual(splitLog('glute ham raises 3x10, then squats 3x5'), { workout: 'glute ham raises 3x10\nsquats 3x5', food: '' });
+  assert.deepEqual(splitLog('foam roll, american swings 3x15, pickle ball'), { workout: 'foam roll\namerican swings 3x15\npickle ball', food: '' });
+  assert.equal(mentionsFood('foam roll, then a ham sandwich'), true);
 });
 
 test('splitLog sends each part of a mixed message to its side', () => {

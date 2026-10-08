@@ -3,11 +3,11 @@
 // Amount math lives in foodUnits.ts; the prompt in server/src/food.ts.
 
 import { FOODS, MORE_FOODS, foodById } from '../data/foods';
-import { normalizeWords, singularWords } from '../data/catalog';
+import { CATALOG, normalizeWords, singularWords } from '../data/catalog';
 import { catalogHits, editDistance } from '../server/src/identity';
 import type { RawFoodItem } from '../server/src/food';
 import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
-import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor } from './foodUnits';
+import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume } from './foodUnits';
 
 const MAX_CANDIDATES = 50;
 
@@ -24,6 +24,9 @@ const FILLER = new Set([
 const GYM_WORDS = new Set(['leg', 'arm', 'back', 'chest', 'bar', 'plate', 'press', 'dip', 'fly', 'curl', 'row', 'run', 'wing', 'squash', 'shoulder', 'loin', 'rack', 'wrap']);
 
 const key = (s: string) => singularWords(s);
+
+// Exercise names of two or more words: a food word inside one ("glute ham raise", "foam roll") isn't food
+const EXERCISE_PHRASES = new Set(CATALOG.filter((e) => !e.replacedBy).flatMap((e) => [e.name, ...e.aliases].map(key).filter((k) => k.includes(' '))));
 
 interface Index {
   phrases: Map<string, string>; // a whole name or alias → food id
@@ -130,10 +133,17 @@ export function mentionsFood(log: string): boolean {
   if (EATING.test(lower) || FOOD_AMOUNT.test(lower) || DISHES.test(normalizeWords(lower))) return true;
   // No typo matching here: "plank" is one letter from "flank"
   const words = logWords(log);
+  const exercise = new Set<number>();
+  for (let n = 2; n <= 4; n++) {
+    for (let i = 0; i + n <= words.length; i++) {
+      if (EXERCISE_PHRASES.has(words.slice(i, i + n).join(' '))) for (let j = i; j < i + n; j++) exercise.add(j);
+    }
+  }
   for (let n = 1; n <= 4; n++) {
     for (let i = 0; i + n <= words.length; i++) {
       const phrase = words.slice(i, i + n).join(' ');
-      if (core.phrases.has(phrase) && !GYM_WORDS.has(phrase)) return true;
+      const inExercise = words.slice(i, i + n).every((_, j) => exercise.has(i + j));
+      if (core.phrases.has(phrase) && !GYM_WORDS.has(phrase) && !inExercise) return true;
     }
   }
   return false;
@@ -167,13 +177,16 @@ export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string
   return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }
 
-export type Portions = Map<string, { qty: number; unit?: FoodUnit }>;
+export type Portions = Map<string, { qty: number; unit: FoodUnit }>;
 
-// The amount you last logged of each table food: a name alone means your usual portion
+// The weight or volume you last logged of each table food: a name alone means your usual portion.
+// Counts and sizes aren't remembered: "banana" is one banana even after "3 bananas".
 export function usualPortions(entries: FoodEntry[]): Portions {
   const out: Portions = new Map();
   for (const e of [...entries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
-    for (const i of e.items) if (i.foodId && i.qty !== undefined && !out.has(i.foodId)) out.set(i.foodId, { qty: i.qty, unit: i.unit });
+    for (const i of e.items) {
+      if (i.foodId && i.qty !== undefined && i.unit && (isMass(i.unit) || isVolume(i.unit)) && !out.has(i.foodId)) out.set(i.foodId, { qty: i.qty, unit: i.unit });
+    }
   }
   return out;
 }

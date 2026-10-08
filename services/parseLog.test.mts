@@ -23,6 +23,7 @@ globalThis.fetch = (async (_url: string, init: RequestInit) => {
   if (body.food?.fix) {
     // Keeps the draft's own keys: the egg is f1 because draft foods are listed first
     const reply = /protein/.test(body.food.fix) ? 'About 19 g of protein.' : null;
+    if (/rice/.test(body.food.fix)) return Response.json({ text: JSON.stringify({ items: [{ said: 'eggs', food: 'f1', qty: 2, grams: 100 }, { said: 'rice', food: `f${body.food.foods.findIndex((f: string) => /^Rice/.test(f)) + 1}` }], confidence: 0.9 }) });
     const qty = /3 eggs/.test(body.food.fix) ? 3 : 2;
     return Response.json({ text: JSON.stringify({ items: [{ said: 'eggs', food: 'f1', qty, grams: qty * 50 }], confidence: 0.9, reply }) });
   }
@@ -107,4 +108,11 @@ test('a typed fix to the food keeps its table food and recomputes; a question ge
   assert.ok(fixed!.draft.items[0].macros.kcal > draft.items[0].macros.kcal);
   const asked = await correctFood(draft, 'how much protein is that?', options.date);
   assert.equal(asked!.reply, 'About 19 g of protein.');
+});
+
+test('a fix that adds a food with no amount uses your usual portion of it', async () => {
+  useWorkoutStore.getState().addFoodEntry({ id: 'r', date: '2026-10-01', rawInput: '', createdAt: '2026-10-01T12:00:00Z', items: [{ id: '1', name: 'Rice', foodId: 'rice', qty: 2, unit: 'cup', macros: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, source: 'usda' }] });
+  const draft = (await parseLog('2 eggs', options)).food!;
+  const fixed = await correctFood(draft, 'add rice', options.date);
+  assert.deepEqual(fixed!.draft.items.map(i => [i.foodId, i.qty, i.unit]), [['egg', 2, undefined], ['rice', 2, 'cup']]);
 });

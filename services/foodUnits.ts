@@ -22,8 +22,8 @@ const SIZE: Record<SizeUnit, number> = { each: 1, small: 0.8, medium: 1, large: 
 const COUNT: FoodUnit[] = ['each', 'medium', 'large', 'small', 'xl', 'piece', 'breast', 'thigh', 'drumstick', 'wing',
   'fillet', 'patty', 'link', 'bar', 'slice', 'strip', 'stick', 'container', 'packet', 'can', 'bottle'];
 
-const isMass = (u: FoodUnit): u is MassUnit => u in GRAMS;
-const isVolume = (u: FoodUnit): u is VolumeUnit => u in ML;
+export const isMass = (u: FoodUnit): u is MassUnit => u in GRAMS;
+export const isVolume = (u: FoodUnit): u is VolumeUnit => u in ML;
 const isSize = (u: FoodUnit): u is SizeUnit => SIZES.includes(u as SizeUnit);
 const isPortion = (u: FoodUnit): u is PortionUnit => !isMass(u) && !isVolume(u) && !isSize(u);
 const own = (food: Food, u: FoodUnit) => (isMass(u) ? undefined : food.units[u]);

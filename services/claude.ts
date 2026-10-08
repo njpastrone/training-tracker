@@ -175,7 +175,8 @@ export async function correctFood(draft: FoodDraft, fix: string, date: string): 
     const read = readFoodItems(text, candidates.length);
     if (!read) return null;
     // A question can come back with no items; it never empties the draft
-    const next = read.reply && read.items.length === 0 ? draft : { items: resolveItems(read.items, candidates), confidence: read.confidence };
+    const usual = usualPortions(useWorkoutStore.getState().foodEntries);
+    const next = read.reply && read.items.length === 0 ? draft : { items: resolveItems(read.items, candidates, usual), confidence: read.confidence };
     return { draft: next, ...(read.reply ? { reply: read.reply } : {}) };
   } catch (error) {
     if (error instanceof ApiError) throw error;
