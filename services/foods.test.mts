@@ -131,6 +131,12 @@ test('splitLog sends each part of a mixed message to its side', () => {
   assert.deepEqual(splitLog('bench 3x8, rows'), { workout: 'bench 3x8\nrows', food: '' });
 });
 
+test('strips of bacon are weighed as USDA slices, not the model\'s grams', () => {
+  const bacon = itemFor(food('bacon'), 3, 'strip', '3 strips of bacon', 60);
+  assert.equal(bacon.grams, 3 * food('bacon').units.slice!);
+  assert.equal(setQty(bacon, 4).grams, 4 * food('bacon').units.slice!);
+});
+
 test('setQty and setUnit: table foods recompute, estimates scale, the weight survives a unit switch', () => {
   const two = itemFor(food('egg'), 2);
   const three = setQty(two, 3);

@@ -7,7 +7,7 @@ import { CATALOG, normalizeWords, singularWords } from '../data/catalog';
 import { catalogHits, editDistance } from '../server/src/identity';
 import type { RawFoodItem } from '../server/src/food';
 import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
-import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume } from './foodUnits';
+import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume, own } from './foodUnits';
 import { englishFoodWords } from './foodWords';
 
 const MAX_CANDIDATES = 50;
@@ -164,7 +164,7 @@ const scaleMacros = (m: Macros, k: number): Macros => ({
 // weighs for this food ("2 slices", "1 large"), or a count of whole items it weighs ("2 eggs")
 function exactAmount(food: Food, qty: number | undefined, unit: FoodUnit | undefined, how?: string) {
   if (qty === undefined && !unit) return false;
-  if (unit) return isMass(unit) || isVolume(unit) || (food.units as Record<string, number | undefined>)[unit] !== undefined;
+  if (unit) return isMass(unit) || isVolume(unit) || own(food, unit) !== undefined;
   return how === 'portion' || how === 'size';
 }
 

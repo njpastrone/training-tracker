@@ -26,7 +26,8 @@ export const isMass = (u: FoodUnit): u is MassUnit => u in GRAMS;
 export const isVolume = (u: FoodUnit): u is VolumeUnit => u in ML;
 const isSize = (u: FoodUnit): u is SizeUnit => SIZES.includes(u as SizeUnit);
 const isPortion = (u: FoodUnit): u is PortionUnit => !isMass(u) && !isVolume(u) && !isSize(u);
-const own = (food: Food, u: FoodUnit) => (isMass(u) ? undefined : food.units[u]);
+// A unit USDA weighs for this food; USDA bacon comes in slices, so a strip is a slice
+export const own = (food: Food, u: FoodUnit) => (isMass(u) ? undefined : food.units[u] ?? (u === 'strip' ? food.units.slice : undefined));
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const text = (f: Food) => `${f.id} ${f.name}`.toLowerCase();
 
@@ -331,7 +332,7 @@ function perUnit(food: Food | undefined, unit: FoodUnit | undefined, inServing =
   if (unit && isMass(unit)) return { grams: GRAMS[unit], how: 'mass' };
   if (!food) return unit && isVolume(unit) ? { grams: ML[unit], how: 'volume' } : null; // water-like
   if (!unit || unit === 'each') return count(food, inServing);
-  const grams = food.units[unit] ?? (unit === 'strip' ? food.units.slice : undefined); // USDA bacon comes in slices
+  const grams = own(food, unit);
   if (grams) return { grams, how: isVolume(unit) ? 'volume' : isSize(unit) ? 'size' : 'portion' };
   if (isVolume(unit)) return byVolume(food, ML[unit], 'volume');
   if (isSize(unit)) return sized(food, unit, inServing);

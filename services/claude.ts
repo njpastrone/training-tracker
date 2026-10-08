@@ -17,7 +17,11 @@ import { flagGuesses, keepIdentity } from './draft';
 import { hasAiConsent } from './aiConsent';
 
 // Server refusals the user should see (wrong app password, daily cap reached, server busy)
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+  }
+}
 
 const INSTALL_ID_STORAGE_KEY = '@training-tracker/install-id';
 let installId: Promise<string> | undefined;
@@ -66,7 +70,7 @@ export async function callClaude(
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 || res.status === 429 || res.status === 503) {
-    throw new ApiError(data.error ?? 'AI request refused by the server.');
+    throw new ApiError(data.error ?? 'AI request refused by the server.', res.status);
   }
   if (!res.ok || typeof data.text !== 'string') {
     throw new Error(data.error ?? `AI server error (${res.status})`);
@@ -148,7 +152,8 @@ export async function parseFood(input: string, date: string, fallbackText = inpu
     const read = readFoodItems(text, candidates.length);
     return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence } : localFoodParse(fallbackText, usual);
   } catch (error) {
-    if (error instanceof AiOffError) return localFoodParse(fallbackText, usual);
+    // AI off, today's cap reached or the server busy: plain foods still log from the phone
+    if (error instanceof AiOffError || (error instanceof ApiError && (error.status === 429 || error.status === 503))) return localFoodParse(fallbackText, usual);
     console.error('Error parsing food:', error);
     if (error instanceof ApiError) throw error;
     return localFoodParse(fallbackText, usual);
