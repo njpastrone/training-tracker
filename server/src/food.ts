@@ -97,7 +97,7 @@ const foodBlock = ({ foods }: FoodOptions) =>
 export function buildFoodRequest(input: string, options: FoodOptions) {
   return {
     model: FOOD_MODEL,
-    max_tokens: 1500,
+    max_tokens: 4096, // Sonnet thinks by default and thinking counts here; only tokens used are billed
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user' as const, content: `${dateContext(options.date)}\n<log>${input}</log>${foodBlock(options)}` }],
   };

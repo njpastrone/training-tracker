@@ -28,9 +28,10 @@ globalThis.fetch = (async (_url: string, init: RequestInit) => {
     return Response.json({ text: JSON.stringify({ items: [{ said: 'eggs', food: 'f1', qty, grams: qty * 50 }], confidence: 0.9, reply }) });
   }
   if (body.food) {
+    // Picks the first listed food for eggs (the app lists what the log names first)
     const items = /big mac/i.test(body.food.input)
       ? [{ said: 'a Big Mac', food: null, name: 'Big Mac', qty: 1, grams: 219, kcal: 580, protein: 25, carbs: 45, fat: 34 }]
-      : [];
+      : /egg/i.test(body.food.input) ? [{ said: '2 eggs', food: 'f1', qty: 2, grams: 100 }] : [];
     return Response.json({ text: JSON.stringify({ items, confidence: 0.9 }) });
   }
   const exercises = /squat|bench/i.test(body.parse.input) ? [{ said: 'squat', name: 'Squat', muscleGroup: 'quads', sets: 3, reps: 5, weight: 225 }] : [];
@@ -49,18 +50,19 @@ beforeEach(() => {
   useWorkoutStore.getState().updateSettings({ aiConsent: 'granted' });
 });
 
-test('plain whole foods are read on the phone: no AI request', async () => {
-  const r = await parseLog('2 eggs and a banana', options);
-  assert.deepEqual(asked(), []);
+test('food goes to the AI, grounded in the table foods the log names', async () => {
+  const r = await parseLog('2 eggs', options);
+  assert.deepEqual(asked(), ['food']);
+  assert.ok(sent[0].food!.foods[0].startsWith('Egg'));
   assert.equal(r.workout, null);
-  assert.deepEqual(foods(r), ['egg', 'banana']);
+  assert.deepEqual(foods(r), ['egg']);
 });
 
-test('workout and plain food in one message: one AI request, for the workout', async () => {
-  const r = await parseLog('squat 3x5 at 225, then 2 eggs and toast', options);
-  assert.deepEqual(asked(), ['workout']);
+test('workout and food in one message: both parsers, at once', async () => {
+  const r = await parseLog('squat 3x5 at 225, then 2 eggs', options);
+  assert.deepEqual(asked().sort(), ['food', 'workout']);
   assert.equal(r.workout?.exercises[0].name, 'Squat');
-  assert.deepEqual(foods(r), ['egg', 'toast']);
+  assert.deepEqual(foods(r), ['egg']);
 });
 
 test('restaurant food goes to the AI with the table foods the log names', async () => {

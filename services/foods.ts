@@ -288,10 +288,10 @@ export function splitLog(input: string): { workout: string; food: string } {
 // Amounts the AI reads better from context than a fixed convention: "some rice", "a big bowl"
 const VAGUE = /\b(some|bit|little|lot|lots|big|huge|giant|bowl|plate|splash|dollop|drizzle|knob|half|leftover|leftovers)\b/;
 
-// A food log the phone reads as well as the AI would: plain whole foods from the core table, each with
+// A food log the phone could read as well as the AI: plain whole foods from the core table, each with
 // an amount or a name alone, nothing unknown, no vague amount, no dish, brand or workout words. Null
-// otherwise. Measured on both gold sets, the phone matches the AI on these and skips about half the
-// AI calls (evals/food/README.md).
+// otherwise. The app doesn't use it: evals/food measures it as the "phone first" alternative, which
+// tied the AI on accuracy but took only 11% of realistic held-out messages.
 export function confidentLocal(log: string, usual: Portions = new Map()): FoodDraft | null {
   const words = normalizeWords(log);
   if (mentionsWorkout(log) || DISHES.test(words) || VAGUE.test(words) || /\d+\s*(?:-|to)\s*\d+|\bor\b|\?/.test(log)) return null;
