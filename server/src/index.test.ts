@@ -245,6 +245,16 @@ test('a food reply Haiku is unsure of, unfinished or unreadable goes to Sonnet o
   replies = [];
 });
 
+test('a finished no-food reply from Haiku is not sent to Sonnet', async () => {
+  const { env } = makeEnv('5');
+  const text = '{"items":[],"confidence":0}';
+  replies = [{ text, stop_reason: 'end_turn' }, { text: 'from sonnet', stop_reason: 'end_turn' }];
+  const res = await call(req('pw', { food: { input: 'having pizza later', date: '2026-10-03', foods: [] } }), env);
+  assert.deepEqual(upstream.map((u) => JSON.parse(u.init.body as string).model), ['claude-haiku-5-5']);
+  assert.equal(res.body.text, text);
+  replies = [];
+});
+
 test('food correction mode sends the draft and fix', async () => {
   const { env } = makeEnv();
   const items = [{ food: 'f1', name: 'Egg, whole', qty: 2, grams: 100 }];

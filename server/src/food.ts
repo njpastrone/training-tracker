@@ -186,6 +186,8 @@ export function readFoodItems(text: string, foods: number): { items: RawFoodItem
 }
 
 // True when Haiku's reply to a food log should go to Sonnet: unfinished (cut off, refused), unreadable,
-// or less sure than ESCALATE_BELOW
-export const needsEscalation = (stopReason: string | undefined, text: string, foods: number) =>
-  stopReason !== 'end_turn' || (readFoodItems(text, foods)?.confidence ?? 0) < ESCALATE_BELOW;
+// or items less sure than ESCALATE_BELOW. A finished reply with no items is a confident "no food eaten".
+export const needsEscalation = (stopReason: string | undefined, text: string, foods: number) => {
+  const read = readFoodItems(text, foods);
+  return stopReason !== 'end_turn' || !read || (read.items.length > 0 && read.confidence < ESCALATE_BELOW);
+};
