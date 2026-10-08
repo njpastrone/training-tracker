@@ -51,4 +51,12 @@ messy or voice-dictated logs, and logs with no food. `scout.ts`: the research sc
 
 ## Results
 
-RESULTS_PLACEHOLDER
+Measured 2026-10-08 with `--cli` (Haiku 4.5), two runs per case. kcal and protein within 20%:
+
+| | scout.ts kcal | protein | at its tolerance | cases.ts kcal | protein |
+|---|---|---|---|---|---|
+| `--hybrid` (the app) | 79% | 82% | 86% | 86% | 88% |
+| AI for every log | 79% | 82% | 87% | 85% | 88% |
+| `--local` (AI off) | 61% | 68% | 66% | 63% | 64% |
+
+Whole foods with amounts score 83–100%. Brand, restaurant and homemade estimates score 59–77%. One AI parse is about 2,200 input and 100 output tokens ($0.0027); with the phone taking plain logs, the average is $0.0016 per food log. See FEATURES.md, "Food logging", for the full breakdown.

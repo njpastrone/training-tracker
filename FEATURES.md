@@ -175,10 +175,53 @@ Log what you ate in the same box you log workouts with, in as much or as little 
 - **Backups** include food. A backup from before food logging restores with no food.
 
 ### Accuracy
-RESULTS_PLACEHOLDER
+Measured 2026-10-08 with Haiku 4.5 through `claude -p` (`npm run eval:food -- --cli`; no API key was available, so temperature isn't pinned: confirm with an API-key run before release). Two runs per case, averaged. A hit is a meal total within 20% of the reference (or within 25 kcal / 3 g for small numbers). Gold sets: the research scout's 199 cases (`evals/food/scout.ts`) and 122 cases written for this build (`evals/food/cases.ts`); every reference number has a source.
+
+| | Scout set: kcal | protein | at the scout's own tolerance | Own set: kcal | protein |
+|---|---|---|---|---|---|
+| **The app (phone first, then AI)** | **79%** | **82%** | **86%** | **86%** | **88%** |
+| AI for every log | 79% | 82% | 87% | 85% | 88% |
+| No AI at all (AI off) | 61% | 68% | 66% | 63% | 64% |
+
+By kind of log (the app, both sets, kcal within 20%):
+
+| Kind of log | Hit rate |
+|---|---|
+| Whole foods with amounts, units, sizes, cooked vs raw | 83–100% (counted slices: 63%, see Known gaps) |
+| A name with no amount, vague amounts ("some rice") | 92–100% |
+| Meals of several foods | 90% |
+| Workout and food in one message | 68% (scout), 86% (own); 80% at the scout's tolerance |
+| Typos, voice-style rambling | 68–83% |
+| Drinks, alcohol | 60–85% |
+| Branded products | 60–75% |
+| Restaurant chains | 61–77% |
+| Homemade dishes | 59–65% (80% at the scout's looser tolerance) |
+| No food in the message ("skipped breakfast", "pre workout") | 100% logged nothing |
+
+- Plain whole foods are as accurate on the phone as through the AI, and the phone takes about 40% of food logs (166 of 398 scout runs).
+- Brand, restaurant and homemade estimates miss mostly on portion size, as expected for best guesses. The research found no published system above about 67% here from text alone.
+- Workout parsing didn't regress: `npm run eval:parse -- --cli` scores 0.996 (110 of 114 perfect, 0 silent mismatches), including 5 new workout-plus-food cases where the food stays out of the workout notes. The workout prompt is byte-identical to main.
+
+**Cost:**
+- One AI food parse is about 2,200 input and 100 output tokens: **$0.0027** at Haiku 4.5 list prices. That's about half a workout parse ($0.005).
+- With the phone taking plain logs, the average is **$0.0016 per food log**: about $0.15 a month for someone who logs food 3 times a day.
+- Latency: p50 2.2 s through the AI; instant on the phone.
+- All eval runs went through the CLI on a Claude login, so no API spend was used against the $30 cap.
 
 ### Known gaps
-GAPS_PLACEHOLDER
+- **Not run on a phone or simulator here.** This machine has no iOS simulator runtime and the app has no web target. The UI is checked by TypeScript and tests of the logic underneath (186 app tests, 47 Worker tests). Try it per "How to try it" above.
+- **CLI evals only:** confirm with `npm run eval:food -- --hybrid --set scout` and `npm run eval:parse` on an API key before release.
+- **Estimates are estimates:**
+  - Brands, restaurants and homemade dishes land within 20% about 60–75% of the time.
+  - Slice conventions differ from what people mean: deli vs roast turkey, thick vs thin bacon, cheese slices. A one-tap swap on the row fixes it.
+- **Requests and caps:** a workout plus food that isn't plain whole foods is two AI requests, so two slots of the daily caps.
+- **Not built yet:**
+  - "Same as yesterday", saved meals, and quick-adding raw numbers ("450 cal, 30 g protein").
+  - Hidden-fat nudges ("cooked in oil?").
+  - Food on the History calendar and in Progress.
+- **App size:** the food table adds 892 KB to the app's code (about 145 KB compressed for an over-the-air update). The long tail (720 KB) could move to the Worker later.
+- **Worker deploy:** the food mode needs the captain's deploy to run the prompt server-side. Until then the app sends the prompt itself, which the deployed Worker forwards.
+- **Consent:** people who already agreed to AI aren't asked again for food. The consent sheet now names food.
 
 ---
 
