@@ -7,18 +7,27 @@ Worker sends), and the unit math (`services/foodUnits.ts`). The meal's totals ar
 reference.
 
 ```bash
-npm run eval:food                          # every case, Haiku 4.5, about $0.25
+npm run eval:food                          # 122 cases, Haiku 4.5, about $0.35 (scout set: $0.55)
+npm run eval:food -- --hybrid              # what the app does: the phone's parse when confident, AI for the rest
 npm run eval:food -- --local               # the no-AI parser only: free and offline
+npm run eval:food -- --cli                 # no API key: the model through `claude -p` on your login
 npm run eval:food -- --only branded,units  # categories or case ids
 npm run eval:food -- --verbose             # print every miss with the items it logged
-npm run eval:food -- --set scout           # another gold set (evals/food/scout.ts)
+npm run eval:food -- --set scout           # the research scout's 199-case gold set (evals/food/scout.ts)
+npm run eval:food -- --repeat 2            # average out run-to-run noise
 npm run eval:food -- --against evals/food/results/<earlier run>.json   # fixed and broken cases
 node --import tsx --test evals/food/score.test.ts                     # scorer self-check
 ```
 
 It needs an Anthropic API key in `ANTHROPIC_API_KEY`, either exported or in `.env.eval.local` at the
-repo root (git-ignored), except with `--local`. It calls Anthropic directly, never the Worker. Each run
-saves its results to `evals/food/results/` (git-ignored) and adds its cost to `results/spend.log`.
+repo root (git-ignored), except with `--local` or `--cli`. It calls Anthropic directly, never the Worker.
+Each run saves its results to `evals/food/results/` (git-ignored) and adds its API cost to
+`results/spend.log`.
+
+`--cli` (here and in `npm run eval:parse`) sends the same model, system prompt and message through the
+Claude Code CLI (`evals/cli.ts`). The CLI can't pin temperature and adds a few hundred tokens of its
+own (subtracted from the reported tokens), so treat its results as close to production and confirm
+with an API-key run before release.
 
 ## Scoring
 
@@ -37,4 +46,9 @@ would do (would the app call the food parser, and the workout parser too), the c
 computed from USDA FoodData Central directly (not from the app's table), branded and restaurant food
 from the brand's published nutrition, homemade dishes from USDA FNDDS mixed dishes. Categories:
 simple meals, unit edge cases, names with no amount, branded, restaurant, homemade, workout plus food,
-messy or voice-dictated logs, and logs with no food.
+messy or voice-dictated logs, and logs with no food. `scout.ts`: the research scout's set (199 cases,
+18 categories, its own tight/normal/loose tolerance per case, shown as "kcal at its tolerance").
+
+## Results
+
+RESULTS_PLACEHOLDER

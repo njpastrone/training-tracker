@@ -14,6 +14,7 @@ npm run eval:parse -- --set identity                # which exercise each lift i
 npm run eval:parse -- --model claude-sonnet-5-5 --effort low
 npm run eval:parse -- --compat                      # what a Worker deployed before parse mode sends
 npm run eval:parse -- --set corrections             # typed fixes and questions about a draft (correction mode)
+npm run eval:parse -- --cli                         # no API key: the model through `claude -p` (see evals/food/README.md)
 npm run eval:parse -- --against evals/parse/results/<earlier run>.json   # list regressions
 node --test evals/parse/score.test.ts               # scorer self-check
 node --test evals/parse/recall.test.ts              # offline, free: is the right exercise a candidate?

@@ -101,7 +101,7 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
                       {(['kcal', 'protein', 'carbs', 'fat'] as const).map(k => (
                         <NumberChip
                           key={k}
-                          value={item.macros[k]}
+                          value={k === 'kcal' ? Math.round(item.macros.kcal) : Math.round(item.macros[k] * 10) / 10}
                           suffix={k === 'kcal' ? 'kcal' : `g ${k}`}
                           unsure={false}
                           onChange={v => edit(i, { ...item, macros: { ...item.macros, [k]: v ?? 0 } as Macros })}
