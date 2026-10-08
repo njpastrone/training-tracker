@@ -137,91 +137,68 @@ Streamlined workout planning and logging through templates and calendar scheduli
 ## Feature 3: Food logging (prototype)
 
 ### Description
-Log what you ate in the same box you log workouts with, in as much or as little detail as you like: "2 eggs and toast", "200g chicken and 1.5 cups of rice", "Big Mac and medium fries", or both at once: "did legs, squat 3x5 at 225, then ate 2 eggs and toast". One review card shows the workout and the food; tap an amount or a unit to change it, type a fix in the chat bar, Save. Food shows on each day's screen and as "Food today" on Log. Protein and calories up front; carbs, fat, fiber and where the numbers come from on tap.
+Log what you ate in the same box you log workouts with, in as much or as little detail as you like, in plain words, slang, typos, emoji or another language: "2 eggs and toast", "200g chicken and 1.5 cups of rice", "chipotle bowl w chicken and guac", "2 huevos y arroz", or both at once: "did legs, squat 3x5 at 225, then ate 2 eggs and toast". One review card shows the workout and the food; tap an amount or a unit to change it, type a fix in the chat bar, Save. Food shows on each day's screen and as "Food today" on Log. Protein and calories up front; carbs, fat, fiber and where the numbers come from on tap.
 
 ### How it works
-- **Router** (`services/claude.ts` `parseLog`, `services/foods.ts`): food words, eating words and kitchen amounts send a message to the food parser; exercises and workout words to the workout parser; both at once when both show. If the one that ran finds nothing, the other gets a try.
-- **On the phone first:** a log of plain whole foods the table knows by name ("2 eggs and a banana", or the food part of "squat 3x5, then 2 eggs and toast") is read on the phone (`confidentLocal`): instant, free, no AI request. Everything else goes to the AI.
-- **AI** (`server/src/food.ts`, the Worker's food mode): the app sends the log plus the table foods it mentions (`buildFoodCandidates`). The model picks the matching food and says how much; the app computes macros from USDA (`services/foodUnits.ts`). For brands, restaurants and homemade dishes the model gives a best guess, shown with an open dot and "≈".
-- **Data** (`data/foods.ts`, built by `scripts/foods/build.ts` from `scripts/foods/picks.ts`): USDA FoodData Central (public domain). 822 hand-named foods with aliases and real portion weights, plus 2,369 more whole foods from SR Legacy for the long tail.
-- **Amounts** (`services/foodUnits.ts`): g/kg/oz/lb, cups/tbsp/tsp/ml/fl oz/dl through each food's own USDA weights, counts and sizes, fractions and number words, "a handful", "a slice", "a scoop", "a knob", ranges, and amounts after the food ("chicken 200g").
+- **Router** (`services/claude.ts` `parseLog`, `services/foods.ts`): food words, eating words, kitchen amounts, food emoji and common foreign food words send a message to the food parser; exercises and workout words to the workout parser; both at once when both show. If the one that ran finds nothing, the other gets a try.
+- **AI on every food log, grounded in USDA** (`server/src/food.ts`, the Worker's food mode, Claude Sonnet 5.5): the app sends the log plus the USDA table foods it mentions (`buildFoodCandidates`; foods the log names outright are labelled "usual for …"). The model picks the matching food and says how much; the app computes macros from USDA (`services/foodUnits.ts`). For brands, restaurants and homemade dishes the model gives a best guess, shown with an open dot and "≈".
+- **AI off:** the phone reads the food itself: each comma or line as amount + food, matched to the table (`localFoodParse`).
+- **Data** (`data/foods.ts`, built by `scripts/foods/build.ts` from `scripts/foods/picks.ts`): USDA FoodData Central (public domain). 822 hand-named foods with aliases and real portion weights, plus 2,369 more whole foods from SR Legacy for the long tail (offered only for words the core table doesn't know).
+- **Amounts** (`services/foodUnits.ts`): g/kg/oz/lb, cups/tbsp/tsp/ml/fl oz/dl through each food's own USDA weights, counts and sizes, fractions and number words, "a handful", "a slice", "a scoop", "a knob", ranges, and amounts after the food ("chicken 200g"). An exact amount is converted; a vague one ("some", "a big bowl", "medium fries") takes the model's weight, which reads the context.
 
 ### How to try it
 1. `npm install`, then `npm start` and open the project in the existing LiftText dev build (no new native modules, so no new build is needed). `npm run ios` works too on a Mac with a simulator.
-2. `.env.local` needs `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_APP_PASSWORD` as today. The Worker that's deployed now already works: the app also sends the full prompt, which older Workers forward. Deploying the Worker (`cd server && npx wrangler deploy`) moves the food prompt server-side, like the workout parse.
-3. On Log, try: "2 eggs and a banana" (read on the phone, instant), "chipotle chicken bowl" (AI estimate), "squat 3x5 at 225, then 2 eggs and toast" (both), "some rice" (a typical serving), then tap a row for carbs, fat and the USDA source, tap the unit to switch cups ↔ grams, or type "it was 3 eggs".
+2. `.env.local` needs `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_APP_PASSWORD` as today. **Deploy the Worker** (`cd server && npx wrangler deploy`) to get the food mode on Sonnet 5.5. Before that, the Worker that's deployed now still answers food logs (the app also sends the prompt, which older Workers forward), but on its own model, Haiku 4.5, which lands about 10 points fewer logs within 20%.
+3. On Log, try: "2 eggs and a banana", "chipotle chicken bowl w white rice black beans and guac", "squat 3x5 at 225, then 2 eggs and toast", "some rice", "desayuné dos huevos y café con leche", "🍳🍳 + 🥑 toast", then tap a row for carbs, fat and the USDA source, tap the unit to switch cups ↔ grams, or type "it was 3 eggs".
 4. With AI off (Settings), common foods are still looked up on the phone.
 
 ### Decisions made
 - **One composer, no Food tab:** the Log box takes a workout, food, or both; one review card; food on the day screens and "Food today" on Log.
-- **Phone first for plain whole foods, AI for the rest:** on both gold sets the phone path is as accurate as the AI on the logs it takes, and it takes about 40% of food logs. That halves AI cost and daily-cap use for food, and those logs need no network. Sending everything to the AI is a one-line change in `parseLog`.
+- **AI on every food log, grounded in the USDA table, on Claude Sonnet 5.5:** chosen on accuracy (see Accuracy). On the held-out set it ties the best alternatives and beats Haiku by 10 points. Reading plain logs on the phone first was as accurate but took only 11% of realistic messages, so it isn't worth a second path; the phone parser stays for AI off.
 - **The AI never makes up numbers for a table food:** it picks the entry and the amount; USDA gives the numbers. Only branded, restaurant and homemade food is an AI estimate, marked "≈" and editable.
-- **Defaults:**
-  - Meat, fish, grains, pasta, rice and beans are cooked unless the log says raw or dry. Oats are dry; oatmeal is cooked.
-  - A plain egg is hard-boiled (no added fat).
-  - "Milk" is 2%, "greek yogurt" is nonfat plain, "chicken" is breast, "steak" is sirloin.
-  - Firm tofu matches supermarket labels (about 78 kcal per 100 g). An avocado is a Hass, and "avocado" alone is half of one.
-  - A name alone is the weight or volume you last logged of that food, else a typical serving. Counts aren't remembered: "banana" is one banana even after "3 bananas".
-  - A plural with no number ("eggs and toast") is two.
-- **Where lookup runs:** in the app bundle (892 KB raw, about 145 KB gzipped). It's instant, works offline and with AI off, and needs no Worker change to update.
-- **The model sees the "usual" food:** foods the log names outright are labelled `(usual for "greek yogurt")` in the candidate list. Long-tail foods are offered only for words the core table doesn't know, so near-duplicates never compete with the usual pick.
-- **Containers go by the model's weight:** "a bowl of oatmeal" vs "a bowl of pasta" use the model's weight; every other unit uses USDA weights.
-- **Same model and caps as workouts:** Haiku 4.5. Each AI request takes one slot of the existing daily caps. A workout plus a non-plain food is two requests.
-- **Fixing:**
-  - A fix that names a food or asks about its numbers goes to the food parser. A new day ("that was yesterday") moves both halves.
-  - On the card: one-tap swaps to similar foods ("Rice, white, dry"), a unit chip that keeps the weight, and editable estimate numbers.
+- **Defaults:** cooked for meat, fish, grains, pasta, rice and beans unless the log says raw or dry; oats dry, oatmeal cooked; a plain egg hard-boiled (no added fat); "milk" is 2%, "greek yogurt" nonfat plain, "chicken" breast, "steak" sirloin; firm tofu like supermarket labels (about 78 kcal per 100 g); an avocado is a Hass, and "avocado" alone is half of one. A plain name is a typical serving; a vague amount ("some rice") is the model's weight. A name alone is the weight or volume you last logged of that food when you've logged one; counts aren't remembered ("banana" is one banana even after "3 bananas"). A plural with no number ("eggs and toast") is two.
+- **Where lookup runs:** in the app bundle (892 KB raw, about 145 KB compressed): instant, works offline and with AI off, needs no Worker change to update.
+- **Same caps as workouts:** each AI request takes one slot of the existing daily caps; a workout plus food is two requests. Sonnet takes no temperature and thinks by default, so the request sends no temperature and allows 4,096 output tokens (thinking counts toward it; only what's used is billed).
+- **Fixing:** a fix that names a food or asks about its numbers goes to the food parser; a new day ("that was yesterday") moves both halves. On the card: one-tap swaps to similar foods ("Rice, white, dry"), a unit chip that keeps the weight, and editable estimate numbers.
 - **"Usual breakfast" chip:** what you logged around this time on at least 2 of the last 14 days.
-- **Privacy:** the AI consent sheet now mentions food. People who already said yes aren't asked again.
+- **Privacy:** the AI consent sheet now mentions food; people who already said yes aren't asked again.
 - **Backups** include food. A backup from before food logging restores with no food.
 
 ### Accuracy
-Measured 2026-10-08 with Haiku 4.5 through `claude -p` (`npm run eval:food -- --cli`; no API key was available, so temperature isn't pinned: confirm with an API-key run before release). Two runs per case, averaged. A hit is a meal total within 20% of the reference (or within 25 kcal / 3 g for small numbers). Gold sets: the research scout's 199 cases (`evals/food/scout.ts`) and 122 cases written for this build (`evals/food/cases.ts`); every reference number has a source.
+Measured 2026-10-08 through `claude -p` (`npm run eval:food -- --cli`; no API key was available, so temperature isn't pinned and results move about 2 points run to run; confirm with an API-key run before release). A hit is a meal total within 20% (or 10%) of the reference, or within 25 kcal / 3 g for small numbers. Every reference number has a source (a USDA FoodData Central id and grams, or the brand's label).
 
-| | Scout set: kcal | protein | at the scout's own tolerance | Own set: kcal | protein |
-|---|---|---|---|---|---|
-| **The app (phone first, then AI)** | **79%** | **82%** | **86%** | **86%** | **88%** |
-| AI for every log | 79% | 82% | 87% | 85% | 88% |
-| No AI at all (AI off) | 61% | 68% | 66% | 63% | 64% |
+- **Dev set** (tuned on): the research scout's 199 cases plus 122 written for this build.
+- **Held-out set** (never tuned on): 340 messages written by three separate agents the way people text and dictate: slang, typos, voice-to-text errors, run-ons, vague amounts, corrections, emoji, other languages and units, brands and chains, drinks and alcohol, homemade and international dishes, workout plus food, and messages with no food.
 
-By kind of log (the app, both sets, kcal within 20%):
+| Held-out (340) | kcal 20% | protein 20% | kcal 10% | failed | p50 | $ per log |
+|---|---|---|---|---|---|---|
+| **The app: AI every log, grounded, Sonnet 5.5** | **85%** | **85%** | **67%** | 1 | 3.2 s | $0.0083 |
+| Phone first, then AI, Sonnet 5.5 | 84% | 84% | 67% | 1 | 3.1 s | $0.0074 |
+| AI alone (no USDA table), Sonnet 5.5 | 86% | 85% | 65% | 1 | 4.5 s | $0.0089 |
+| AI every log, grounded, Haiku 4.5 | 75% | 77% | 62% | 0 | 2.4 s | $0.0029 |
+| AI alone, Haiku 4.5 | 66% | 69% | 45% | 0 | 2.2 s | $0.0025 |
+| No AI (AI off) | 40% | 45% | 27% | 0 | 0 s | $0 |
 
-| Kind of log | Hit rate |
-|---|---|
-| Whole foods with amounts, units, sizes, cooked vs raw | 83–100% (counted slices: 63%, see Known gaps) |
-| A name with no amount, vague amounts ("some rice") | 92–100% |
-| Meals of several foods | 90% |
-| Workout and food in one message | 68% (scout), 86% (own); 80% at the scout's tolerance |
-| Typos, voice-style rambling | 68–83% |
-| Drinks, alcohol | 60–85% |
-| Branded products | 60–75% |
-| Restaurant chains | 61–77% |
-| Homemade dishes | 59–65% (80% at the scout's looser tolerance) |
-| No food in the message ("skipped breakfast", "pre workout") | 100% logged nothing |
+| Dev (321) | kcal 20% | protein 20% | kcal 10% | $ per log |
+|---|---|---|---|---|
+| **AI every log, grounded, Sonnet 5.5** | **89%** | **90%** | **76%** | $0.0075 |
+| Phone first, Sonnet 5.5 | 89% | 90% | 75% | $0.0045 |
+| AI alone, Sonnet 5.5 | 86% | 89% | 70% | $0.0081 |
+| AI every log, grounded, Haiku 4.5 | 80% | 84% | 67% | $0.0027 |
+| AI alone, Haiku 4.5 | 75% | 75% | 56% | $0.0024 |
 
-- Plain whole foods are as accurate on the phone as through the AI, and the phone takes about 40% of food logs (166 of 398 scout runs).
-- Brand, restaurant and homemade estimates miss mostly on portion size, as expected for best guesses. The research found no published system above about 67% here from text alone.
-- Workout parsing didn't regress: `npm run eval:parse -- --cli` scores 0.996 (110 of 114 perfect, 0 silent mismatches), including 5 new workout-plus-food cases where the food stays out of the workout notes. The workout prompt is byte-identical to main.
-
-**Cost:**
-- One AI food parse is about 2,200 input and 100 output tokens: **$0.0027** at Haiku 4.5 list prices. That's about half a workout parse ($0.005).
-- With the phone taking plain logs, the average is **$0.0016 per food log**: about $0.15 a month for someone who logs food 3 times a day.
-- Latency: p50 2.2 s through the AI; instant on the phone.
-- All eval runs went through the CLI on a Claude login, so no API spend was used against the $30 cap.
+- Sonnet 5.5 lands about 10 points more logs within 20% than Haiku 4.5. Grounding in USDA beats the AI alone on dev and ties it on held-out at lower cost and latency.
+- What's left is mostly portion size on the AI's estimates for dishes and restaurant food (about half the held-out misses), then the app's own unit weights and serving conventions differing from the reference.
+- Workout parsing didn't regress: `npm run eval:parse -- --cli` scores 0.992 (108 of 114 perfect, 0 silent mismatches), including 5 workout-plus-food cases where the food stays out of the workout notes. The workout prompt is unchanged.
+- Cost: about $0.008 per food log on Sonnet 5.5, thinking included (Haiku was $0.003): about $0.75 a month for someone logging food 3 times a day.
 
 ### Known gaps
-- **Not run on a phone or simulator here.** This machine has no iOS simulator runtime and the app has no web target. The UI is checked by TypeScript and tests of the logic underneath (186 app tests, 47 Worker tests). Try it per "How to try it" above.
-- **CLI evals only:** confirm with `npm run eval:food -- --hybrid --set scout` and `npm run eval:parse` on an API key before release.
-- **Estimates are estimates:**
-  - Brands, restaurants and homemade dishes land within 20% about 60–75% of the time.
-  - Slice conventions differ from what people mean: deli vs roast turkey, thick vs thin bacon, cheese slices. A one-tap swap on the row fixes it.
-- **Requests and caps:** a workout plus food that isn't plain whole foods is two AI requests, so two slots of the daily caps.
-- **Not built yet:**
-  - "Same as yesterday", saved meals, and quick-adding raw numbers ("450 cal, 30 g protein").
-  - Hidden-fat nudges ("cooked in oil?").
-  - Food on the History calendar and in Progress.
-- **App size:** the food table adds 892 KB to the app's code (about 145 KB compressed for an over-the-air update). The long tail (720 KB) could move to the Worker later.
-- **Worker deploy:** the food mode needs the captain's deploy to run the prompt server-side. Until then the app sends the prompt itself, which the deployed Worker forwards.
-- **Consent:** people who already agreed to AI aren't asked again for food. The consent sheet now names food.
+- Not run on a phone here (no iOS simulator on this machine); the PR's screenshots are web renders from the pipeline's test step, and the logic is covered by tests (193 app tests, 47 Worker tests).
+- CLI evals only: confirm with `npm run eval:food -- --set holdout` on an API key before release. Sonnet runs with its default adaptive thinking; `output_config.effort` (lower is cheaper and faster) wasn't measured, and server-side refusal fallbacks weren't added (untestable without a key; food logs are unlikely to be declined).
+- Estimates are estimates: dish and restaurant portions are the main miss. Slice conventions can differ from what people mean (deli vs roast turkey, bacon thickness); the swap chip fixes it in one tap.
+- A workout plus food is two AI requests, so two slots of the daily caps.
+- Not built yet: "same as yesterday", saved meals, quick-adding raw numbers ("450 cal 30 g protein"), hidden-fat nudges ("cooked in oil?"), food on the History calendar and in Progress.
+- The food table adds 892 KB to the app's code (about 145 KB compressed over the air); the long tail (720 KB) could move to the Worker later.
 
 ---
 

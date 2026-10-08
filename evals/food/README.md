@@ -7,17 +7,21 @@ Worker sends), and the unit math (`services/foodUnits.ts`). The meal's totals ar
 reference.
 
 ```bash
-npm run eval:food                          # 122 cases, Haiku 4.5, about $0.35 (scout set: $0.55)
-npm run eval:food -- --hybrid              # what the app does: the phone's parse when confident, AI for the rest
+npm run eval:food                          # dev sets, AI grounded in the USDA table (what the app does)
+npm run eval:food -- --set holdout         # the held-out set: report it, never tune on it
+npm run eval:food -- --arch alone          # AI alone: no USDA table, the model estimates everything
 npm run eval:food -- --local               # the no-AI parser only: free and offline
 npm run eval:food -- --cli                 # no API key: the model through `claude -p` on your login
+npm run eval:food -- --model claude-haiku-4-5
 npm run eval:food -- --only branded,units  # categories or case ids
 npm run eval:food -- --verbose             # print every miss with the items it logged
-npm run eval:food -- --set scout           # the research scout's 199-case gold set (evals/food/scout.ts)
 npm run eval:food -- --repeat 2            # average out run-to-run noise
 npm run eval:food -- --against evals/food/results/<earlier run>.json   # fixed and broken cases
 node --import tsx --test evals/food/score.test.ts                     # scorer self-check
 ```
+
+A grounded run reports two systems from the same calls: "AI every log, grounded in USDA" (the app)
+and "Phone first, then AI" (the phone's parse where it's confident, `confidentLocal`, else the AI's).
 
 It needs an Anthropic API key in `ANTHROPIC_API_KEY`, either exported or in `.env.eval.local` at the
 repo root (git-ignored), except with `--local` or `--cli`. It calls Anthropic directly, never the Worker.
@@ -25,38 +29,45 @@ Each run saves its results to `evals/food/results/` (git-ignored) and adds its A
 `results/spend.log`.
 
 `--cli` (here and in `npm run eval:parse`) sends the same model, system prompt and message through the
-Claude Code CLI (`evals/cli.ts`). The CLI can't pin temperature and adds a few hundred tokens of its
-own (subtracted from the reported tokens), so treat its results as close to production and confirm
-with an API-key run before release.
+Claude Code CLI (`evals/cli.ts`). The CLI can't pin temperature, adds a few hundred tokens of its own
+(subtracted from the reported tokens) and caches Sonnet's prompt (so Sonnet's reported $/log reads low),
+so treat its results as close to production and confirm with an API-key run before release.
 
 ## Scoring
 
 A macro is a hit when the meal total is within 20% of the reference, or within a small floor for small
-numbers (25 kcal, 3 g), whichever is looser. Each category reports the share of logs that hit for
-calories, protein, carbs and fat, and for all four at once. A `not_food` case passes only when nothing
-is logged. Items are not matched one to one: a meal split differently but adding up right still counts.
+numbers (25 kcal, 3 g), whichever is looser; the tight bar is 10% (floors 15 kcal, 2 g). Each system
+reports the share of logs that hit for calories, protein, carbs and fat at both bars, failed parses,
+median latency and cost per log, then calories and protein by category. A case with no reference items
+passes only when nothing is logged. Items are not matched one to one: a meal split differently but
+adding up right still counts. Cases from the scout's set also show "kcal at its tolerance" (its own
+tight/normal/loose bar per case).
 
-The run also prints where the items' numbers came from (USDA table or AI estimate), what the router
-would do (would the app call the food parser, and the workout parser too), the cost of one food parse
-(no prompt caching, like the Worker) and its latency.
+## Gold sets
 
-## Gold set
+- `cases.ts` (122) and `scout.ts` (the research scout's 199): the **dev** sets, used for tuning.
+- `holdout-1.ts`, `holdout-2.ts`, `holdout-3.ts` (340): the **held-out** set, written by three separate
+  agents that never saw the app's food code or prompt, the way people text and dictate: slang, typos,
+  voice-to-text errors, run-ons, vague amounts, corrections, emoji, other languages and units, brands and
+  chains, drinks and alcohol, homemade and international dishes, workout plus food, and no food. Never
+  tune on it; report it.
 
-`cases.ts`: realistic logs and their reference macros, with a source for every number. Whole foods are
-computed from USDA FoodData Central directly (not from the app's table), branded and restaurant food
-from the brand's published nutrition, homemade dishes from USDA FNDDS mixed dishes. Categories:
-simple meals, unit edge cases, names with no amount, branded, restaurant, homemade, workout plus food,
-messy or voice-dictated logs, and logs with no food. `scout.ts`: the research scout's set (199 cases,
-18 categories, its own tight/normal/loose tolerance per case, shown as "kcal at its tolerance").
+Every reference number has a source: whole foods from USDA FoodData Central (an FDC id and grams),
+branded and restaurant food from the brand's published nutrition, homemade dishes from USDA FNDDS
+mixed dishes or the sum of their listed ingredients.
 
 ## Results
 
-Measured 2026-10-08 with `--cli` (Haiku 4.5), two runs per case. kcal and protein within 20%:
+Measured 2026-10-08 with `--cli`. kcal and protein within 20%, kcal within 10%:
 
-| | scout.ts kcal | protein | at its tolerance | cases.ts kcal | protein |
-|---|---|---|---|---|---|
-| `--hybrid` (the app) | 79% | 82% | 86% | 86% | 88% |
-| AI for every log | 79% | 82% | 87% | 85% | 88% |
-| `--local` (AI off) | 61% | 68% | 66% | 63% | 64% |
+| | Held-out (340) | Dev (321) |
+|---|---|---|
+| AI every log, grounded, Sonnet 5.5 (the app) | 85% / 85% / 67% | 89% / 90% / 76% |
+| Phone first, then AI, Sonnet 5.5 | 84% / 84% / 67% | 89% / 90% / 75% |
+| AI alone, Sonnet 5.5 | 86% / 85% / 65% | 86% / 89% / 70% |
+| AI every log, grounded, Haiku 4.5 | 75% / 77% / 62% | 80% / 84% / 67% |
+| AI alone, Haiku 4.5 | 66% / 69% / 45% | 75% / 75% / 56% |
+| No AI (`--local`) | 40% / 45% / 27% | 61% / 66% / – |
 
-Whole foods with amounts score 83–100%. Brand, restaurant and homemade estimates score 59–77%. One AI parse is about 2,200 input and 100 output tokens ($0.0027); with the phone taking plain logs, the average is $0.0016 per food log. See FEATURES.md, "Food logging", for the full breakdown.
+About $0.008 per food log on Sonnet 5.5 (thinking included), $0.003 on Haiku 4.5. See FEATURES.md,
+"Food logging", for latency, failures and what's left.
