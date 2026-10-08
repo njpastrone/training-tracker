@@ -199,9 +199,11 @@ test('typing an estimate amount digit by digit keeps its numbers', () => {
 });
 
 test('an inexact amount takes the model\'s weight; an exact one is converted', () => {
-  // A name alone or "some": the model's weight, shown in grams
+  // "Some": the model's weight, shown in grams; a plain name: the standard serving
   const [some] = resolveItems([{ said: 'some blueberries', food: 0, grams: 50 }], [food('blueberries')]);
   assert.deepEqual([some.qty, some.unit, some.grams], [50, 'g', 50]);
+  const [plain] = resolveItems([{ said: 'toast', food: 0, grams: 50 }], [food('toast')]);
+  assert.deepEqual([plain.qty, plain.unit, plain.grams], [undefined, undefined, Math.round(food('toast').units.slice!)]);
   // A size USDA doesn't weigh for this food keeps its words but the model's weight, and edits scale it
   const f = food('rice');
   const [big] = resolveItems([{ said: 'a medium rice', food: 0, qty: 1, unit: 'medium', grams: 200 }], [f]);

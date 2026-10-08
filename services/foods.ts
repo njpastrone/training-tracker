@@ -168,20 +168,22 @@ function exactAmount(food: Food, qty: number | undefined, unit: FoodUnit | undef
   return how === 'portion' || how === 'size';
 }
 
-// A table food and an amount as an item. An exact amount is weighed by the conversion. Anything else
-// (no amount, "some", a size or container USDA doesn't weigh for this food: "medium fries", "a bowl")
-// takes the model's weight, which reads the context; a name alone then shows in grams. Without the
-// model's weight it's the conversion's convention or the default serving. A count of 50+ with no unit
+// A table food and an amount as an item. An exact amount is weighed by the conversion, and a plain
+// name is the default serving. A vague amount ("some", "a bit") or a size or container USDA doesn't
+// weigh for this food ("medium fries", "a bowl") takes the model's weight, which reads the context;
+// a vague name then shows in grams. Without the model's weight it's the conversion's convention. A count of 50+ with no unit
 // far off the model's weight is a misread amount ("200 chicken" isn't 200 breasts) and shows in grams,
 // so the amount, the weight and the numbers always agree.
 export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string, modelGrams?: number): FoodItem {
   const weighed = toGrams(food, qty, unit);
   const converted = weighed?.grams;
   const misread = !unit && (qty ?? 0) >= 50 && !!converted && !!modelGrams && converted / modelGrams > 4;
-  const nameOnly = qty === undefined && !unit;
-  if (modelGrams && (misread || !converted || nameOnly)) return itemFor(food, Math.round(modelGrams), 'g', said);
+  // A plain name is the table's standard serving; a vague one ("some rice", "a bit of cheese") the model's weight
+  const vague = qty === undefined && !unit && !!said && VAGUE.test(normalizeWords(said));
+  if (modelGrams && (misread || !converted || vague)) return itemFor(food, Math.round(modelGrams), 'g', said);
   const exact = exactAmount(food, qty, unit, weighed?.how);
-  const grams = Math.round(!exact && modelGrams ? modelGrams : (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
+  const plainName = qty === undefined && !unit;
+  const grams = Math.round(!exact && !plainName && modelGrams ? modelGrams : (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
   const amount = converted ? { qty, unit } : { qty: grams, unit: 'g' as const };
   return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }
