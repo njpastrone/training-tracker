@@ -52,11 +52,12 @@ export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChi
 
 // While a parsed card is open the bar fixes it, so cards need no fix box of their own
 const FIX_CHIPS = toChips(['It was yesterday', 'Drop the last exercise']);
+const FOOD_FIX_CHIPS = toChips(['It was yesterday', 'Drop the last one']);
 
 // The bar for a tab that logs through useLogDraft (Log, Progress): log what you typed, then fix the card.
 // Chips with nothing open fill the box and hide while you type; fix chips send right away.
 export function logBar(log: ReturnType<typeof useLogDraft>, placeholder: string, chips: Chip[], beforeSend?: () => void): ChatBarProps {
-  const fixing = !!log.draft;
+  const fixing = !!log.draft || !!log.food;
   return {
     value: log.text,
     onChangeText: log.setText,
@@ -65,8 +66,8 @@ export function logBar(log: ReturnType<typeof useLogDraft>, placeholder: string,
       if (!fixing) return log.parse();
       if (await log.fix(log.text)) log.setText('');
     },
-    placeholder: fixing ? 'Fix or ask: "it was rows, not pulldowns"' : placeholder,
-    chips: fixing ? FIX_CHIPS : log.text.trim() ? [] : chips,
+    placeholder: fixing ? (log.draft ? 'Fix or ask: "it was rows, not pulldowns"' : 'Fix or ask: "it was 3 eggs, not 2"') : placeholder,
+    chips: fixing ? (log.draft ? FIX_CHIPS : FOOD_FIX_CHIPS) : log.text.trim() ? [] : chips,
     onChip: text => (fixing ? log.fix(text) : log.setText(text)),
     busy: log.busy === 'parse' || log.busy === 'fix',
     disabled: log.busy === 'save',

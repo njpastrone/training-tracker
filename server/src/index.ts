@@ -1,5 +1,6 @@
 import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
+import { buildFoodCorrectionRequest, buildFoodRequest, type DraftFoodForModel } from './food.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -15,6 +16,7 @@ const MAX_TOKENS = 1500;
 const MAX_PROMPT_CHARS = 80_000;
 const MAX_INPUT_CHARS = 4000;
 const MAX_CANDIDATES = 120;
+const MAX_FOOD_CANDIDATES = 80;
 const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
 
 const shortText = (v: unknown) => typeof v === 'string' && fitsPrompt(v);
@@ -60,20 +62,38 @@ export default {
       return json(401, { error: 'Invalid app password.' });
     }
 
-    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown };
+    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown; food?: unknown };
     try {
       body = await request.json();
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
-    const { system, messages, max_tokens, parse } = body ?? {};
-    // Parse mode: the app sends only the log and the prompt lives here, so prompt fixes ship with a
-    // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
+    const { system, messages, max_tokens, parse, food } = body ?? {};
+    const validDate = (date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date);
+    // Food mode: like parse mode, for what the user ate. `foods` are the table entries the log
+    // mentions (the app matches them); with draft and fix it applies a typed fix to the food draft.
     let upstream: Record<string, unknown>;
-    if (parse !== undefined) {
+    if (food !== undefined) {
+      const { input, date, foods = [], draft, fix } = (food ?? {}) as Record<string, unknown>;
+      if (!validDate(date) || !Array.isArray(foods) || foods.length > MAX_FOOD_CANDIDATES || !foods.every(shortText)) {
+        return json(400, { error: 'Invalid request.' });
+      }
+      const options = { date, foods: foods as string[] };
+      if (fix !== undefined) {
+        if (typeof fix !== 'string' || !fix.trim() || fix.length > MAX_INPUT_CHARS || !Array.isArray((draft as { items?: unknown })?.items)) {
+          return json(400, { error: 'Invalid request.' });
+        }
+        upstream = buildFoodCorrectionRequest((draft as { items: DraftFoodForModel[] }).items, fix, options);
+      } else {
+        if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS) return json(400, { error: 'Invalid request.' });
+        upstream = buildFoodRequest(input, options);
+      }
+    } else if (parse !== undefined) {
+      // Parse mode: the app sends only the log and the prompt lives here, so prompt fixes ship with a
+      // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
       const { input, date, unit, exercises, draft, fix } = (parse ?? {}) as Record<string, unknown>;
       const candidates = exercises === undefined ? [] : parseCandidates(exercises);
-      if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
+      if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS || !validDate(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
         return json(400, { error: 'Invalid request.' });
       }
       // Correction mode: apply a typed fix to the draft under review. `input` (the draft as text plus

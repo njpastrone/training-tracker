@@ -5,6 +5,10 @@ import { ParsedWorkoutResponse, MuscleGroup, Workout } from '../types/workout';
 import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
+import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems, type DraftFoodForModel } from '../server/src/food';
+import { FoodDraft } from '../types/food';
+import { buildFoodCandidates, candidateName, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
+import { foodById } from '../data/foods';
 import { buildCandidates } from '../server/src/identity';
 import { offersName, yourExercises } from './exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -37,12 +41,14 @@ export class AiOffError extends ApiError {
   }
 }
 
-// Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model
+// Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model.
+// `mode` asks the Worker to build the prompt itself (parse or food); Workers deployed before a mode
+// existed ignore it and send system/messages, so a new mode works before the Worker is redeployed.
 export async function callClaude(
   system: string,
   content: string,
   maxTokens: number,
-  parse?: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string }
+  mode?: { parse: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string } } | { food: Record<string, unknown> }
 ): Promise<string> {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
@@ -56,7 +62,7 @@ export async function callClaude(
       'x-app-password': process.env.EXPO_PUBLIC_APP_PASSWORD ?? '',
       'x-install-id': await getInstallId(),
     },
-    body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, parse }),
+    body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, ...mode }),
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 || res.status === 429 || res.status === 503) {
@@ -79,7 +85,7 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
     const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
     const req = buildParseRequest(input, { ...options, exercises });
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
-    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises });
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { parse: { input, ...options, exercises } });
     const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
     return parsed ? flagGuesses(parsed, input) : fallbackParse(input);
   } catch (error) {
@@ -113,7 +119,7 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
     const candidates = buildCandidates(input, yourExercises(workouts, exerciseLibrary));
     const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
     const req = buildCorrectionRequest(draft, fix, { ...options, exercises });
-    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { input, ...options, exercises, draft, fix });
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { parse: { input, ...options, exercises, draft, fix } });
     const updated = finalizeWithNames(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
     if (!updated) return null;
     const { reply, callIt } = updated;
@@ -126,6 +132,77 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
     console.error('Error correcting workout:', error);
     return null;
   }
+}
+
+// Parses what the user ate. The model picks foods from the table entries the log mentions and says
+// how much; the app computes USDA macros (services/foods.ts). Branded, restaurant and homemade food
+// comes back as the model's estimate. With AI off or unreachable, the on-phone parser reads it.
+export async function parseFood(input: string, date: string): Promise<FoodDraft> {
+  const usual = usualPortions(useWorkoutStore.getState().foodEntries);
+  try {
+    const candidates = buildFoodCandidates(input);
+    const foods = candidates.map(candidateName);
+    const req = buildFoodRequest(input, { date, foods });
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { food: { input, date, foods } });
+    const read = readFoodItems(text, candidates.length);
+    return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence } : localFoodParse(input, usual);
+  } catch (error) {
+    if (error instanceof AiOffError) return localFoodParse(input, usual);
+    console.error('Error parsing food:', error);
+    if (error instanceof ApiError) throw error;
+    return localFoodParse(input, usual);
+  }
+}
+
+// Applies a typed fix to a food draft ("it was 3 eggs", "drop the toast") or answers a question
+// about it; null when the reply is unusable
+export async function correctFood(draft: FoodDraft, fix: string, date: string): Promise<{ draft: FoodDraft; reply?: string } | null> {
+  try {
+    // The draft's own foods come first, so their keys stay put; then whatever the fix mentions
+    const own = draft.items.flatMap((i) => (i.foodId && foodById.get(i.foodId) ? [foodById.get(i.foodId)!] : []));
+    const candidates = [...new Map([...own, ...buildFoodCandidates(fix)].map((f) => [f.id, f])).values()].slice(0, 80);
+    const foods = candidates.map(candidateName);
+    const items: DraftFoodForModel[] = draft.items.map((i) => {
+      const k = i.foodId ? candidates.findIndex((f) => f.id === i.foodId) : -1;
+      return {
+        food: k >= 0 ? `f${k + 1}` : null, name: i.name, qty: i.qty, unit: i.unit, grams: i.grams, dayOffset: i.dayOffset,
+        ...(k >= 0 ? {} : { kcal: i.macros.kcal, protein: i.macros.protein, carbs: i.macros.carbs, fat: i.macros.fat }),
+      };
+    });
+    const req = buildFoodCorrectionRequest(items, fix, { date, foods });
+    const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { food: { input: fix, date, foods, draft: { items }, fix } });
+    const read = readFoodItems(text, candidates.length);
+    if (!read) return null;
+    // A question can come back with no items; it never empties the draft
+    const next = read.reply && read.items.length === 0 ? draft : { items: resolveItems(read.items, candidates), confidence: read.confidence };
+    return { draft: next, ...(read.reply ? { reply: read.reply } : {}) };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    console.error('Error correcting food:', error);
+    return null;
+  }
+}
+
+// One message can hold a workout, food, or both ("did legs, squat 3x5 at 225, then ate 2 eggs and
+// toast"). Each parser reads the whole message and ignores the other's part. Food words send it to
+// the food parser, workout words (or no food words) to the workout parser, both at once when both
+// show; if the parsers that ran find nothing, the other one gets a try. Without AI, each comma or line
+// goes to whichever side it reads as.
+export async function parseLog(input: string, options: ParseOptions): Promise<{ workout: ParsedWorkoutResponse | null; food: FoodDraft | null }> {
+  const food = mentionsFood(input);
+  const workout = !food || mentionsWorkout(input);
+  if (!(await hasAiConsent())) {
+    const parts = splitLog(input);
+    const usual = usualPortions(useWorkoutStore.getState().foodEntries);
+    return { workout: parts.workout ? fallbackParse(parts.workout) : null, food: parts.food ? localFoodParse(parts.food, usual) : null };
+  }
+  const has = <T,>(r: T | null, list: (r: T) => unknown[]) => (r && list(r).length ? r : null);
+  const run = (w: boolean, f: boolean) =>
+    Promise.all([w ? parseWorkout(input, options) : null, f ? parseFood(input, options.date) : null])
+      .then(([wr, fr]) => ({ workout: has(wr, (r) => r.exercises), food: has(fr, (r) => r.items) }));
+  const first = await run(workout, food);
+  if (first.workout || first.food || (workout && food)) return first;
+  return run(!workout, !food);
 }
 
 // One workout per day the log covers, dated relative to baseDate (YYYY-MM-DD).

@@ -7,8 +7,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --import tsx --experimental-test-module-mocks --test 'services/*.test.mts' 'data/*.test.mts' 'evals/parse/*.test.ts'",
-    "eval:parse": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.eval.local evals/parse/run.ts"
+    "test": "node --import tsx --experimental-test-module-mocks --test 'services/*.test.mts' 'data/*.test.mts' 'evals/parse/*.test.ts' 'evals/food/*.test.ts'",
+    "eval:parse": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.eval.local evals/parse/run.ts",
+    "eval:food": "node --env-file-if-exists=.env.eval.local --import tsx evals/food/run.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

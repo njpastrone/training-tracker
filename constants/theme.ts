@@ -86,6 +86,21 @@ export const muscleGroupColors: Record<string, string> = {
   full_body: '#D2441C',
 };
 
+// Food categories get the same small dots as muscle groups
+export const foodCategoryColors: Record<string, string> = {
+  meat_fish: '#F0764F',
+  eggs_dairy: '#E3B33A',
+  grains: '#C99A5B',
+  fruit: '#E8618C',
+  vegetables: '#2E9E7B',
+  legumes: '#8DB255',
+  nuts_seeds: '#A9744F',
+  fats_oils: '#F2A93B',
+  drinks: '#3FA7D6',
+  sweets_snacks: '#9B7BF0',
+  other: '#8189AE',
+};
+
 // SF Pro Rounded for titles, numbers and labels; SF Pro (system) for body text
 export const fonts = {
   rounded: Platform.select({ ios: 'ui-rounded', default: undefined }),

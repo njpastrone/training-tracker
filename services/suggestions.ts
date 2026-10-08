@@ -2,6 +2,7 @@ import { differenceInCalendarDays, format, parseISO, startOfWeek, subDays } from
 import { muscleName } from './goals';
 import type { MuscleGroup, Workout } from '../types/workout';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
+import type { FoodEntry } from '../types/food';
 
 // Chat bar suggestions from the user's own log and plan (DESIGN-SYSTEM.md, "Chat suggestions").
 // Only what's timely: an empty list means the bar shows no chips row at all.
@@ -18,7 +19,7 @@ export const NEW_USER_DAYS = 3;
 const chip = (label: string, text = label): Chip => ({ label, text });
 // Chips whose label is also what they put in the box or send
 export const toChips = (labels: string[]) => labels.map(label => chip(label));
-const LOG_EXAMPLES = toChips(['Chest and back: bench, rows', 'Ran 3 miles', 'Legs: squats, lunges']);
+const LOG_EXAMPLES = toChips(['Chest and back: bench, rows', 'Ran 3 miles', 'Legs: squats, lunges', 'Squats, then 2 eggs and toast']);
 export const PLAN_STARTERS = toChips(['Re-entry week', 'Next week', 'PPL split', 'Upper / lower', '3 days a week']);
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -38,10 +39,14 @@ function dayName(date: string, now: Date) {
   return days === 1 ? 'yesterday' : days < 7 ? format(parseISO(date), 'EEEE') : format(parseISO(date), 'MMM d');
 }
 
-// Log: today's planned workout if it isn't logged yet, then the two most recent different workouts
-// from the last 4 weeks (today's is skipped: it's done), to log again and edit.
-export function logChips(workouts: Workout[], plan?: WorkoutTemplate | null, now: Date = new Date()): Chip[] {
-  const planned = plan ? [chip(`Today's plan · ${plan.name}`, plan.exercises.map(e => e.name).join(', '))] : [];
+// Log: today's planned workout if it isn't logged yet, your usual meal for this time of day, then the
+// two most recent different workouts from the last 4 weeks (today's is skipped: it's done), to log
+// again and edit.
+export function logChips(workouts: Workout[], plan?: WorkoutTemplate | null, now: Date = new Date(), food: FoodEntry[] = []): Chip[] {
+  const planned = [
+    ...(plan ? [chip(`Today's plan · ${plan.name}`, plan.exercises.map(e => e.name).join(', '))] : []),
+    ...usualMeal(food, now),
+  ];
   if (trainingDays(workouts) < NEW_USER_DAYS) return [...planned, ...LOG_EXAMPLES];
   const today = ymd(now);
   const since = ymd(subDays(now, 28));
@@ -92,4 +97,36 @@ export function missedChips(workouts: Workout[], schedule: TemplateSchedule[], t
       return [chip(`Log ${day} · ${template.name}`, `${template.name} on ${day}: ${template.exercises.map(e => e.name).join(', ')}`)];
     })
     .slice(0, 2);
+}
+
+const MEALS = [
+  { name: 'breakfast', from: 4, to: 11 },
+  { name: 'lunch', from: 11, to: 16 },
+  { name: 'dinner', from: 16, to: 22 },
+];
+const mealAt = (hour: number) => MEALS.find(m => hour >= m.from && hour < m.to);
+
+// "Usual breakfast · eggs, oatmeal +1": what you most often logged around this time of day, on at
+// least 2 of the last 14 days, while nothing is logged for that meal today. A tap puts your own
+// words for it in the box.
+export function usualMeal(food: FoodEntry[], now: Date = new Date()): Chip[] {
+  const meal = mealAt(now.getHours());
+  if (!meal) return [];
+  const today = ymd(now);
+  const since = ymd(subDays(now, 14));
+  const inMeal = (e: FoodEntry) => mealAt(new Date(e.createdAt).getHours()) === meal;
+  if (food.some(e => e.date === today && inMeal(e))) return [];
+  const byKind = new Map<string, FoodEntry[]>();
+  for (const e of food) {
+    if (e.date >= today || e.date < since || !inMeal(e)) continue;
+    const kind = e.items.map(i => i.foodId ?? i.name.toLowerCase()).sort().join();
+    byKind.set(kind, [...(byKind.get(kind) ?? []), e]);
+  }
+  const days = (es: FoodEntry[]) => new Set(es.map(e => e.date)).size;
+  const best = [...byKind.values()].filter(es => days(es) >= 2).sort((a, b) => days(b) - days(a))[0];
+  if (!best) return [];
+  const latest = [...best].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const names = latest.items.map(i => i.name.toLowerCase());
+  const short = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ');
+  return [chip(`Usual ${meal.name} · ${short}`, latest.items.map(i => i.said ?? i.name).join(', '))];
 }

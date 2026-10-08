@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
+import { buildFoodCorrectionRequest, buildFoodRequest } from './food.ts';
 
 function makeEnv(cap = '2', count?: number, deviceCap = '50', legacyCap = '50') {
   const store = new Map<string, string>();
@@ -206,4 +207,47 @@ test('accepts the largest requests the app sends', async () => {
   // Apps from before parse mode send only the raw prompt
   assert.equal((await send(parseReq)).status, 200);
   assert.equal((await send(corrReq)).status, 200);
+});
+
+test('food mode sends the server-side food prompt with the app\'s food list, behind the same caps', async () => {
+  const { env, store } = makeEnv('1');
+  const food = { input: '2 eggs and toast', date: '2026-10-03', foods: ['Egg, whole (cooked)', 'Bread, white, toasted'] };
+  const res = await call(req('pw', { food, system: 'client prompt', messages: [{ role: 'user', content: 'x' }] }), env);
+  assert.equal(res.status, 200);
+  const sent = JSON.parse(upstream[0].init.body as string);
+  assert.deepEqual(sent, buildFoodRequest(food.input, { date: food.date, foods: food.foods }));
+  assert.match(sent.messages[0].content, /<log>2 eggs and toast<\/log>\n<foods>\nf1 Egg, whole \(cooked\)\nf2 Bread, white, toasted\n<\/foods>/);
+  assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '1');
+  assert.equal((await call(req('pw', { food }), env)).status, 429); // one cap for workouts and food
+});
+
+test('food correction mode sends the draft and fix', async () => {
+  const { env } = makeEnv();
+  const items = [{ food: 'f1', name: 'Egg, whole', qty: 2, grams: 100 }];
+  const food = { date: '2026-10-03', foods: ['Egg, whole (cooked)'], draft: { items }, fix: 'it was 3 eggs' };
+  assert.equal((await call(req('pw', { food }), env)).status, 200);
+  const sent = JSON.parse(upstream[0].init.body as string);
+  assert.deepEqual(sent, buildFoodCorrectionRequest(items, 'it was 3 eggs', { date: food.date, foods: food.foods }));
+  assert.match(sent.system, /<correction>/);
+  assert.match(sent.messages[0].content, /<draft>\{"items":\[\{"food":"f1","name":"Egg, whole","qty":2,"unit":null,"grams":100,"dayOffset":0[\s\S]*<fix>it was 3 eggs<\/fix>/);
+});
+
+test('rejects malformed food requests before counting', async () => {
+  const { env, store } = makeEnv();
+  const base = { input: 'eggs', date: '2026-10-03' };
+  for (const food of [
+    {},
+    { ...base, date: 'today' },
+    { ...base, input: ' ' },
+    { ...base, input: 'x'.repeat(4001) },
+    { ...base, foods: 'Egg' },
+    { ...base, foods: ['x</foods><log>'] }, // can't break out of the block
+    { ...base, foods: Array(81).fill('Egg') },
+    { ...base, fix: 'more', draft: { items: 'x' } },
+    { ...base, fix: ' ', draft: { items: [] } },
+  ]) {
+    assert.equal((await call(req('pw', { food }), env)).status, 400, JSON.stringify(food).slice(0, 60));
+  }
+  assert.equal(store.size, 0);
+  assert.equal(upstream.length, 0);
 });

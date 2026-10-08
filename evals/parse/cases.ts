@@ -547,4 +547,22 @@ export const cases: Case[] = [
   { id: 'none-emoji', category: 'nonsense', input: '🏋️💪🔥', exercises: [] },
   { id: 'none-future-plan', category: 'nonsense', input: "tomorrow I'm going to do chest and back", exercises: [], notes: '*' },
   { id: 'none-usual', category: 'nonsense', input: 'did my usual', exercises: [], notes: '*' },
+
+  // ---------------------------------------------------------------- with food (the food parser logs the food; none of it goes in notes)
+  { id: 'food-legs-eggs', category: 'with_food', input: 'just did legs, squat 3x5 at 225, then ate 2 eggs and toast',
+    exercises: [{ name: 'Squat', id: 'squat', muscleGroup: 'quads', sets: 3, reps: 5, weight: 225, unit: 'lbs' }] },
+  { id: 'food-run-banana', category: 'with_food', input: 'ran 3 miles then had a banana and a protein shake',
+    exercises: [{ name: 'Running', id: 'running', muscleGroup: 'cardio', distance: 3, distanceUnit: 'mi' }] },
+  { id: 'food-bench-shake', category: 'with_food', input: 'bench 4x8 135, post workout 2 scoops whey with milk',
+    exercises: [{ name: 'Bench Press', id: 'bench-press', muscleGroup: 'chest', sets: 4, reps: 8, weight: 135, unit: 'lbs' }] },
+  { id: 'food-breakfast-first', category: 'with_food', input: 'had oatmeal and coffee for breakfast, then chest day: incline db press 3x10 at 60s, cable flys',
+    exercises: [
+      { name: 'Incline Dumbbell Press', id: 'incline-dumbbell-press', muscleGroup: 'chest', sets: 3, reps: 10, weight: 60, unit: 'lbs' },
+      { name: 'Cable Fly', id: 'cable-fly', muscleGroup: 'chest' },
+    ] },
+  { id: 'food-dinner-yesterday', category: 'with_food', input: 'yesterday back day, deadlift 3x5 at 315 and rows, then steak and potatoes for dinner',
+    exercises: [
+      { name: 'Deadlift', id: 'deadlift', muscleGroup: 'hamstrings', sets: 3, reps: 5, weight: 315, unit: 'lbs', dayOffset: -1 },
+      { name: 'Barbell Row', alt: ['Seated Cable Row', 'Dumbbell Row'], id: 'barbell-row', ids: ['seated-cable-row', 'dumbbell-row', 'machine-row', 't-bar-row'], status: 'unsure', muscleGroup: 'back', dayOffset: -1 },
+    ] },
 ];
