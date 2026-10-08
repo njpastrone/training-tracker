@@ -11,7 +11,10 @@
 //   npm run eval:food -- --only branded,units  # categories or case ids
 //   npm run eval:food -- --verbose             # print every miss
 //   npm run eval:food -- --against evals/food/results/<earlier>.json
+//   FOOD_SYSTEM_FILE=prompt.txt npm run eval:food   # try a system prompt from a file instead of food.ts
 //
+// Without --model, a log goes to Haiku and on to Sonnet when Haiku is unsure, as in the Worker
+// (server/src/food.ts needsEscalation); the run also reports Haiku's replies alone from the same calls.
 // A grounded run also reports the phone-first system from the same calls: the phone's parse where
 // it's confident (services/foods.ts confidentLocal), the AI's elsewhere.
 //
@@ -19,7 +22,7 @@
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { buildFoodRequest, readFoodItems } from '../../server/src/food.ts';
+import { buildFoodRequest, FOOD_ESCALATION_MODEL, FOOD_MODEL, needsEscalation, readFoodItems } from '../../server/src/food.ts';
 import { buildFoodCandidates, candidateNames, confidentLocal, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog } from '../../services/foods.ts';
 import { MACROS, scoreFoodCase, type CaseScore, type Predicted } from './score.ts';
 import type { FoodCase } from './cases.ts';
@@ -42,6 +45,7 @@ const { values: args } = parseArgs({
 });
 
 const key = process.env.ANTHROPIC_API_KEY;
+const systemFile = process.env.FOOD_SYSTEM_FILE && readFileSync(process.env.FOOD_SYSTEM_FILE, 'utf8');
 if (!args.local && !args.cli && !key) throw new Error('ANTHROPIC_API_KEY is not set (put it in .env.eval.local or export it), or pass --local or --cli');
 
 const SETS: Record<string, string[]> = { dev: ['cases', 'scout'], holdout: ['holdout-1', 'holdout-2', 'holdout-3'] };
@@ -51,7 +55,7 @@ const only = args.only?.split(',');
 const selected = cases.filter((c) => !only || only.includes(c.category) || only.includes(c.id));
 
 // $ per million tokens [input, output]
-const PRICES: Record<string, [number, number]> = { 'claude-haiku-4-5': [1, 5], 'claude-sonnet-5-5': [2, 10], 'claude-opus-5-5': [4, 20] };
+const PRICES: Record<string, [number, number]> = { 'claude-haiku-4-5': [1, 5], 'claude-haiku-5-5': [0.1, 0.5], 'claude-sonnet-5-5': [2, 10], 'claude-opus-5-5': [4, 20] };
 const price = (model: string) => PRICES[Object.keys(PRICES).find((m) => model.startsWith(m)) ?? ''] ?? [0, 0];
 
 async function callAnthropic(body: Record<string, unknown>) {
@@ -70,7 +74,27 @@ async function callAnthropic(body: Record<string, unknown>) {
   }
 }
 
-type Result = CaseScore & { system: string; id: string; category: string; input: string; ms: number; cost: number; failed: boolean; predicted: Predicted | null; error?: string; text?: string };
+type Usage = { input_tokens: number; output_tokens: number; thinking_tokens?: number };
+type Result = CaseScore & { system: string; id: string; category: string; input: string; ms: number; cost: number; failed: boolean; predicted: Predicted | null; error?: string; text?: string; escalated?: boolean; usage?: Usage[] };
+
+// One model call: its text, how it ended, cost and time
+async function ask(body: Record<string, unknown>) {
+  const started = Date.now();
+  let text = '';
+  let stop: string | undefined;
+  let error: string | undefined;
+  let usage: Usage = { input_tokens: 0, output_tokens: 0 };
+  try {
+    const data = args.cli ? await callViaCli(body as Parameters<typeof callViaCli>[0]) : await callAnthropic(body);
+    text = data.content.filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('');
+    usage = data.usage;
+    stop = data.stop_reason;
+  } catch (e) {
+    error = String(e);
+  }
+  const [pin, pout] = price(String(body.model));
+  return { text, stop, error, usage, cost: (usage.input_tokens * pin + usage.output_tokens * pout) / 1e6, ms: Date.now() - started };
+}
 
 async function runCase(c: FoodCase): Promise<Result[]> {
   const date = c.date ?? '2026-10-03';
@@ -86,33 +110,28 @@ async function runCase(c: FoodCase): Promise<Result[]> {
   const candidates = grounded ? buildFoodCandidates(c.input) : [];
   const body: Record<string, unknown> = buildFoodRequest(c.input, { date, foods: candidateNames(c.input, candidates) });
   if (args.model) body.model = args.model;
-  if (!String(body.model).startsWith('claude-haiku')) delete body.temperature; // 5.x models take only the default
-  let text = '';
-  let error: string | undefined;
-  let usage = { input_tokens: 0, output_tokens: 0 };
-  let predicted: Predicted | null = null;
-  try {
-    const data = args.cli ? await callViaCli(body as Parameters<typeof callViaCli>[0]) : await callAnthropic(body);
-    text = data.content.filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('');
-    usage = data.usage;
-    if (data.stop_reason !== 'end_turn') error = `stop_reason ${data.stop_reason}`;
-    const read = readFoodItems(text, candidates.length);
-    if (read) predicted = { items: resolveItems(read.items, candidates) };
-    else error ??= 'unreadable JSON';
-  } catch (e) {
-    error = String(e);
-  }
-  const ms = Date.now() - started;
-  const [pin, pout] = price(String(body.model));
-  const cost = (usage.input_tokens * pin + usage.output_tokens * pout) / 1e6;
-  const ai = { ...base, system: grounded ? 'AI every log, grounded in USDA' : 'AI alone', ms, cost, failed: !predicted, predicted, error, text, ...scoreFoodCase(c, predicted) };
-  if (!grounded) return [ai];
+  if (systemFile) body.system = systemFile;
+  const score = (calls: Awaited<ReturnType<typeof ask>>[], system: string): Result => {
+    const { text, stop, error } = calls[calls.length - 1];
+    const read = error ? null : readFoodItems(text, candidates.length);
+    const predicted = read ? { items: resolveItems(read.items, candidates) } : null;
+    const cost = calls.reduce((t, k) => t + k.cost, 0);
+    const ms = calls.reduce((t, k) => t + k.ms, 0);
+    const why = error ?? (stop !== 'end_turn' ? `stop_reason ${stop}` : read ? undefined : 'unreadable JSON');
+    return { ...base, system, ms, cost, failed: !predicted, predicted, error: why, text, escalated: calls.length > 1, usage: calls.map((k) => k.usage), ...scoreFoodCase(c, predicted) };
+  };
+  const first = await ask(body);
+  const escalate = !args.model && (first.error !== undefined || needsEscalation(first.stop, first.text, candidates.length));
+  const calls = escalate ? [first, await ask({ ...body, model: FOOD_ESCALATION_MODEL })] : [first];
+  const ai = score(calls, grounded ? 'AI every log, grounded in USDA' : 'AI alone');
+  const alone = args.model ? [] : [score([first], `${String(body.model)} alone`)];
+  if (!grounded) return [ai, ...alone];
   // The app: the phone's parse where it's confident (no AI call, no cost, instant), the AI's elsewhere
   const phone = confidentLocal(c.input);
-  const first = phone
+  const phoneFirst: Result = phone
     ? { ...base, system: 'Phone first, then AI', ms: 0, cost: 0, failed: false, predicted: { items: phone.items }, ...scoreFoodCase(c, { items: phone.items }) }
     : { ...ai, system: 'Phone first, then AI' };
-  return [ai, first];
+  return [ai, phoneFirst, ...alone];
 }
 
 async function pool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {
@@ -136,7 +155,7 @@ const systems = [...new Set(results.map((r) => r.system))];
 const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)}%` : '-');
 const share = (rs: Result[], f: (r: Result) => boolean) => pct(rs.filter(f).length, rs.length);
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
-const model = args.local ? 'no model' : String(args.model ?? buildFoodRequest('', { date: '2026-10-03' }).model);
+const model = args.local ? 'no model' : (args.model ?? `${FOOD_MODEL}, ${FOOD_ESCALATION_MODEL} when unsure`) + (systemFile ? ` (prompt ${process.env.FOOD_SYSTEM_FILE})` : '');
 
 // One row per system: within 20% and 10%, failures, latency, cost per log
 const summary = Object.fromEntries(systems.map((s) => {
@@ -147,6 +166,7 @@ const summary = Object.fromEntries(systems.map((s) => {
     'all 4 20%': share(rs, (r) => r.all),
     ...Object.fromEntries(MACROS.map((k) => [`${k} 10%`, share(rs, (r) => r.tight[k])])),
     failed: rs.filter((r) => r.failed).length,
+    escalated: share(rs, (r) => !!r.escalated),
     'p50 ms': median(rs.map((r) => r.ms)),
     '$/log': (rs.reduce((t, r) => t + r.cost, 0) / rs.length).toFixed(5),
   }];

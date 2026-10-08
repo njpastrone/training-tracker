@@ -4,7 +4,7 @@ import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems } from './f
 
 test('buildFoodRequest lists the candidate foods by key after the log', () => {
   const req = buildFoodRequest('2 eggs', { date: '2026-10-03', foods: ['Egg, whole (cooked)', 'Egg white (cooked)'] });
-  assert.equal(req.model, 'claude-sonnet-5-5');
+  assert.equal(req.model, 'claude-haiku-5-5');
   assert.equal('temperature' in req, false); // 5.x models take only their default
   assert.match(req.messages[0].content, /Saturday 2026-10-03[\s\S]*<log>2 eggs<\/log>\n<foods>\nf1 Egg, whole \(cooked\)\nf2 Egg white \(cooked\)\n<\/foods>$/);
   assert.doesNotMatch(buildFoodRequest('x', { date: '2026-10-03' }).messages[0].content, /<foods>/);
@@ -13,6 +13,7 @@ test('buildFoodRequest lists the candidate foods by key after the log', () => {
 test('buildFoodCorrectionRequest sends every draft field, nulls included', () => {
   const req = buildFoodCorrectionRequest([{ food: 'f1', name: 'Egg', qty: 2 }], 'it was 3', { date: '2026-10-03', foods: ['Egg'] });
   assert.match(req.system, /<correction>/);
+  assert.equal(req.model, 'claude-sonnet-5-5'); // fixes stay on Sonnet
   assert.match(req.messages[0].content, /<draft>\{"items":\[\{"said":null,"food":"f1","name":"Egg","qty":2,"unit":null,"grams":null,"dayOffset":0,"kcal":null,"protein":null,"carbs":null,"fat":null\}\]\}<\/draft>\n<fix>it was 3<\/fix>/);
 });
 

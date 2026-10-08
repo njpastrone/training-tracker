@@ -23,9 +23,11 @@ function req(password?: string, body: unknown = { system: 's', messages: [{ role
 }
 
 let upstream: { url: string; init: RequestInit }[] = [];
+let replies: { text: string; stop_reason?: string }[] = []; // what the model says, in order; then '{"ok":true}'
 globalThis.fetch = (async (url: string, init: RequestInit) => {
   upstream.push({ url, init });
-  return Response.json({ content: [{ type: 'text', text: '{"ok":true}' }] });
+  const { text, stop_reason } = replies.shift() ?? { text: '{"ok":true}' };
+  return Response.json({ content: [{ type: 'text', text }], stop_reason });
 }) as typeof fetch;
 
 const call = async (r: Request, env: Env) => {
@@ -215,10 +217,32 @@ test('food mode sends the server-side food prompt with the app\'s food list, beh
   const res = await call(req('pw', { food, system: 'client prompt', messages: [{ role: 'user', content: 'x' }] }), env);
   assert.equal(res.status, 200);
   const sent = JSON.parse(upstream[0].init.body as string);
-  assert.deepEqual(sent, buildFoodRequest(food.input, { date: food.date, foods: food.foods }));
+  const built = buildFoodRequest(food.input, { date: food.date, foods: food.foods });
+  assert.deepEqual(sent, { ...built, system: [{ type: 'text', text: built.system, cache_control: { type: 'ephemeral' } }] });
   assert.match(sent.messages[0].content, /<log>2 eggs and toast<\/log>\n<foods>\nf1 Egg, whole \(cooked\)\nf2 Bread, white, toasted\n<\/foods>/);
   assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '1');
   assert.equal((await call(req('pw', { food }), env)).status, 429); // one cap for workouts and food
+});
+
+test('a food reply Haiku is unsure of, unfinished or unreadable goes to Sonnet on one cap slot', async () => {
+  const food = { input: 'a burrito', date: '2026-10-03', foods: [] };
+  const sure = '{"items":[{"said":"a burrito","name":"Burrito","kcal":700}],"confidence":0.9}';
+  const models = () => upstream.map((u) => JSON.parse(u.init.body as string).model);
+  for (const [first, escalated] of [
+    [{ text: sure, stop_reason: 'end_turn' }, false],
+    [{ text: sure.replace('0.9', '0.6'), stop_reason: 'end_turn' }, true],
+    [{ text: sure, stop_reason: 'max_tokens' }, true],
+    [{ text: sure, stop_reason: 'refusal' }, true],
+    [{ text: 'not json', stop_reason: 'end_turn' }, true],
+  ] as const) {
+    const { env, store } = makeEnv('5');
+    replies = [first, { text: 'from sonnet', stop_reason: 'end_turn' }];
+    const res = await call(req('pw', { food }), env);
+    assert.deepEqual(models(), escalated ? ['claude-haiku-5-5', 'claude-sonnet-5-5'] : ['claude-haiku-5-5']);
+    assert.equal(res.body.text, escalated ? 'from sonnet' : first.text);
+    assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '1');
+  }
+  replies = [];
 });
 
 test('food correction mode sends the draft and fix', async () => {

@@ -1,6 +1,6 @@
 import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
-import { buildFoodCorrectionRequest, buildFoodRequest, type DraftFoodForModel } from './food.ts';
+import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -73,6 +73,7 @@ export default {
     // Food mode: like parse mode, for what the user ate. `foods` are the table entries the log
     // mentions (the app matches them); with draft and fix it applies a typed fix to the food draft.
     let upstream: Record<string, unknown>;
+    let escalateFoods: number | undefined; // a food log's candidate count: Haiku's reply may go to Sonnet
     if (food !== undefined) {
       const { input, date, foods = [], draft, fix } = (food ?? {}) as Record<string, unknown>;
       if (!validDate(date) || !Array.isArray(foods) || foods.length > MAX_FOOD_CANDIDATES || !foods.every(shortText)) {
@@ -89,6 +90,7 @@ export default {
       } else {
         if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS) return json(400, { error: 'Invalid request.' });
         upstream = buildFoodRequest(input, options);
+        escalateFoods = foods.length;
       }
     } else if (parse !== undefined) {
       // Parse mode: the app sends only the log and the prompt lives here, so prompt fixes ship with a
@@ -135,22 +137,33 @@ export default {
     if (hit === 'device') return json(429, { error: "You've used today's AI requests on this phone. They reset at midnight UTC." });
     if (hit) return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(upstream),
-    });
-    if (!res.ok) {
-      console.error('Anthropic error', res.status, await res.text());
-      return json(502, { error: `AI service error (${res.status}).` });
-    }
+    const send = async (body: Record<string, unknown>): Promise<{ status: number; stop?: string; text?: string }> => {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        console.error('Anthropic error', body.model, res.status, await res.text());
+        return { status: res.status };
+      }
+      const data = await res.json<{ content: { type: string; text?: string }[]; stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } }>();
+      console.log('usage', device.id, body.model, data.usage?.input_tokens, data.usage?.output_tokens, data.usage?.cache_read_input_tokens);
+      return { status: 200, stop: data.stop_reason, text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') };
+    };
 
-    const data = await res.json<{ content: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } }>();
-    console.log('usage', device.id, data.usage?.input_tokens, data.usage?.output_tokens);
-    return json(200, { text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') });
+    // The food prompt is long and the same on every log: cache it
+    if (escalateFoods !== undefined) upstream.system = [{ type: 'text', text: upstream.system, cache_control: { type: 'ephemeral' } }];
+    let reply = await send(upstream);
+    // A food reply Haiku failed, didn't finish or isn't sure of goes to Sonnet, on the same cap slot
+    if (escalateFoods !== undefined && (reply.text === undefined || needsEscalation(reply.stop, reply.text, escalateFoods))) {
+      reply = await send({ ...upstream, model: FOOD_ESCALATION_MODEL });
+    }
+    if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
+    return json(200, { text: reply.text });
   },
 } satisfies ExportedHandler<Env>;
