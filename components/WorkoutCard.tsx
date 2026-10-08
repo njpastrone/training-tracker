@@ -30,14 +30,16 @@ export default function WorkoutCard({ workout, onPress, selected, food }: Props)
   const handlePress = onPress ?? (() => router.push(targets.body));
 
   return (
-    <SkyCard style={styles.card}>
-      <Pressable
-        onPress={handlePress}
-        accessibilityRole={selected === undefined ? 'button' : 'checkbox'}
-        accessibilityState={selected === undefined ? undefined : { checked: selected }}
-        accessibilityHint={selected === undefined ? 'Opens the workout' : undefined}
-        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-      >
+    <Pressable
+      onPress={handlePress}
+      accessibilityRole={selected === undefined ? 'button' : 'checkbox'}
+      accessibilityState={selected === undefined ? undefined : { checked: selected }}
+      accessibilityHint={selected === undefined ? 'Opens the workout' : undefined}
+      accessibilityActions={food ? [{ name: 'day', label: 'Open the day' }] : undefined}
+      onAccessibilityAction={() => router.push(targets.food)}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    >
+      <SkyCard style={styles.card}>
         <View pointerEvents="box-only">
           <View style={styles.header}>
             <View style={styles.title}>
@@ -61,19 +63,18 @@ export default function WorkoutCard({ workout, onPress, selected, food }: Props)
             </Text>
           ) : null}
         </View>
-      </Pressable>
-      {food && (
-        <Pressable
-          onPress={() => router.push(targets.food)}
-          disabled={selected !== undefined}
-          accessibilityRole="button"
-          accessibilityHint="Opens the day"
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-        >
-          <FoodLine food={food} />
-        </Pressable>
-      )}
-    </SkyCard>
+        {food && (
+          <Pressable
+            onPress={() => router.push(targets.food)}
+            accessibilityRole="button"
+            accessibilityHint="Opens the day"
+            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+          >
+            <FoodLine food={food} />
+          </Pressable>
+        )}
+      </SkyCard>
+    </Pressable>
   );
 }
 
