@@ -12,7 +12,10 @@ import { editDraft, removeFromDraft } from '../services/draft';
 import { sentenceCase, shownName } from '../services/exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { ParsedWorkoutResponse, UnsureField } from '../types/workout';
-import { SkyCard } from './Sky';
+import type { FoodDraft } from '../types/food';
+import { SkyCard, SectionLabel } from './Sky';
+import FoodRows, { EstimateNote, foodSummary } from './FoodRows';
+import NumberChip from './NumberChip';
 import { Pill } from './Glass';
 import LogoMark from './LogoMark';
 
@@ -31,11 +34,13 @@ interface Props {
   error?: string | null;
   reply?: FixReplyState | null;
   example?: boolean; // a canned example for a first-time user: nothing to save or fix
+  food?: FoodDraft | null; // what was eaten, when the same message logged food too; saved with the workout
+  onFoodChange?: (food: FoodDraft) => void;
 }
 
 // The parsed workout, reviewed before anything is saved: tap a number to change it, type a fix, Save.
 // Values the parse guessed or a typed fix left uncertain are highlighted; a low parse confidence shows a banner.
-export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error, reply, example }: Props) {
+export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error, reply, example, food, onFoodChange }: Props) {
   const { colors } = useTheme();
   const library = useWorkoutStore(s => s.exerciseLibrary);
   const unsure = draft.unsure ?? [];
@@ -61,6 +66,8 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
   const moveTo = (day: Date) => {
     const offset = Math.min(0, differenceInCalendarDays(day, parseISO(date)));
     onChange({ ...draft, exercises: draft.exercises.map(e => ({ ...e, dayOffset: offset || undefined })) });
+    // Food logged in the same message moves with it
+    if (food) onFoodChange?.({ ...food, items: food.items.map(i => ({ ...i, dayOffset: offset || undefined })) });
   };
 
   const dayTag = (offset?: number) =>
@@ -176,6 +183,17 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
           <Text variant="bodyMedium" style={[styles.notes, { color: colors.textSecondary }]}>{draft.notes}</Text>
         ) : null}
 
+        {food ? (
+          <View style={styles.food}>
+            <SectionLabel>Food</SectionLabel>
+            <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{foodSummary(food)}</Text>
+            <View style={styles.foodRows}>
+              <FoodRows items={food.items} onChange={items => onFoodChange?.({ ...food, items })} date={date} />
+            </View>
+            <EstimateNote food={food} />
+          </View>
+        ) : null}
+
         {example ? (
           <View style={styles.actions}>
             <Pill icon="square.and.pencil" label="Log my own" onPress={onDiscard} style={styles.save} />
@@ -183,7 +201,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
         ) : (
           <>
             <View style={styles.actions}>
-              <Pill icon="checkmark" label="Save" onPress={onSave} loading={busy === 'save'} disabled={!!busy || draft.exercises.length === 0} style={styles.save} />
+              <Pill icon="checkmark" label="Save" onPress={onSave} loading={busy === 'save'} disabled={!!busy || (draft.exercises.length === 0 && !food?.items.length)} style={styles.save} />
               <Pill variant="glass" label="Discard" onPress={onDiscard} disabled={!!busy} style={styles.discard} />
             </View>
             {onFix && <FixBox onFix={onFix} busy={busy === 'fix'} disabled={!!busy} />}
@@ -196,53 +214,6 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
       </SkyCard>
     </Animated.View>
   );
-}
-
-// A number you can tap to edit; empty clears it
-function NumberChip({ value, suffix, unsure, onChange, onFocus, onBlur }: { value?: number | string; suffix: string; unsure: boolean; onChange: (v: number | undefined) => void; onFocus?: () => void; onBlur?: () => void }) {
-  const { colors } = useTheme();
-  const shown = value === undefined ? '' : String(value);
-  const current = typeof value === 'string' ? parseFloat(value) : value;
-  const [text, setText] = useState(shown);
-  useEffect(() => setText(t => (toNumber(t) === current ? t : shown)), [value]);
-
-  const edit = (t: string) => {
-    setText(t);
-    const next = toNumber(t);
-    if (next !== current) onChange(next);
-  };
-
-  return (
-    <View
-      style={[
-        styles.chip,
-        { backgroundColor: colors.dim },
-        unsure && [styles.unsure, { backgroundColor: colors.warning + '22', borderColor: colors.warning }],
-      ]}
-    >
-      <TextInput
-        value={text}
-        onChangeText={edit}
-        onEndEditing={() => setText(shown)}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        placeholder="–"
-        placeholderTextColor={colors.textTertiary}
-        keyboardType="decimal-pad"
-        selectTextOnFocus
-        accessibilityLabel={`${suffix}${unsure ? ', please check' : ''}`}
-        accessibilityHint="Edits this number"
-        style={[styles.chipInput, { color: colors.text }]}
-      />
-      <Text variant="labelMedium" style={{ color: colors.textSecondary }}>{suffix}</Text>
-    </View>
-  );
-}
-
-// Empty or not a positive number clears the value
-function toNumber(text: string) {
-  const n = parseFloat(text.replace(',', '.'));
-  return text.trim() === '' || !(n > 0) ? undefined : n;
 }
 
 // "Fix something" box: a typed correction re-parses the draft; a question gets a FixReply
@@ -395,27 +366,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 2,
   },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    minHeight: 34,
-  },
-  chipInput: {
-    minWidth: 22,
-    fontFamily: fonts.rounded,
-    fontSize: 16,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-    textAlign: 'right',
-    paddingVertical: 6,
-  },
   unsure: {
     borderWidth: 1.5,
   },
   notes: {
+    marginTop: spacing.sm,
+  },
+  food: {
+    marginTop: spacing.lg,
+  },
+  foodRows: {
     marginTop: spacing.sm,
   },
   actions: {

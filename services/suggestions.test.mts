@@ -21,7 +21,7 @@ const backAgain = workout('2026-10-01', ['back'], ['Barbell Row']);
 const legs = workout('2026-09-20', ['quads', 'glutes'], ['Squat', 'Lunge']);
 
 test('logChips gives a new user whole examples', () => {
-  assert.deepEqual(logChips([push, back], null, now).map(c => c.label), ['Chest and back: bench, rows', 'Ran 3 miles', 'Legs: squats, lunges']);
+  assert.deepEqual(logChips([push, back], null, now).map(c => c.label), ['Chest and back: bench, rows', 'Ran 3 miles', 'Legs: squats, lunges', 'Squats, then 2 eggs and toast']);
 });
 
 test('logChips offers the two most recent different workouts, skipping today', () => {
@@ -85,4 +85,19 @@ test('missedChips lists planned days in the last week with nothing logged', () =
     { label: 'Log Saturday · Legs', text: 'Legs on Saturday: Squat, Lunge' },
   ]);
   assert.deepEqual(missedChips([back], schedule, [], now), []);
+});
+
+test('usualMeal offers what you most often ate around this time, once you have a habit', () => {
+  const entry = (date: string, hour: number, items: [string, string][]) => ({
+    id: date + hour, date, rawInput: '', createdAt: new Date(`${date}T${String(hour).padStart(2, '0')}:30:00`).toISOString(),
+    items: items.map(([foodId, said], i) => ({ id: `${i}`, foodId, said, name: foodId === 'egg' ? 'Egg' : 'Oatmeal', macros: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, source: 'usda' as const })),
+  });
+  const breakfast = (date: string) => entry(date, 8, [['egg', '3 eggs'], ['oatmeal', 'a bowl of oatmeal']]);
+  const once = [breakfast('2026-10-07')];
+  assert.deepEqual(logChips([], null, now, once).filter(c => c.label.startsWith('Usual')), []); // one day isn't a habit
+  const habit = [breakfast('2026-10-07'), breakfast('2026-10-05'), entry('2026-10-06', 13, [['egg', 'egg']])];
+  assert.deepEqual(logChips([], null, now, habit)[0], { label: 'Usual breakfast · egg, oatmeal', text: '3 eggs, a bowl of oatmeal' });
+  assert.equal(logChips([], null, new Date(2026, 9, 8, 13), habit).some(c => c.label.startsWith('Usual')), false); // lunch isn't a habit
+  // Already had breakfast today
+  assert.equal(logChips([], null, now, [...habit, entry('2026-10-08', 7, [['egg', 'egg']])]).some(c => c.label.startsWith('Usual')), false);
 });

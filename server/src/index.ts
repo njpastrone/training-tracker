@@ -1,5 +1,6 @@
 import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
+import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -15,6 +16,7 @@ const MAX_TOKENS = 1500;
 const MAX_PROMPT_CHARS = 80_000;
 const MAX_INPUT_CHARS = 4000;
 const MAX_CANDIDATES = 120;
+const MAX_FOOD_CANDIDATES = 80;
 const MUSCLE_GROUPS = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'cardio', 'full_body'];
 
 const shortText = (v: unknown) => typeof v === 'string' && fitsPrompt(v);
@@ -60,20 +62,42 @@ export default {
       return json(401, { error: 'Invalid app password.' });
     }
 
-    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown };
+    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown; food?: unknown };
     try {
       body = await request.json();
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
-    const { system, messages, max_tokens, parse } = body ?? {};
-    // Parse mode: the app sends only the log and the prompt lives here, so prompt fixes ship with a
-    // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
+    const { system, messages, max_tokens, parse, food } = body ?? {};
+    const validDate = (date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date);
+    // Food mode: like parse mode, for what the user ate. `foods` are the table entries the log
+    // mentions (the app matches them); with draft and fix it applies a typed fix to the food draft.
     let upstream: Record<string, unknown>;
-    if (parse !== undefined) {
+    let escalateFoods: number | undefined; // a food log's candidate count: Haiku's reply may go to Sonnet
+    if (food !== undefined) {
+      const { input, date, foods = [], draft, fix } = (food ?? {}) as Record<string, unknown>;
+      if (!validDate(date) || !Array.isArray(foods) || foods.length > MAX_FOOD_CANDIDATES || !foods.every(shortText)) {
+        return json(400, { error: 'Invalid request.' });
+      }
+      const options = { date, foods: foods as string[] };
+      if (fix !== undefined) {
+        const items = (draft as { items?: unknown })?.items;
+        const itemOk = (i: unknown) => typeof i === 'object' && i !== null && shortText((i as { name?: unknown }).name);
+        if (typeof fix !== 'string' || !fix.trim() || fix.length > MAX_INPUT_CHARS || !Array.isArray(items) || items.length > MAX_FOOD_CANDIDATES || !items.every(itemOk)) {
+          return json(400, { error: 'Invalid request.' });
+        }
+        upstream = buildFoodCorrectionRequest(items as DraftFoodForModel[], fix, options);
+      } else {
+        if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS) return json(400, { error: 'Invalid request.' });
+        upstream = buildFoodRequest(input, options);
+        escalateFoods = foods.length;
+      }
+    } else if (parse !== undefined) {
+      // Parse mode: the app sends only the log and the prompt lives here, so prompt fixes ship with a
+      // Worker deploy. The app also sends system/messages for Workers deployed before this mode; ignore them.
       const { input, date, unit, exercises, draft, fix } = (parse ?? {}) as Record<string, unknown>;
       const candidates = exercises === undefined ? [] : parseCandidates(exercises);
-      if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
+      if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS || !validDate(date) || (unit !== 'lbs' && unit !== 'kg') || !candidates) {
         return json(400, { error: 'Invalid request.' });
       }
       // Correction mode: apply a typed fix to the draft under review. `input` (the draft as text plus
@@ -113,22 +137,33 @@ export default {
     if (hit === 'device') return json(429, { error: "You've used today's AI requests on this phone. They reset at midnight UTC." });
     if (hit) return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(upstream),
-    });
-    if (!res.ok) {
-      console.error('Anthropic error', res.status, await res.text());
-      return json(502, { error: `AI service error (${res.status}).` });
-    }
+    const send = async (body: Record<string, unknown>): Promise<{ status: number; stop?: string; text?: string }> => {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        console.error('Anthropic error', body.model, res.status, await res.text());
+        return { status: res.status };
+      }
+      const data = await res.json<{ content: { type: string; text?: string }[]; stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } }>();
+      console.log('usage', device.id, body.model, data.usage?.input_tokens, data.usage?.output_tokens, data.usage?.cache_read_input_tokens);
+      return { status: 200, stop: data.stop_reason, text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') };
+    };
 
-    const data = await res.json<{ content: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } }>();
-    console.log('usage', device.id, data.usage?.input_tokens, data.usage?.output_tokens);
-    return json(200, { text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') });
+    // The food prompt is long and the same on every log: cache it
+    if (escalateFoods !== undefined) upstream.system = [{ type: 'text', text: upstream.system, cache_control: { type: 'ephemeral' } }];
+    let reply = await send(upstream);
+    // A food reply Haiku failed, didn't finish or isn't sure of goes to Sonnet, on the same cap slot
+    if (escalateFoods !== undefined && (reply.text === undefined || needsEscalation(reply.stop, reply.text, escalateFoods))) {
+      reply = await send({ ...upstream, model: FOOD_ESCALATION_MODEL });
+    }
+    if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
+    return json(200, { text: reply.text });
   },
 } satisfies ExportedHandler<Env>;

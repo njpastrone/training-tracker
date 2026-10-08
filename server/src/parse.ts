@@ -130,14 +130,19 @@ export interface ParseOptions {
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function context({ date, unit }: ParseOptions) {
+// The logging date and every recent day spelled out, so "last Tuesday" or "the 28th" is a lookup,
+// not arithmetic. The food parser (food.ts) uses it too.
+export function dateContext(date: string) {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay();
-  // Every recent day spelled out, so "last Tuesday" or "the 28th" is a lookup, not arithmetic
   const base = new Date(`${date}T00:00:00Z`).getTime();
   const recent = Array.from({ length: 13 }, (_, i) => i + 1)
     .map((n) => `${WEEKDAYS[(day - (n % 7) + 7) % 7]} ${new Date(base - n * 864e5).toISOString().slice(0, 10)} = -${n}`)
     .join('; ');
-  return `Logging date: ${WEEKDAYS[day]} ${date}. Earlier days: ${recent}. A bare weekday or "last <weekday>" means the most recent one in this list.
+  return `Logging date: ${WEEKDAYS[day]} ${date}. Earlier days: ${recent}. A bare weekday or "last <weekday>" means the most recent one in this list.`;
+}
+
+function context({ date, unit }: ParseOptions) {
+  return `${dateContext(date)}
 Default weight unit: ${unit}`;
 }
 

@@ -10,6 +10,8 @@ import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
+import FoodCard from '../../components/FoodCard';
+import FoodDay from '../../components/FoodDay';
 import Ring from '../../components/Ring';
 import WorkoutList from '../../components/WorkoutList';
 import { UndoToast } from '../../components/SelectableWorkoutList';
@@ -24,8 +26,8 @@ import { TrainingPlan } from '../../types/plan';
 import { ParsedWorkoutResponse } from '../../types/workout';
 import LogoMark from '../../components/LogoMark';
 
-// Detail is optional: names alone are a complete log, numbers are welcome
-const EXAMPLES = ['chest and back today: bench, rows, pull-ups', 'legs: squats, RDLs, lunges, felt strong', 'ran 3 miles then some core', 'squats 5x5 at 225, then lunges'];
+// Detail is optional: names alone are a complete log, numbers are welcome. Food goes in the same box.
+const EXAMPLES = ['chest and back today: bench, rows, pull-ups', 'legs: squats, RDLs, lunges, felt strong', 'ran 3 miles then some core', 'squats 5x5 at 225, then 2 eggs and toast', 'chicken, rice and broccoli for lunch'];
 
 // "Show me an example" for a first-time user: detail on one lift, names for the rest. Never saved.
 const exampleLog = (kg: boolean) => `chest and back today: bench, rows, pull-ups. bench was 3 sets of 8 at ${kg ? 60 : 135}`;
@@ -70,8 +72,9 @@ export default function LogScreen() {
   // Get today's scheduled workout
   const todaysSchedule = getTodaysScheduledWorkout();
   const scheduledTemplate = todaysSchedule ? getTemplate(todaysSchedule.templateId) : null;
-  // Chat bar chips: today's plan and your last different workouts to log again, or examples while you're new
-  const chips = useMemo(() => logChips(workouts, scheduledTemplate), [workouts, scheduledTemplate]);
+  // Chat bar chips: today's plan, your usual meal and your last different workouts to log again, or examples while you're new
+  const foodEntries = useWorkoutStore(s => s.foodEntries);
+  const chips = useMemo(() => logChips(workouts, scheduledTemplate, new Date(), foodEntries), [workouts, scheduledTemplate, foodEntries]);
 
   // "Re-entry week · 1 of 4" when today's session comes from a plan
   const todaysPlan = plans.find(p => p.id === todaysSchedule?.planId);
@@ -88,6 +91,7 @@ export default function LogScreen() {
 
   const log = useLogDraft({
     date: today,
+    withFood: true,
     onLogged: async (workoutId, templateId) => {
       // Logged from today's scheduled template: mark the schedule completed
       if (templateId && todaysSchedule && todaysSchedule.templateId === templateId) {
@@ -147,10 +151,10 @@ export default function LogScreen() {
     ]);
   };
 
-  const reviewing = !!log.sent || !!log.draft || !!example;
+  const reviewing = !!log.sent || !!log.draft || !!log.food || !!example;
 
   return (
-    <ChatScreen bar={logBar(log, "What'd you do today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
+    <ChatScreen bar={logBar(log, "What'd you do or eat today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
       <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
 
       {logged && (
@@ -209,9 +213,9 @@ export default function LogScreen() {
       {!reviewing && !todaysSchedule && firstRun && (
         <SkyCard style={styles.hint}>
           <LogoMark size={30} color={colors.sunrise} />
-          <Text variant="titleMedium" style={{ color: colors.text }}>Log your first workout</Text>
+          <Text variant="titleMedium" style={{ color: colors.text }}>Log a workout, food, or both</Text>
           <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-            Just say what you did, like “chest and back today: bench, rows, pull-ups”. Sets and weights are optional. Or use the mic on the keyboard.
+            Just say what you did or ate, like “chest and back today: bench, rows, pull-ups, then chicken and rice”. Sets, weights and amounts are optional. Or use the mic on the keyboard.
           </Text>
           <View style={styles.firstActions}>
             <Pill variant="glass" size="small" label="Show me an example" onPress={() => setExample(exampleDraft(settings.weightUnit === 'kg'))} />
@@ -236,7 +240,7 @@ export default function LogScreen() {
           {howTo && (
             <View style={styles.examples}>
               <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-                Just say what you did. Type or dictate it. The exercises are enough; add numbers only if you want.
+                Just say what you did or ate. Type or dictate it. Names are enough; add numbers only if you want.
               </Text>
               {EXAMPLES.map(example => (
                 <Text key={example} variant="bodyMedium" style={{ color: colors.textTertiary }}>“{example}”</Text>
@@ -307,8 +311,25 @@ export default function LogScreen() {
           busy={log.busy}
           error={log.error}
           reply={log.reply}
+          food={log.food}
+          onFoodChange={log.setFood}
         />
       )}
+
+      {log.food && !log.draft && (
+        <FoodCard
+          food={log.food}
+          date={today}
+          onChange={log.setFood}
+          onSave={log.save}
+          onDiscard={log.discard}
+          busy={log.busy}
+          error={log.error}
+          reply={log.reply}
+        />
+      )}
+
+      {!reviewing && <FoodDay date={today} label="Food today" />}
 
       {!reviewing && (
         <View style={styles.recent}>
@@ -317,7 +338,7 @@ export default function LogScreen() {
             <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
           ) : (
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-              No workouts yet. Tell me your first one below.
+              No workouts yet. Tell me what you did or ate below.
             </Text>
           )}
         </View>
@@ -334,7 +355,7 @@ function ReadingCard() {
       <SkyCard>
         <View style={styles.readingTop}>
           <LogoMark size={18} color={colors.sunrise} />
-          <Text variant="titleMedium" style={{ color: colors.text }}>Reading your workout…</Text>
+          <Text variant="titleMedium" style={{ color: colors.text }}>Reading it…</Text>
         </View>
         {[0.88, 0.72, 0.8].map(w => (
           <View key={w} style={[styles.skeleton, { width: `${w * 100}%`, backgroundColor: colors.dim }]} />

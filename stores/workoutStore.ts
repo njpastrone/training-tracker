@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
+import { FoodEntry } from '../types/food';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
@@ -17,6 +18,7 @@ export interface DeletedWorkouts {
 
 interface WorkoutState {
   workouts: Workout[];
+  foodEntries: FoodEntry[]; // what was eaten, newest day first; saved and backed up with workouts
   settings: UserSettings;
   exerciseLibrary: ExerciseLibrary;
   templates: WorkoutTemplate[];
@@ -35,6 +37,8 @@ interface WorkoutState {
   deleteWithUndo: (ids: string[]) => void;
   clearUndo: () => void;
   getWorkoutsByDate: (date: string) => Workout[];
+  addFoodEntry: (entry: FoodEntry) => void;
+  removeFoodItem: (entryId: string, itemId: string) => void; // the entry goes when its last item does
   updateSettings: (settings: Partial<UserSettings>) => void;
   createCustomExercise: (name: string, muscleGroup: MuscleGroup) => string;
   rememberName: (exerciseId: string, words: string) => void;
@@ -82,6 +86,7 @@ export const useWorkoutStore = create<WorkoutState>()(
   persist(
     (set, get) => ({
       workouts: [],
+      foodEntries: [],
       settings: defaultSettings,
       exerciseLibrary: emptyLibrary(),
       templates: [],
@@ -170,6 +175,18 @@ export const useWorkoutStore = create<WorkoutState>()(
         return get().workouts.filter((w) => w.date === date);
       },
 
+      addFoodEntry: (entry) => {
+        set((state) => ({ foodEntries: [entry, ...state.foodEntries].sort((a, b) => b.date.localeCompare(a.date)) }));
+      },
+
+      removeFoodItem: (entryId, itemId) => {
+        set((state) => ({
+          foodEntries: state.foodEntries
+            .map((e) => (e.id === entryId ? { ...e, items: e.items.filter((i) => i.id !== itemId) } : e))
+            .filter((e) => e.items.length > 0),
+        }));
+      },
+
       createCustomExercise: (name, muscleGroup) => {
         const id = `custom-${uuidv4()}`;
         set((state) => ({
@@ -198,6 +215,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       clearAllData: async () => {
         set({
           workouts: [],
+          foodEntries: [],
           settings: defaultSettings,
           exerciseLibrary: emptyLibrary(),
           error: null,
@@ -340,6 +358,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
       partialize: (state) => ({
         workouts: state.workouts,
+        foodEntries: state.foodEntries,
         settings: state.settings,
         exerciseLibrary: state.exerciseLibrary,
         // Templates and Schedule are stored separately via services

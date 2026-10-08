@@ -9,9 +9,10 @@ import { SkyScreen, SkyCard, LargeTitle } from '../components/Sky';
 import { Pill } from '../components/Glass';
 import { UserBubble } from '../components/Chat';
 import ParsedCard from '../components/ParsedCard';
+import FoodCard from '../components/FoodCard';
 import Field from '../components/Field';
 
-// Log a workout for a given day: type it, review the parsed card, Save
+// Log a workout or food for a given day: type it, review the parsed card, Save
 export default function QuickAddScreen() {
   const { date } = useLocalSearchParams<{ date?: string }>();
   const router = useRouter();
@@ -19,11 +20,11 @@ export default function QuickAddScreen() {
 
   const targetDate = date || format(new Date(), 'yyyy-MM-dd');
   const dateLabel = date ? format(parseISO(date), 'EEEE, MMMM d') : 'Today';
-  const log = useLogDraft({ date: targetDate, onLogged: () => router.back() });
+  const log = useLogDraft({ date: targetDate, onLogged: () => router.back(), withFood: true });
 
   return (
     <SkyScreen edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Add Workout' }} />
+      <Stack.Screen options={{ title: 'Add' }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <LargeTitle title={dateLabel} />
@@ -41,18 +42,32 @@ export default function QuickAddScreen() {
               busy={log.busy}
               error={log.error}
               reply={log.reply}
+              food={log.food}
+              onFoodChange={log.setFood}
+            />
+          ) : log.food ? (
+            <FoodCard
+              food={log.food}
+              date={targetDate}
+              onChange={log.setFood}
+              onSave={log.save}
+              onDiscard={log.discard}
+              onFix={log.fix}
+              busy={log.busy}
+              error={log.error}
+              reply={log.reply}
             />
           ) : (
             <>
               <SkyCard>
                 <Field
-                  placeholder="What'd you do? e.g. legs: squats, RDLs, lunges"
+                  placeholder="What'd you do or eat? e.g. legs: squats, RDLs, then chicken and rice"
                   value={log.text}
                   onChangeText={log.setText}
                   multiline
                   editable={!log.busy}
                   autoFocus
-                  accessibilityLabel="Your workout"
+                  accessibilityLabel="What you did or ate"
                 />
                 {log.error && (
                   <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">

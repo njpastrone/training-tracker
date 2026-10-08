@@ -9,14 +9,15 @@ import { Pill } from './Glass';
 import LogoMark from './LogoMark';
 
 const SENT = [
-  'What you type in a chat bar or fix box, and the workout card you are fixing',
+  'What you type in a chat bar or fix box, and the workout or food card you are fixing',
   'Anything you type, including notes like pain or injuries',
   'Exercise names: the ones you use and the catalog matches',
+  'Food names from the built-in food list that match what you typed',
   'Your weight unit and the date',
   'When you plan a week: a summary of your recent training and your goals',
   'A random ID for this phone',
 ];
-const NOT_SENT = ['Your full workout history', 'Photos', 'Apple Health data'];
+const NOT_SENT = ['Your full workout or food history', 'Photos', 'Apple Health data'];
 
 // Asks once, before the first AI call, whether typed text may go to Anthropic. Settings opens it again.
 // Mounted once in the root layout; services/aiConsent.ts shows it and remembers the answer.
@@ -49,7 +50,7 @@ export default function AiConsentSheet() {
           Use AI to read your logs?
         </Text>
         <Text variant="bodyLarge" style={{ color: colors.textSecondary }}>
-          LiftText sends what you type to Anthropic's Claude AI, through our server, to turn it into exercises, sets and reps.
+          LiftText sends what you type to Anthropic's Claude AI, through our server, to turn it into exercises, sets and reps, and the food you ate into amounts and macros.
         </Text>
 
         <View style={styles.section}>
@@ -61,11 +62,11 @@ export default function AiConsentSheet() {
           {list(NOT_SENT)}
         </View>
         <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-          Anthropic deletes it within 30 days and doesn't use it to train its AI. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days). Your workouts stay saved on this phone.
+          Anthropic deletes it within 30 days and doesn't use it to train its AI. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days). Your workouts and food stay saved on this phone.
         </Text>
         {/* TODO(privacy-policy): link the privacy policy here once it exists */}
         <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-          Not now keeps AI off: each line or comma you type becomes an exercise you fill in by hand. You can change this anytime in Settings.
+          Not now keeps AI off: each line or comma you type becomes an exercise you fill in by hand, and common foods are looked up on this phone. You can change this anytime in Settings.
         </Text>
 
         <View style={styles.buttons}>

@@ -8,6 +8,7 @@ import { format, parseISO, isToday, isYesterday, isFuture, formatDistanceToNow }
 import { fonts, radius, spacing } from '../../constants/theme';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import FoodDay from '../../components/FoodDay';
 import { HeaderButton, Pill } from '../../components/Glass';
 import { deletePlan } from '../../services/planner';
 import { emptyDay } from '../../services/format';
@@ -91,7 +92,7 @@ export default function DayDetailScreen() {
       <Stack.Screen
         options={{
           title: '',
-          headerRight: future ? undefined : () => <HeaderButton icon="plus" label="Add workout" onPress={handleQuickAdd} />,
+          headerRight: future ? undefined : () => <HeaderButton icon="plus" label="Add workout or food" onPress={handleQuickAdd} />,
         }}
       />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
@@ -146,6 +147,8 @@ export default function DayDetailScreen() {
             )}
           </SkyCard>
         )}
+
+        <FoodDay date={date} />
       </ScrollView>
       <UndoToast />
     </SkyScreen>
