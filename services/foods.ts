@@ -188,6 +188,8 @@ export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string
   return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }
 
+const SIZE_WORDS = new Set<FoodUnit>(['small', 'medium', 'large', 'xl']);
+
 export type Portions = Map<string, { qty: number; unit: FoodUnit }>;
 
 // The weight or volume you last logged of each table food: a name alone means your usual portion.
@@ -207,7 +209,9 @@ export function usualPortions(entries: FoodEntry[]): Portions {
 // app doesn't know becomes grams.
 export function resolveItems(raw: RawFoodItem[], candidates: Food[], usual: Portions = new Map()): FoodDraft['items'] {
   return raw.flatMap((r): FoodDraft['items'][number] | FoodDraft['items'] => {
-    const unit = r.unit ? unitFromWord(r.unit) : undefined;
+    // A count whose size word the model left in what was said ("small apple", qty 1) is that size
+    const size = r.qty !== undefined && !r.unit && r.said ? parseAmount(r.said).unit : undefined;
+    const unit = r.unit ? unitFromWord(r.unit) : size && SIZE_WORDS.has(size) ? size : undefined;
     const known = !r.unit || unit;
     const [qty, u] = known ? [r.qty, unit] : r.grams ? [r.grams, 'g' as const] : [r.qty, undefined];
     const day = r.dayOffset ? { dayOffset: r.dayOffset } : {};
@@ -285,8 +289,8 @@ export function splitLog(input: string): { workout: string; food: string } {
   return { workout: parts.filter((p) => !isFood(p)).join('\n'), food: parts.filter(isFood).join('\n') };
 }
 
-// Amounts the AI reads better from context than a fixed convention: "some rice", "a big bowl"
-const VAGUE = /\b(some|bit|little|lot|lots|big|huge|giant|bowl|plate|splash|dollop|drizzle|knob|half|leftover|leftovers)\b/;
+// Amounts the AI reads better from context than a fixed convention: "some rice", "a big bowl", "a piece of salmon"
+const VAGUE = /\b(some|bit|little|lot|lots|big|huge|giant|bowl|plate|piece|splash|dollop|drizzle|knob|half|leftover|leftovers)\b/;
 
 // A food log the phone could read as well as the AI: plain whole foods from the core table, each with
 // an amount or a name alone, nothing unknown, no vague amount, no dish, brand or workout words. Null

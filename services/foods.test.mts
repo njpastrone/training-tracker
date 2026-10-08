@@ -210,6 +210,10 @@ test('an inexact amount takes the model\'s weight; an exact one is converted', (
   assert.deepEqual([some.qty, some.unit, some.grams], [50, 'g', 50]);
   const [plain] = resolveItems([{ said: 'toast', food: 0, grams: 50 }], [food('toast')]);
   assert.deepEqual([plain.qty, plain.unit, plain.grams], [undefined, undefined, Math.round(food('toast').units.slice!)]);
+  const [small] = resolveItems([{ said: 'small apple', food: 0, qty: 1, grams: 150 }], [food('apple')]);
+  assert.deepEqual([small.unit, small.grams], ['small', food('apple').units.small]);
+  const [piece] = resolveItems([{ said: 'a piece of salmon', food: 0, grams: 170 }], [food('salmon')]);
+  assert.deepEqual([piece.qty, piece.unit, piece.grams], [170, 'g', 170]);
   // A size USDA doesn't weigh for this food keeps its words but the model's weight, and edits scale it
   const f = food('rice');
   const [big] = resolveItems([{ said: 'a medium rice', food: 0, qty: 1, unit: 'medium', grams: 200 }], [f]);

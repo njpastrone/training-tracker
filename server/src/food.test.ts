@@ -39,4 +39,7 @@ test('readFoodItems keeps valid picks and estimates and drops bad values', () =>
   assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1",},],"confidence":0.9,}', 1)!.items.length, 1); // trailing commas
   assert.equal(readFoodItems('{"items":"x"}', 3), null);
   assert.equal(readFoodItems('{"items":[],"reply":"About 40 g."}', 0)!.reply, 'About 40 g.');
+  // A reply that corrects itself: the last whole object counts
+  const twice = readFoodItems('{"items":[{"said":"egg","food":"f1","qty":1}],"confidence":0.9}\nCorrection: {"items":[{"said":"egg","food":"f1","qty":2}],"confidence":0.8}', 1)!;
+  assert.deepEqual([twice.items[0].qty, twice.confidence], [2, 0.8]);
 });

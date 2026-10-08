@@ -20,16 +20,17 @@ const SYSTEM_PROMPT = `You turn someone's free-text food log into structured dat
 <output>
 Reply with only a compact JSON object on one line, no markdown or other text: items (array), confidence (0 to 1).
 Each item has: said, food, name, qty, unit, grams, dayOffset, kcal, protein, carbs, fat. Anything that doesn't apply is null (dayOffset is 0 unless another day is meant).
-A food named with no amount ("toast", "some rice") is a complete log: it's one typical serving. Give the item with qty and unit null, and grams (and an estimate's numbers) for that serving. Never leave an item without numbers because no amount was given.
+A food named with no amount ("toast", "some rice") is a complete log: it's one typical serving. Give the item with qty and unit null (except additions, see amounts), and grams (and an estimate's numbers) for that serving. Never leave an item without numbers because no amount was given.
 </output>
 
 <foods>
 After the log, the user message lists foods from a USDA table in a <foods> block, each with a key (f1, f2, ...). For each food or drink eaten:
 - said: the user's words for it, amount included, copied exactly from the log ("2 eggs", "a cup of rice", "chx breast").
 - food: the key of the listed food that is the same food. When several listed foods fit and the user didn't name a variant (cut, fat %, flavor, skim or whole), pick the one listed first: it's the usual default. Meat, fish, eggs, rice, pasta, grains and beans are cooked unless the user says raw, uncooked or dry; pick the cooked entry for them. Oats and cereal measured dry are listed as dry.
-- When no listed food is the same food (brands, restaurant and fast food, packaged products, bars and shakes, dishes like a burrito, sandwich, pizza, stir fry, salad with toppings or a smoothie, or anything not listed): food is null, name is a short plain name with the brand or restaurant ("Big Mac", "Chipotle chicken burrito bowl", "Homemade chicken stir fry"), and kcal, protein, carbs and fat are your best estimate for the whole amount eaten. Use the brand's published nutrition when you know it; otherwise estimate from a typical recipe and one standard serving, not a large one, unless the user says big, large or extra. With food set, kcal, protein, carbs and fat are null: the app computes them.
+- When no listed food is the same food (brands, restaurant and fast food, packaged products, bars and ready-to-drink shakes, dishes like a burrito, sandwich, pizza, stir fry, salad with toppings or a smoothie, or anything not listed): food is null, name is a short plain name with the brand or restaurant ("Big Mac", "Chipotle chicken burrito bowl", "Homemade chicken stir fry"), and kcal, protein, carbs and fat are your best estimate for the whole amount eaten. Use the brand's published nutrition when you know it; otherwise estimate from a typical recipe and one standard serving, not a large one, unless the user says big, large or extra. With food set, kcal, protein, carbs and fat are null: the app computes them.
 - Anything from a named brand, restaurant or chain is an estimate, never a listed food, even when a generic one looks the same; so are the sides and drinks ordered with it ("a Whopper and onion rings") and drinks in a chain's sizes (grande, venti). Estimate the menu item as served (its bread, cheese, sauces, dressing) at the chain's portion: restaurant portions are bigger and richer than home ones.
 - Foods listed together ("chicken, rice and broccoli", "eggs and toast", "a protein shake with milk") are separate items, each matched on its own. A dish is one named thing (a burrito, stir fry, sandwich, salad, pizza, chili): one estimated item, unless the user lists its ingredients with amounts ("sandwich with 2 slices of bread, 3 oz turkey and a slice of cheese"), then one item per ingredient. Additions that come with a food ("toast with butter", "coffee with milk", "oatmeal with honey") are their own items, but the milk a milk drink is made with ("a cappuccino with oat milk", "a flat white with skim") is part of that drink.
+- A protein shake with no brand is whey powder, 1 scoop (30 g) per shake: its grams are the powder alone, and milk it's mixed with is its own item. A protein bar with no brand is an estimate of a typical one (60 g: about 200 kcal and 20 g protein).
 - Never count food twice: a dish is one item or one per ingredient, never both, and an amount given later ("pasta for lunch, about 2 cups") belongs to the item already named.
 </foods>
 
@@ -38,6 +39,8 @@ After the log, the user message lists foods from a USDA table in a <foods> block
 - A count has unit null: "2 eggs" → 2; "a banana" → 1; "half an avocado" → 0.5; "a couple" → 2; "a few" → 3; "a dozen" → 12; "2-3" → 2.5; a plural with no number ("eggs and toast", "had pancakes") is a count of 2, not a missing amount.
 - Vague amounts ("some rice", "a little butter", "a bit of cheese") have qty and unit null, except where a unit is clear ("a splash of milk" → 1, "tbsp"; "a big bowl of pasta" → 1.5, "bowl").
 - grams: your estimate of the total weight eaten (drinks in ml as grams), always, even when a unit is given. Measures are US: a cup is 240 ml, a pint 16 fl oz (473 ml), and oz of a drink is fluid ounces.
+- An addition or topping with no amount (butter on toast, milk in coffee, fruit on yogurt) is the usual amount for that use, given as qty and unit: butter or margarine 1 tsp per slice of toast; peanut or other nut butter 1 tbsp; cream cheese on a bagel 2 tbsp; honey, syrup or jam 1 tbsp; fruit on yogurt, oatmeal or cereal ½ cup; granola on yogurt ¼ cup; milk in coffee or tea 2 tbsp; "cream" in coffee is half-and-half, 1 tbsp. "A bit" or "some" cheese on eggs or a dish is about 20 g.
+- A bowl of yogurt, oatmeal or cottage cheese is about 1 cup. A piece of fish is a whole cooked fillet, about 6 oz (170 g).
 - When the user corrects themselves ("wait, it was 3 eggs"), use the corrected amount.
 </amounts>
 
@@ -140,13 +143,19 @@ const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : unde
 // Model text → items with bad values dropped; null when the text holds no usable JSON object.
 // `foods` is the candidate count: a key outside it is dropped (the item then needs a name).
 export function readFoodItems(text: string, foods: number): { items: RawFoodItem[]; confidence: number; reply?: string } | null {
-  let raw: { items?: unknown; confidence?: unknown; reply?: unknown };
-  try {
-    // Trailing commas are the one JSON slip models make: drop them rather than lose the log
-    raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1).replace(/,(\s*[\]}])/g, '$1'));
-  } catch {
-    return null;
-  }
+  // Trailing commas are the one JSON slip models make: drop them rather than lose the log
+  const parse = (s: string): { items?: unknown; confidence?: unknown; reply?: unknown } | undefined => {
+    try {
+      return JSON.parse(s.replace(/,(\s*[\]}])/g, '$1')) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const first = text.indexOf('{');
+  const end = text.lastIndexOf('}') + 1;
+  let raw = parse(text.slice(first, end));
+  // A reply that corrects itself ("{…} Correction: {…}") holds two objects: the last whole one counts
+  for (let i = text.lastIndexOf('{'); !Array.isArray(raw?.items) && i > first; i = text.lastIndexOf('{', i - 1)) raw = parse(text.slice(i, end));
   if (!raw || !Array.isArray(raw.items)) return null;
   const items = (raw.items as Record<string, unknown>[]).flatMap((e): RawFoodItem[] => {
     if (!e || typeof e !== 'object') return [];
