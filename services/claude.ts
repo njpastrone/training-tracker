@@ -7,7 +7,7 @@ import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems, type DraftFoodForModel } from '../server/src/food';
 import { FoodDraft } from '../types/food';
-import { buildFoodCandidates, candidateNames, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
+import { buildFoodCandidates, candidateNames, confidentLocal, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
 import { foodById } from '../data/foods';
 import { buildCandidates } from '../server/src/identity';
 import { offersName, yourExercises } from './exerciseIdentity';
@@ -187,23 +187,26 @@ export async function correctFood(draft: FoodDraft, fix: string, date: string): 
 // One message can hold a workout, food, or both ("did legs, squat 3x5 at 225, then ate 2 eggs and
 // toast"). Each parser reads the whole message and ignores the other's part. Food words send it to
 // the food parser, workout words (or no food words) to the workout parser, both at once when both
-// show; if the parsers that ran find nothing, the other one gets a try. Without AI, each comma or line
+// show; if the parsers that ran find nothing, the other one gets a try. Plain whole foods with amounts
+// ("2 eggs and a banana", or that part of "squat 3x5, then 2 eggs") are read on the phone: as
+// accurate as the AI on them, instant, free, and no AI request used. Without AI, each comma or line
 // goes to whichever side it reads as.
 export async function parseLog(input: string, options: ParseOptions): Promise<{ workout: ParsedWorkoutResponse | null; food: FoodDraft | null }> {
   const food = mentionsFood(input);
   const workout = !food || mentionsWorkout(input);
+  const parts = splitLog(input);
+  const usual = usualPortions(useWorkoutStore.getState().foodEntries);
+  const local = food ? confidentLocal(workout ? parts.food : input, usual) : null;
+  if (local && !workout) return { workout: null, food: local }; // no AI needed, so no consent asked
   if (!(await hasAiConsent())) {
-    const parts = splitLog(input);
-    const usual = usualPortions(useWorkoutStore.getState().foodEntries);
     return { workout: parts.workout ? fallbackParse(parts.workout) : null, food: parts.food ? localFoodParse(parts.food, usual) : null };
   }
   const has = <T,>(r: T | null, list: (r: T) => unknown[]) => (r && list(r).length ? r : null);
   // When both run and AI fails, each side's no-AI fallback reads only its own part
-  const parts = splitLog(input);
   const run = (w: boolean, f: boolean) =>
     Promise.all([
       w ? parseWorkout(input, options, f ? parts.workout || input : input) : null,
-      f ? parseFood(input, options.date, w ? parts.food || input : input) : null,
+      f ? (local ?? parseFood(input, options.date, w ? parts.food || input : input)) : null,
     ])
       .then(([wr, fr]) => ({ workout: has(wr, (r) => r.exercises), food: has(fr, (r) => r.items) }));
   const first = await run(workout, food);

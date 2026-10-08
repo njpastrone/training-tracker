@@ -261,19 +261,26 @@ export function splitLog(input: string): { workout: string; food: string } {
   return { workout: parts.filter((p) => !isFood(p)).join('\n'), food: parts.filter(isFood).join('\n') };
 }
 
+// Amounts the AI reads better from context than a fixed convention: "some rice", "a big bowl"
+const VAGUE = /\b(some|bit|little|lot|lots|big|huge|giant|bowl|plate|splash|dollop|drizzle|knob|half|leftover|leftovers)\b/;
+
 // A food log the phone reads as well as the AI would: plain whole foods from the core table, each with
-// an amount or a name alone, nothing unknown, no dish, brand or workout words. Null otherwise.
+// an amount or a name alone, nothing unknown, no vague amount, no dish, brand or workout words. Null
+// otherwise. Measured on both gold sets, the phone matches the AI on these and skips about half the
+// AI calls (evals/food/README.md).
 export function confidentLocal(log: string, usual: Portions = new Map()): FoodDraft | null {
-  if (mentionsWorkout(log) || DISHES.test(normalizeWords(log)) || /\d+\s*(?:-|to)\s*\d+|\bor\b|\?/.test(log)) return null;
+  const words = normalizeWords(log);
+  if (mentionsWorkout(log) || DISHES.test(words) || VAGUE.test(words) || /\d+\s*(?:-|to)\s*\d+|\bor\b|\?/.test(log)) return null;
   const draft = localFoodParse(log, usual);
   // Every word naming each food is one of that food's own words: "egg mcmuffin" isn't eggs
   const covered = (i: FoodItem) => {
     const f = i.foodId ? foodById.get(i.foodId) : undefined;
     if (!f || !FOODS.includes(f)) return false;
-    const own = new Set([f.name, ...f.aliases].flatMap((w) => key(w).split(' ')));
     const { rest } = parseAmount(i.said ?? '');
     if (/\d\s*[a-z]/i.test(rest)) return false; // an amount it couldn't read: "ground beef 150g raw"
-    return logWords(rest).map((w) => tableWord(w) ?? w).every((w) => FILLER.has(w) || own.has(w));
+    // The words are exactly one of the food's names: "steak potato" (no comma) is two foods
+    const words = logWords(rest).map((w) => tableWord(w) ?? w).filter((w) => !FILLER.has(w)).join(' ');
+    return core.phrases.get(words) === f.id;
   };
   return draft.items.length && draft.items.every(covered) ? { ...draft, confidence: 0.9 } : null;
 }
