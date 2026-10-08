@@ -571,3 +571,15 @@ test('convertQty round trips through grams', () => {
     assert.equal(convertQty(f, g, 'g', u ?? 'each'), q, `${f.id} ${q} ${u}`);
   }
 });
+
+test('kitchen multiples: dl, cl, dollop, splash, drizzle, knob; spoon and huge', () => {
+  assert.deepEqual(parseAmount('1,5 dl oats'), { qty: 150, unit: 'ml', rest: 'oats' });
+  assert.deepEqual(parseAmount('33 cl beer'), { qty: 330, unit: 'ml', rest: 'beer' });
+  assert.deepEqual(parseAmount('a dollop of sour cream'), { qty: 2, unit: 'tbsp', rest: 'sour cream' });
+  assert.deepEqual(parseAmount('a splash of milk'), { qty: 1, unit: 'fl_oz', rest: 'milk' });
+  assert.deepEqual(parseAmount('a drizzle of olive oil'), { qty: 2, unit: 'tsp', rest: 'olive oil' });
+  assert.deepEqual(parseAmount('a knob of butter'), { qty: 10, unit: 'g', rest: 'butter' });
+  assert.deepEqual(parseAmount('spoon of pb'), { unit: 'tbsp', rest: 'pb' });
+  assert.deepEqual(parseAmount('a spoonful of honey'), { qty: 1, unit: 'tbsp', rest: 'honey' });
+  assert.deepEqual(parseAmount('huge sweet potato'), { unit: 'xl', rest: 'sweet potato' });
+});

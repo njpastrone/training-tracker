@@ -5,7 +5,7 @@ import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
   buildFoodCandidates, candidateName, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
-  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood,
+  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices,
 } from './foods';
 
 const food = (id: string) => {
@@ -139,4 +139,11 @@ test('alternatives and swapFood: one tap from cooked to dry, keeping the amount'
   const breast = itemFor(food('chicken-breast'), 1, 'breast');
   const tofu = swapFood(breast, food('tofu-firm'));
   assert.ok(tofu.unit === 'breast' ? !!tofu.grams : tofu.unit === 'g' && tofu.qty === breast.grams);
+});
+
+test('unitChoices: a short list, starting from what is shown', () => {
+  assert.deepEqual(unitChoices(food('egg'), 'each'), ['each', 'g', 'oz']);
+  assert.deepEqual(unitChoices(food('rice'), 'cup'), ['cup', 'g', 'oz']);
+  assert.deepEqual(unitChoices(food('chicken-breast'), 'g'), ['g', 'breast', 'each', 'oz']);
+  assert.deepEqual(unitChoices(food('milk-2'), 'fl_oz'), ['fl_oz', 'cup', 'ml']);
 });

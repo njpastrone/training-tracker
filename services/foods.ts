@@ -7,7 +7,7 @@ import { normalizeWords, singularWords } from '../data/catalog';
 import { catalogHits, editDistance } from '../server/src/identity';
 import type { RawFoodItem } from '../server/src/food';
 import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
-import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty } from './foodUnits';
+import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor } from './foodUnits';
 
 const MAX_CANDIDATES = 50;
 
@@ -206,7 +206,7 @@ const COUNTED = new Set<FoodUnit>(['each', 'small', 'medium', 'large', 'xl', 'pi
 // toast") is two. Unknown foods stay as rows to fill in.
 export function localFoodParse(log: string, usual: Portions = new Map()): FoodDraft {
   const parts = log
-    .split(/[\n,;+&]|\bthen\b|\bplus\b/i)
+    .split(/(?<!\d),|,(?!\d)|[\n;+&]|\bthen\b|\bplus\b/i) // not inside "1,5"
     .flatMap((p) => (matchFood(p) && core.phrases.has(key(parseAmount(p).rest)) ? [p] : p.split(/\band\b|\bwith\b|\bw\/|\bw\b/i)))
     .map((p) => p.replace(CHATTER, '').trim())
     .filter((p) => logWords(p).some((w) => !FILLER.has(w)));
@@ -231,7 +231,7 @@ export const mentionsWorkout = (log: string) => WORKOUT_WORDS.test(log.toLowerCa
 // Without AI, a message with a workout and food in it: each comma, line or "then" goes to the side
 // it reads as. Text with no food words is all workout.
 export function splitLog(input: string): { workout: string; food: string } {
-  const parts = input.split(/[\n,;]+|\bthen\b/i).map((p) => p.trim()).filter(Boolean);
+  const parts = input.split(/(?<!\d),|,(?!\d)|[\n;]+|\bthen\b/i).map((p) => p.trim()).filter(Boolean);
   const isFood = (p: string) => mentionsFood(p) || (!mentionsWorkout(p) && !!matchFood(parseAmount(p).rest));
   return { workout: parts.filter((p) => !isFood(p)).join('\n'), food: parts.filter(isFood).join('\n') };
 }
@@ -266,6 +266,16 @@ export function alternatives(item: FoodItem, max = 3): Food[] {
 export function swapFood(item: FoodItem, food: Food): FoodItem {
   const sameUnit = item.qty === undefined || !item.unit || toGrams(food, item.qty, item.unit);
   return sameUnit ? itemFor(food, item.qty, item.unit, item.said) : itemFor(food, item.grams, 'g', item.said);
+}
+
+const WEIGHTS: FoodUnit[] = ['g', 'oz', 'ml', 'fl_oz'];
+
+// The few units the review card's unit chip steps through: the one shown, the food's own (slice,
+// cup, breast), then grams and ounces (ml and fl oz for drinks)
+export function unitChoices(food: Food, current?: FoodUnit): FoodUnit[] {
+  const all = unitsFor(food);
+  const own = all.find((u) => !WEIGHTS.includes(u));
+  return [...new Set([current, food.serving.unit, own, ...all.filter((u) => WEIGHTS.includes(u))])].filter((u): u is FoodUnit => !!u && all.includes(u));
 }
 
 // Totals for a list of items

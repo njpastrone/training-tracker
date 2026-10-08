@@ -270,7 +270,7 @@ export const PICKS: Pick[] = [
 
   // MILK
   // "milk" → 2%, the most sold fluid milk in the US
-  { id: 'milk-2', name: 'Milk, 2%', aliases: ['milk', '2 milk', '2 percent milk', 'reduced fat milk', 'two percent milk'], category: 'eggs_dairy', fdc: 171267, serving: { qty: 1, unit: 'cup' } },
+  { id: 'milk-2', name: 'Milk, 2%', aliases: ['milk', '2 milk', '2 percent milk', 'reduced fat milk', 'two percent milk', 'semi skimmed milk', 'semi skimmed'], category: 'eggs_dairy', fdc: 171267, serving: { qty: 1, unit: 'cup' } },
   { id: 'milk-whole', name: 'Milk, whole', aliases: ['whole milk', 'full fat milk', 'vitamin d milk', 'homo milk'], category: 'eggs_dairy', fdc: 171265, serving: { qty: 1, unit: 'cup' } },
   { id: 'milk-1', name: 'Milk, 1%', aliases: ['1 milk', '1 percent milk', 'one percent milk', 'low fat milk', 'lowfat milk'], category: 'eggs_dairy', fdc: 170872, serving: { qty: 1, unit: 'cup' } },
   { id: 'milk-skim', name: 'Milk, skim', aliases: ['skim milk', 'skim', 'nonfat milk', 'fat free milk', 'non fat milk', 'skimmed milk'], category: 'eggs_dairy', fdc: 171269, serving: { qty: 1, unit: 'cup' } },

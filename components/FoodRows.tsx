@@ -6,8 +6,8 @@ import { addDays, format, parseISO } from 'date-fns';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, foodCategoryColors, spacing } from '../constants/theme';
 import { foodById } from '../data/foods';
-import { alternatives, macroLine, setQty, setUnit, sumMacros, swapFood } from '../services/foods';
-import { amountLabel, unitsFor } from '../services/foodUnits';
+import { alternatives, macroLine, setQty, setUnit, sumMacros, swapFood, unitChoices } from '../services/foods';
+import { amountLabel } from '../services/foodUnits';
 import type { FoodDraft, FoodItem, Macros } from '../types/food';
 import NumberChip from './NumberChip';
 
@@ -38,7 +38,7 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
         const day = item.dayOffset && date ? (item.dayOffset === -1 ? 'Yesterday' : format(addDays(parseISO(date), item.dayOffset), 'EEE, MMM d')) : null;
         // A name alone is the default serving: editing starts from it
         const base: Item = item.qty === undefined && food ? { ...item, qty: food.serving.qty, unit: food.serving.unit } : item;
-        const units = food ? unitsFor(food) : [];
+        const units = food ? unitChoices(food, base.unit) : [];
         return (
           <View key={i} style={[styles.row, { borderTopColor: colors.dim }]}>
             <View style={[styles.dot, estimate ? { borderWidth: 2, borderColor: color } : { backgroundColor: color }]} />

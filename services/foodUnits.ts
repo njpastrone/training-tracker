@@ -42,12 +42,13 @@ const WORDS = new Map<string, FoodUnit>(Object.entries({
   g: 'g', gr: 'g', gram: 'g', gramme: 'g', kg: 'kg', kilo: 'kg', kilogram: 'kg', kilogramme: 'kg',
   oz: 'oz', ounce: 'oz', lb: 'lb', pound: 'lb',
   ml: 'ml', milliliter: 'ml', millilitre: 'ml', cc: 'ml', l: 'l', liter: 'l', litre: 'l', ltr: 'l',
-  t: 'tsp', tsp: 'tsp', teaspoon: 'tsp', tbsp: 'tbsp', tbs: 'tbsp', tbl: 'tbsp', tblsp: 'tbsp', tablespoon: 'tbsp',
+  t: 'tsp', tsp: 'tsp', teaspoon: 'tsp', teaspoonful: 'tsp', tbsp: 'tbsp', tbs: 'tbsp', tbl: 'tbsp', tblsp: 'tbsp', tablespoon: 'tbsp',
+  tablespoonful: 'tbsp', spoon: 'tbsp', spoonful: 'tbsp',
   c: 'cup', cup: 'cup', mug: 'cup', 'fl oz': 'fl_oz', floz: 'fl_oz', 'fluid ounce': 'fl_oz', 'fluid oz': 'fl_oz',
   pt: 'pint', pint: 'pint', qt: 'quart', quart: 'quart', gal: 'gallon', gallon: 'gallon',
   each: 'each', ea: 'each', whole: 'each',
   sm: 'small', small: 'small', med: 'medium', medium: 'medium', lg: 'large', large: 'large',
-  xl: 'xl', 'extra large': 'xl', 'x large': 'xl', jumbo: 'xl',
+  xl: 'xl', 'extra large': 'xl', 'x large': 'xl', jumbo: 'xl', huge: 'xl', giant: 'xl',
   slice: 'slice', piece: 'piece', pc: 'piece', scoop: 'scoop', handful: 'handful', serving: 'serving', portion: 'serving',
   bowl: 'bowl', plate: 'plate', can: 'can', bottle: 'bottle', glass: 'glass', packet: 'packet', pack: 'packet', sachet: 'packet',
   bar: 'bar', stick: 'stick', clove: 'clove', strip: 'strip', rasher: 'strip', link: 'link', patty: 'patty',
@@ -55,6 +56,14 @@ const WORDS = new Map<string, FoodUnit>(Object.entries({
   leaf: 'leaf', leaves: 'leaf', stalk: 'stalk', spear: 'spear', wedge: 'wedge', container: 'container', tub: 'container',
   shot: 'shot', pat: 'pat', square: 'square', sheet: 'sheet',
 } satisfies Record<string, FoodUnit>));
+
+// Kitchen words that are a multiple of a unit: decilitres and centilitres (European labels and
+// recipes), and conventions from the research scout's catalog: a dollop ≈ 2 tbsp, a splash ≈ 30 ml,
+// a drizzle ≈ 2 tsp, a knob of butter ≈ 10 g
+const SCALED = new Map<string, [FoodUnit, number]>([
+  ['dl', ['ml', 100]], ['deciliter', ['ml', 100]], ['decilitre', ['ml', 100]], ['cl', ['ml', 10]],
+  ['dollop', ['tbsp', 2]], ['splash', ['fl_oz', 1]], ['drizzle', ['tsp', 2]], ['knob', ['g', 10]],
+]);
 
 // Any spelling, plural or abbreviation of a unit: "grams", "Tbsp", "fl. oz.", "patties". A capital
 // T is a tablespoon and a small t a teaspoon, as in recipes.
@@ -137,8 +146,10 @@ function readWords(s: string): Read | null {
 
 const readBase = (s: string) => readNumber(s) ?? readWords(s);
 
-function readUnit(s: string): { unit: FoodUnit; rest: string } | null {
+function readUnit(s: string): { unit: FoodUnit; rest: string; times?: number } | null {
   const words = s.split(' ');
+  const scaled = SCALED.get(singularWords(words[0] ?? ''));
+  if (scaled) return { unit: scaled[0], rest: words.slice(1).join(' '), times: scaled[1] };
   for (const k of [2, 1]) {
     const unit = words.length >= k ? unitFromWord(words.slice(0, k).join(' ')) : undefined;
     if (unit) return { unit, rest: words.slice(k).join(' ') };
@@ -197,6 +208,7 @@ function lead(s: string, inTail = false): Amount | null {
   if (u && take) {
     unit = u.unit;
     rest = u.rest;
+    if (u.times) qty = (qty ?? 1) * u.times; // "1,5 dl" → 150 ml, "a knob" → 10 g
     const half = rest.match(/^and (?:a )?half(?= |$)/i); // "a cup and a half"
     if (half && qty !== undefined) ({ qty, rest } = { qty: qty + 0.5, rest: after(rest, half) });
   }
