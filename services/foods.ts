@@ -131,12 +131,15 @@ const scaleMacros = (m: Macros, k: number): Macros => ({
 // A table food and an amount as an item, weighed by the conversion. When the food has no weight for
 // the unit, or the conversion is more than 4× off the model's own estimate (a misread amount: "200
 // chicken" isn't 200 breasts), the model's grams win and the amount shows in grams, so the amount,
-// the weight and the numbers always agree. No amount at all is the default serving.
+// the weight and the numbers always agree. A generic convention (a bowl, a handful) yields to the
+// model's weight, which knows a bowl of oatmeal from a bowl of pasta. No amount at all is the
+// default serving.
 export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string, modelGrams?: number): FoodItem {
-  const converted = toGrams(food, qty, unit)?.grams;
+  const weighed = toGrams(food, qty, unit);
+  const converted = weighed?.grams;
   const off = !!converted && !!modelGrams && (converted / modelGrams > 4 || modelGrams / converted > 4);
   if (modelGrams && (off || !converted)) return itemFor(food, Math.round(modelGrams), 'g', said);
-  const grams = Math.round(converted ?? toGrams(food, undefined, undefined)?.grams ?? 100);
+  const grams = Math.round((weighed?.how === 'generic' && modelGrams) || (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
   const amount = converted ? { qty, unit } : { qty: grams, unit: 'g' as const };
   return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }
@@ -156,7 +159,7 @@ export function usualPortions(entries: FoodEntry[]): Portions {
 // portion when none was said); anything else keeps the model's estimate. An amount in a unit the
 // app doesn't know becomes grams.
 export function resolveItems(raw: RawFoodItem[], candidates: Food[], usual: Portions = new Map()): FoodDraft['items'] {
-  return raw.map((r) => {
+  return raw.flatMap((r): FoodDraft['items'][number] | FoodDraft['items'] => {
     const unit = r.unit ? unitFromWord(r.unit) : undefined;
     const known = !r.unit || unit;
     const [qty, u] = known ? [r.qty, unit] : r.grams ? [r.grams, 'g' as const] : [r.qty, undefined];
@@ -168,9 +171,10 @@ export function resolveItems(raw: RawFoodItem[], candidates: Food[], usual: Port
     if (r.estimate) {
       return { name: r.name ?? r.said ?? 'Food', ...(r.said ? { said: r.said } : {}), qty, unit: u, ...(r.grams ? { grams: Math.round(r.grams) } : {}), macros: r.estimate, source: 'estimate' as const, ...day };
     }
-    // A dish with no numbers: the table's closest food if the words name one, else an empty estimate to fill in
-    const match = matchFood(r.name ?? r.said ?? '');
-    if (match) return { ...itemFor(match, qty, u, r.said, r.grams), ...day };
+    // Food the model gave no numbers for: the table foods its words name ("chicken rice and
+    // broccoli" is three), else an empty estimate to fill in
+    const local = localFoodParse(r.said ?? r.name ?? '', usual).items;
+    if (local.length && local.every((i) => i.source === 'usda')) return local.map((i) => ({ ...i, ...day }));
     return { name: r.name ?? r.said ?? 'Food', ...(r.said ? { said: r.said } : {}), qty, unit: u, macros: { kcal: 0, protein: 0, carbs: 0, fat: 0 }, source: 'estimate' as const, ...day };
   });
 }
@@ -256,7 +260,8 @@ export function setQty(item: FoodItem, qty: number): FoodItem {
   const food = item.foodId ? foodById.get(item.foodId) : undefined;
   if (food) {
     const perUnit = item.grams && item.qty ? item.grams / item.qty : undefined;
-    const grams = Math.round(toGrams(food, qty, item.unit)?.grams ?? (perUnit ? perUnit * qty : 100));
+    const weighed = toGrams(food, qty, item.unit);
+    const grams = Math.round(weighed && weighed.how !== 'generic' ? weighed.grams : perUnit ? perUnit * qty : weighed?.grams ?? 100);
     return { ...item, qty, grams, macros: macrosFor(food, grams) };
   }
   const k = qty / (item.qty ?? 1);

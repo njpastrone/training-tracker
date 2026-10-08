@@ -50,7 +50,7 @@ const WORDS = new Map<string, FoodUnit>(Object.entries({
   sm: 'small', small: 'small', med: 'medium', medium: 'medium', lg: 'large', large: 'large',
   xl: 'xl', 'extra large': 'xl', 'x large': 'xl', jumbo: 'xl', huge: 'xl', giant: 'xl',
   slice: 'slice', piece: 'piece', pc: 'piece', scoop: 'scoop', handful: 'handful', serving: 'serving', portion: 'serving',
-  bowl: 'bowl', plate: 'plate', can: 'can', bottle: 'bottle', glass: 'glass', packet: 'packet', pack: 'packet', sachet: 'packet',
+  bowl: 'bowl', plate: 'plate', can: 'can', tin: 'can', bottle: 'bottle', glass: 'glass', packet: 'packet', pack: 'packet', sachet: 'packet',
   bar: 'bar', stick: 'stick', clove: 'clove', strip: 'strip', rasher: 'strip', link: 'link', patty: 'patty',
   fillet: 'fillet', filet: 'fillet', breast: 'breast', thigh: 'thigh', drumstick: 'drumstick', wing: 'wing',
   leaf: 'leaf', leaves: 'leaf', stalk: 'stalk', spear: 'spear', wedge: 'wedge', container: 'container', tub: 'container',
