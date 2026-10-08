@@ -17,11 +17,12 @@ process.env.EXPO_PUBLIC_API_URL = 'https://worker.test';
 let sent: { parse?: { input: string }; food?: { input: string; foods: string[] } }[] = [];
 let offline = false;
 let refuse = 0;
+let refuseAll = false;
 globalThis.fetch = (async (_url: string, init: RequestInit) => {
   const body = JSON.parse(String(init.body));
   sent.push(body);
   if (offline) throw new TypeError('Network request failed');
-  if (refuse && body.food) return Response.json({ error: 'Daily limit reached.' }, { status: refuse });
+  if (refuse && (body.food || refuseAll)) return Response.json({ error: 'Daily limit reached.' }, { status: refuse });
   if (body.food?.fix) {
     // Keeps the draft's own keys: the egg is f1 because draft foods are listed first
     const reply = /protein/.test(body.food.fix) ? 'About 19 g of protein.' : null;
@@ -50,6 +51,7 @@ beforeEach(() => {
   sent = [];
   offline = false;
   refuse = 0;
+  refuseAll = false;
   useWorkoutStore.getState().updateSettings({ aiConsent: 'granted' });
 });
 
@@ -112,6 +114,15 @@ test('at the daily cap, plain foods still log from the phone; a wrong password s
   assert.deepEqual(foods(r).sort(), ['banana', 'egg']);
   refuse = 401;
   await assert.rejects(parseLog('2 eggs and a banana', options), /Daily limit/);
+});
+
+test('at the daily cap, a mixed log keeps both halves from the phone', async () => {
+  refuse = 429;
+  refuseAll = true;
+  const r = await parseLog('bench 3x5 then 2 eggs and a banana', options);
+  assert.deepEqual(asked().sort(), ['food', 'workout']);
+  assert.ok(r.workout?.exercises.length);
+  assert.deepEqual(foods(r).sort(), ['banana', 'egg']);
 });
 
 test('a typed fix to the food keeps its table food and recomputes; a question gets an answer', async () => {

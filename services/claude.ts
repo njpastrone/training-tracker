@@ -45,6 +45,10 @@ export class AiOffError extends ApiError {
   }
 }
 
+// AI off, today's cap reached or the server busy: a log still reads on the phone
+const aiUnavailable = (error: unknown) =>
+  error instanceof AiOffError || (error instanceof ApiError && (error.status === 429 || error.status === 503));
+
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model.
 // `mode` asks the Worker to build the prompt itself (parse or food); Workers deployed before a mode
 // existed ignore it and send system/messages, so a new mode works before the Worker is redeployed.
@@ -94,8 +98,8 @@ export async function parseWorkout(input: string, options: ParseOptions, fallbac
     const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
     return parsed ? flagGuesses(parsed, input) : fallbackParse(fallbackText);
   } catch (error) {
-    // With AI off the log still works by hand: each line or comma becomes an exercise to fill in
-    if (error instanceof AiOffError) return fallbackParse(fallbackText);
+    // Without AI the log still works by hand: each line or comma becomes an exercise to fill in
+    if (aiUnavailable(error)) return fallbackParse(fallbackText);
     console.error('Error parsing workout:', error);
     if (error instanceof ApiError) throw error;
 
@@ -152,8 +156,7 @@ export async function parseFood(input: string, date: string, fallbackText = inpu
     const read = readFoodItems(text, candidates.length);
     return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence } : localFoodParse(fallbackText, usual);
   } catch (error) {
-    // AI off, today's cap reached or the server busy: plain foods still log from the phone
-    if (error instanceof AiOffError || (error instanceof ApiError && (error.status === 429 || error.status === 503))) return localFoodParse(fallbackText, usual);
+    if (aiUnavailable(error)) return localFoodParse(fallbackText, usual);
     console.error('Error parsing food:', error);
     if (error instanceof ApiError) throw error;
     return localFoodParse(fallbackText, usual);
