@@ -74,6 +74,7 @@ export interface FoodOptions {
 // A draft item as the model sees it: its key into `foods` when it came from the table
 export interface DraftFoodForModel {
   food?: string | null;
+  said?: string | null;
   name: string;
   qty?: number | null;
   unit?: string | null;
@@ -99,7 +100,7 @@ export function buildFoodRequest(input: string, options: FoodOptions) {
   };
 }
 
-const DRAFT_FIELDS = ['food', 'name', 'qty', 'unit', 'grams', 'dayOffset', 'kcal', 'protein', 'carbs', 'fat'] as const;
+const DRAFT_FIELDS = ['said', 'food', 'name', 'qty', 'unit', 'grams', 'dayOffset', 'kcal', 'protein', 'carbs', 'fat'] as const;
 
 // The request that applies a typed fix to a food draft. Same output as a parse, plus reply.
 export function buildFoodCorrectionRequest(items: DraftFoodForModel[], fix: string, options: FoodOptions) {

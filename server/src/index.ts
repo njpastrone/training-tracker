@@ -80,10 +80,12 @@ export default {
       }
       const options = { date, foods: foods as string[] };
       if (fix !== undefined) {
-        if (typeof fix !== 'string' || !fix.trim() || fix.length > MAX_INPUT_CHARS || !Array.isArray((draft as { items?: unknown })?.items)) {
+        const items = (draft as { items?: unknown })?.items;
+        const itemOk = (i: unknown) => typeof i === 'object' && i !== null && shortText((i as { name?: unknown }).name);
+        if (typeof fix !== 'string' || !fix.trim() || fix.length > MAX_INPUT_CHARS || !Array.isArray(items) || items.length > MAX_FOOD_CANDIDATES || !items.every(itemOk)) {
           return json(400, { error: 'Invalid request.' });
         }
-        upstream = buildFoodCorrectionRequest((draft as { items: DraftFoodForModel[] }).items, fix, options);
+        upstream = buildFoodCorrectionRequest(items as DraftFoodForModel[], fix, options);
       } else {
         if (typeof input !== 'string' || !input.trim() || input.length > MAX_INPUT_CHARS) return json(400, { error: 'Invalid request.' });
         upstream = buildFoodRequest(input, options);

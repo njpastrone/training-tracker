@@ -66,6 +66,8 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
   const moveTo = (day: Date) => {
     const offset = Math.min(0, differenceInCalendarDays(day, parseISO(date)));
     onChange({ ...draft, exercises: draft.exercises.map(e => ({ ...e, dayOffset: offset || undefined })) });
+    // Food logged in the same message moves with it
+    if (food) onFoodChange?.({ ...food, items: food.items.map(i => ({ ...i, dayOffset: offset || undefined })) });
   };
 
   const dayTag = (offset?: number) =>

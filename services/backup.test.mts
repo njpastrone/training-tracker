@@ -163,6 +163,8 @@ test('bad, old and too-new files are rejected without touching data', async () =
     ['schedule without template', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/schedule'][0].templateId; return g; })()), /damaged/],
     ['plan without dates', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/plans'][0].startDate; return g; })()), /damaged/],
     ['bad date', JSON.stringify({ ...good(), createdAt: 'yesterday' }), /damaged/],
+    ['bad food entries', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.foodEntries = 'x'; return g; })()), /damaged/],
+    ['food without macros', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.foodEntries = [{ id: 'f', date: '2026-10-01', createdAt: 'x', items: [{ id: 'i', name: 'Egg' }] }]; return g; })()), /damaged/],
   ];
   for (const [label, text, message] of cases) {
     assert.throws(() => backup.parseBackup(text), message, label);
@@ -213,4 +215,21 @@ test('weekly backup writes once a week, skips empty data and keeps the last 8', 
   assert.equal(files.length, 8);
   assert.equal(files[0].name, 'LiftText-weekly-2026-12-17.json');
   assert.deepEqual(backup.parseBackup(await files[0].text()).summary.workouts, 2);
+});
+
+test('food is backed up and restored; a backup from before food logging restores with no food', async () => {
+  await seed();
+  const egg = { id: 'i1', name: 'Egg', foodId: 'egg', qty: 2, grams: 100, macros: { kcal: 155, protein: 12.6, carbs: 1.1, fat: 10.6 }, source: 'usda' as const };
+  useWorkoutStore.getState().addFoodEntry({ id: 'f1', date: '2026-10-03', items: [egg], rawInput: '2 eggs', createdAt: '2026-10-03T08:00:00.000Z' });
+  await new Promise((r) => setTimeout(r, 10));
+  const withFood = await backup.createBackup();
+  const old: any = structuredClone(withFood);
+  delete old.data['@training-tracker/storage'].state.foodEntries;
+
+  useWorkoutStore.getState().removeFoodItem('f1', 'i1');
+  await backup.restoreBackup(backup.parseBackup(JSON.stringify(withFood)).backup);
+  assert.deepEqual(useWorkoutStore.getState().foodEntries.map((e) => e.items[0].name), ['Egg']);
+
+  await backup.restoreBackup(backup.parseBackup(JSON.stringify(old)).backup);
+  assert.deepEqual(useWorkoutStore.getState().foodEntries, []);
 });

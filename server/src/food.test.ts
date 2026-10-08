@@ -12,7 +12,7 @@ test('buildFoodRequest lists the candidate foods by key after the log', () => {
 test('buildFoodCorrectionRequest sends every draft field, nulls included', () => {
   const req = buildFoodCorrectionRequest([{ food: 'f1', name: 'Egg', qty: 2 }], 'it was 3', { date: '2026-10-03', foods: ['Egg'] });
   assert.match(req.system, /<correction>/);
-  assert.match(req.messages[0].content, /<draft>\{"items":\[\{"food":"f1","name":"Egg","qty":2,"unit":null,"grams":null,"dayOffset":0,"kcal":null,"protein":null,"carbs":null,"fat":null\}\]\}<\/draft>\n<fix>it was 3<\/fix>/);
+  assert.match(req.messages[0].content, /<draft>\{"items":\[\{"said":null,"food":"f1","name":"Egg","qty":2,"unit":null,"grams":null,"dayOffset":0,"kcal":null,"protein":null,"carbs":null,"fat":null\}\]\}<\/draft>\n<fix>it was 3<\/fix>/);
 });
 
 test('readFoodItems keeps valid picks and estimates and drops bad values', () => {

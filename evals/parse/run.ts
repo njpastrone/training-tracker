@@ -6,13 +6,15 @@
 //   npm run eval:parse -- --model claude-sonnet-5-5 --repeat 3
 //   npm run eval:parse -- --against evals/parse/results/<earlier>.json   # list regressions
 //   npm run eval:parse -- --set corrections    # typed fixes and questions about a draft (correction mode)
+//   npm run eval:parse -- --cli                # no API key: the model through `claude -p` (see evals/cli.ts)
 //
-// Needs ANTHROPIC_API_KEY in the environment (or in .env.eval.local). Never calls the Worker.
+// Needs ANTHROPIC_API_KEY in the environment (or in .env.eval.local), unless --cli. Never calls the Worker.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { identityCounts, scoreCase, scoreReply, type Predicted } from './score.ts';
 import { identityFor } from './identity.ts';
+import { callViaCli } from '../cli.ts';
 
 const { values: args } = parseArgs({
   options: {
@@ -27,11 +29,12 @@ const { values: args } = parseArgs({
     against: { type: 'string' },
     label: { type: 'string', default: '' },
     verbose: { type: 'boolean', default: false },
+    cli: { type: 'boolean', default: false }, // call the model through `claude -p` on your login (no API key)
   },
 });
 
 const key = process.env.ANTHROPIC_API_KEY;
-if (!key) throw new Error('ANTHROPIC_API_KEY is not set (put it in .env.eval.local or export it)');
+if (!key && !args.cli) throw new Error('ANTHROPIC_API_KEY is not set (put it in .env.eval.local or export it), or pass --cli');
 
 const parser = await import(new URL(args.parser!, import.meta.url).href);
 const { cases } = (await import(`./${args.set}.ts`)) as typeof import('./cases.ts');
@@ -85,7 +88,7 @@ async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name
   let usage: Record<string, number> = { input_tokens: 0, output_tokens: 0 };
   let error: string | undefined;
   try {
-    const data = await callAnthropic(body);
+    const data = args.cli ? await callViaCli(body) : await callAnthropic(body);
     text = data.content.filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('');
     usage = data.usage;
     if (data.stop_reason !== 'end_turn') error = `stop_reason ${data.stop_reason}`;

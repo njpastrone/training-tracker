@@ -229,7 +229,7 @@ test('food correction mode sends the draft and fix', async () => {
   const sent = JSON.parse(upstream[0].init.body as string);
   assert.deepEqual(sent, buildFoodCorrectionRequest(items, 'it was 3 eggs', { date: food.date, foods: food.foods }));
   assert.match(sent.system, /<correction>/);
-  assert.match(sent.messages[0].content, /<draft>\{"items":\[\{"food":"f1","name":"Egg, whole","qty":2,"unit":null,"grams":100,"dayOffset":0[\s\S]*<fix>it was 3 eggs<\/fix>/);
+  assert.match(sent.messages[0].content, /<draft>\{"items":\[\{"said":null,"food":"f1","name":"Egg, whole","qty":2,"unit":null,"grams":100,"dayOffset":0[\s\S]*<fix>it was 3 eggs<\/fix>/);
 });
 
 test('rejects malformed food requests before counting', async () => {
@@ -245,6 +245,9 @@ test('rejects malformed food requests before counting', async () => {
     { ...base, foods: Array(81).fill('Egg') },
     { ...base, fix: 'more', draft: { items: 'x' } },
     { ...base, fix: ' ', draft: { items: [] } },
+    { ...base, fix: 'more', draft: { items: [null] } },
+    { ...base, fix: 'more', draft: { items: [{ name: 3 }] } },
+    { ...base, fix: 'more', draft: { items: Array(81).fill({ name: 'Egg' }) } },
   ]) {
     assert.equal((await call(req('pw', { food }), env)).status, 400, JSON.stringify(food).slice(0, 60));
   }

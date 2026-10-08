@@ -53,6 +53,8 @@ const isObject = (v: unknown): v is Record<string, any> => typeof v === 'object'
 const hasStrings = (v: unknown, ...keys: string[]) => isObject(v) && keys.every((k) => typeof v[k] === 'string');
 const listOf = (v: unknown, ok: (item: any) => boolean) => Array.isArray(v) && v.every(ok);
 const exercisesOk = (v: unknown) => listOf(v, (e) => hasStrings(e, 'name'));
+const macrosOk = (m: unknown) => isObject(m) && ['kcal', 'protein', 'carbs', 'fat'].every((k) => Number.isFinite(m[k]));
+const foodEntryOk = (e: any) => hasStrings(e, 'id', 'date', 'createdAt') && listOf(e.items, (i) => hasStrings(i, 'id', 'name') && macrosOk(i.macros));
 const isCount = (v: unknown) => Number.isFinite(v) && (v as number) > 0;
 const customGoalOk = (c: any) =>
   hasStrings(c, 'id', 'exerciseId') &&
@@ -93,6 +95,9 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   const workouts = store.state.workouts;
   if (!listOf(workouts, (w) => hasStrings(w, 'id', 'date') && exercisesOk(w.exercises) && Array.isArray(w.muscleGroups))) fail(DAMAGED);
   if (!isObject(store.state.settings)) fail(DAMAGED);
+  // A backup from before food logging restores with no food, not with this phone's
+  if (store.state.foodEntries === undefined) store.state.foodEntries = [];
+  if (!listOf(store.state.foodEntries, foodEntryOk)) fail(DAMAGED);
   const goals = store.state.settings.goals;
   if (goals !== undefined && !goalsOk(goals)) fail(DAMAGED);
   for (const key of BACKUP_KEYS.slice(1)) {
@@ -137,13 +142,13 @@ export function lastWeeklyBackupDate(): string | null {
   return last ? last.name.slice('LiftText-weekly-'.length, -'.json'.length) : null;
 }
 
-// Writes a dated backup when the last one is a week old; skips when there are no workouts yet
+// Writes a dated backup when the last one is a week old; skips when nothing is logged yet
 export async function runWeeklyBackup(now = new Date()): Promise<File | null> {
   const last = lastWeeklyBackupDate();
   if (last && differenceInCalendarDays(now, parseISO(last)) < 7) return null;
   const backup = await createBackup();
-  const store = backup.data[STORE_KEY] as { state?: { workouts?: unknown[] } } | null;
-  if (!store?.state?.workouts?.length) return null;
+  const store = backup.data[STORE_KEY] as { state?: { workouts?: unknown[]; foodEntries?: unknown[] } } | null;
+  if (!store?.state?.workouts?.length && !store?.state?.foodEntries?.length) return null;
   return writeBackupFile('weekly', format(now, 'yyyy-MM-dd'), backup, WEEKLY_KEEP);
 }
 

@@ -26,11 +26,19 @@ export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate
 
 const DAY_WORDS = /\b(yesterday|today|last night|this morning|days? ago|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/;
 
-// Words of the draft's foods the fix mentions ("the rice was brown" → rice)
-const namesFood = (food: FoodDraft, fix: string) => {
-  const words = new Set(fix.toLowerCase().match(/[a-z]{3,}/g) ?? []);
-  return food.items.some((i) => `${i.name} ${i.said ?? ''}`.toLowerCase().match(/[a-z]{3,}/g)?.some((w) => words.has(w)));
+// A fix about the food: it names one of the draft's foods ("the rice was brown"; words of 4+ letters
+// that aren't amounts or connectors) or asks about its numbers ("how much protein is that?")
+const MACRO_WORDS = /\b(protein|calories?|cals?|kcal|carbs?|fat|macros?)\b/;
+const COMMON = new Set(['with', 'that', 'this', 'from', 'some', 'have', 'were', 'just', 'like', 'about', 'cooked', 'plain', 'whole', 'fresh', 'large', 'small', 'medium', 'slice', 'slices', 'piece', 'cups', 'each', 'skin']);
+const foodWords = (s: string) => (s.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !COMMON.has(w));
+const aboutFood = (food: FoodDraft, fix: string) => {
+  const words = new Set(foodWords(fix));
+  return MACRO_WORDS.test(fix.toLowerCase()) || food.items.some((i) => foodWords(`${i.name} ${i.said ?? ''}`).some((w) => words.has(w)));
 };
+
+// Food drafts compared on what's shown and saved, not the wording the model echoed back
+const foodShown = (food: FoodDraft) =>
+  JSON.stringify(food.items.map((i) => [i.foodId ?? i.name, i.qty, i.unit, i.grams, Math.round(i.macros.kcal), Math.round(i.macros.protein), i.dayOffset ?? 0]));
 
 // Type it → review the parsed card → fix by typing or tapping a number → Save.
 // Nothing is stored until save(); date is the day being logged. With withFood, what the user ate is
@@ -96,7 +104,7 @@ export function useLogDraft({ date, onLogged, withFood }: { date: string; onLogg
     setBusy('fix');
     const fixText = instruction.trim();
     const day = DAY_WORDS.test(fixText.toLowerCase());
-    const toFood = !!food && (!draft || day || mentionsFood(fixText) || namesFood(food, fixText));
+    const toFood = !!food && (!draft || day || mentionsFood(fixText) || aboutFood(food, fixText));
     const toWorkout = !!draft && (!toFood || day);
     try {
       const [w, f] = await Promise.all([
@@ -108,7 +116,7 @@ export function useLogDraft({ date, onLogged, withFood }: { date: string; onLogg
         setError("Couldn't apply that fix. Try saying it another way.");
         return false;
       }
-      const changed = (!!w && !sameDraft(draft!, w.draft)) || (!!f && JSON.stringify(f.draft.items) !== JSON.stringify(food!.items));
+      const changed = (!!w && !sameDraft(draft!, w.draft)) || (!!f && foodShown(f.draft) !== foodShown(food!));
       if (w) setWorkoutDraft(w.draft);
       if (f) setFoodDraft(f.draft.items.length ? f.draft : null);
       const answer = w?.reply ?? f?.reply;

@@ -101,7 +101,7 @@ export const candidateName = (f: Food) =>
 
 const EATING = /\b(ate|eat|eaten|eating|breakfast|brunch|lunch|dinner|supper|snack(ed|s)?|meal|drank|drink(ing)?|dessert|munch(ed)?|grabbed a bite)\b/;
 const FOOD_AMOUNT = /\d\s*(g|grams?|oz|ounces?|cups?|tbsp|tsp|tablespoons?|teaspoons?|ml|slices?|scoops?)\b|\b(a|one|two|half a?) (cup|slice|scoop|handful|bowl|glass|tablespoon|teaspoon)s? of\b/;
-const DISHES = /\b(pizza|burger|burrito|sandwich|sub|salad|taco|sushi|pho|ramen|shake|smoothie|latte|cappuccino|frappuccino|mcdonald'?s|chipotle|starbucks|subway|chick fil a|taco bell|wendy'?s|burger king|domino'?s|panda express|dunkin|kfc|popeyes|five guys|in n out|protein bar|quest bar|clif bar)\b/;
+const DISHES = /\b(pizza|burger|cheeseburger|burrito|sandwich|sub|salad|taco|tacos|sushi|pho|ramen|shake|smoothie|latte|cappuccino|frappuccino|big mac|whopper|mcmuffin|mcchicken|nuggets|fries|wings|quesadilla|nachos|curry|stir fry|pasta|mcdonald'?s|chipotle|starbucks|subway|chick fil a|taco bell|wendy'?s|burger king|domino'?s|panda express|dunkin|dunks|kfc|popeyes|five guys|in n out|protein bar|quest bar|clif bar)\b/;
 
 // Does the log seem to mention food? Words the table knows (not gym words like "legs"), eating
 // words, kitchen amounts, or a dish or restaurant. Workouts alone must stay false.
@@ -119,28 +119,26 @@ export function mentionsFood(log: string): boolean {
   return false;
 }
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
+// Unrounded (the card rounds), so typing a new amount digit by digit never loses precision
 const scaleMacros = (m: Macros, k: number): Macros => ({
-  kcal: Math.round(m.kcal * k),
-  protein: round1(m.protein * k),
-  carbs: round1(m.carbs * k),
-  fat: round1(m.fat * k),
-  ...(m.fiber !== undefined ? { fiber: round1(m.fiber * k) } : {}),
+  kcal: m.kcal * k,
+  protein: m.protein * k,
+  carbs: m.carbs * k,
+  fat: m.fat * k,
+  ...(m.fiber !== undefined ? { fiber: m.fiber * k } : {}),
 });
 
-// The weight of an amount of a table food: the conversion first, then the model's own grams when
-// the unit is one the food has no weight for, then the default serving. A conversion more than 4×
-// off the model's estimate is a misread amount ("200 chicken"), so the estimate wins.
-function gramsOf(food: Food, qty: number | undefined, unit: FoodUnit | undefined, modelGrams?: number) {
-  const converted = toGrams(food, qty, unit)?.grams;
-  if (converted && modelGrams && (converted / modelGrams > 4 || modelGrams / converted > 4)) return modelGrams;
-  return converted ?? modelGrams ?? toGrams(food, undefined, undefined)?.grams ?? 100;
-}
-
-// A table food and an amount as an item
+// A table food and an amount as an item, weighed by the conversion. When the food has no weight for
+// the unit, or the conversion is more than 4× off the model's own estimate (a misread amount: "200
+// chicken" isn't 200 breasts), the model's grams win and the amount shows in grams, so the amount,
+// the weight and the numbers always agree. No amount at all is the default serving.
 export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string, modelGrams?: number): FoodItem {
-  const grams = Math.round(gramsOf(food, qty, unit, modelGrams));
-  return { name: food.name, ...(said ? { said } : {}), foodId: food.id, qty, unit, grams, macros: macrosFor(food, grams), source: 'usda' };
+  const converted = toGrams(food, qty, unit)?.grams;
+  const off = !!converted && !!modelGrams && (converted / modelGrams > 4 || modelGrams / converted > 4);
+  if (modelGrams && (off || !converted)) return itemFor(food, Math.round(modelGrams), 'g', said);
+  const grams = Math.round(converted ?? toGrams(food, undefined, undefined)?.grams ?? 100);
+  const amount = converted ? { qty, unit } : { qty: grams, unit: 'g' as const };
+  return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }
 
 export type Portions = Map<string, { qty: number; unit?: FoodUnit }>;
@@ -258,7 +256,7 @@ export function setQty(item: FoodItem, qty: number): FoodItem {
   const food = item.foodId ? foodById.get(item.foodId) : undefined;
   if (food) {
     const perUnit = item.grams && item.qty ? item.grams / item.qty : undefined;
-    const grams = Math.round(toGrams(food, qty, item.unit)?.grams ?? (perUnit ? perUnit * qty : gramsOf(food, qty, item.unit)));
+    const grams = Math.round(toGrams(food, qty, item.unit)?.grams ?? (perUnit ? perUnit * qty : 100));
     return { ...item, qty, grams, macros: macrosFor(food, grams) };
   }
   const k = qty / (item.qty ?? 1);
@@ -287,12 +285,18 @@ export function swapFood(item: FoodItem, food: Food): FoodItem {
 
 const WEIGHTS: FoodUnit[] = ['g', 'oz', 'ml', 'fl_oz'];
 
-// The few units the review card's unit chip steps through: the one shown, the food's own (slice,
-// cup, breast), then grams and ounces (ml and fl oz for drinks)
-export function unitChoices(food: Food, current?: FoodUnit): FoodUnit[] {
+// The few units the review card's unit chip steps through, always in the same order: the food's own
+// (slice, cup, breast), then grams and ounces (ml and fl oz for drinks)
+export function unitChoices(food: Food): FoodUnit[] {
   const all = unitsFor(food);
   const own = all.find((u) => !WEIGHTS.includes(u));
-  return [...new Set([current, food.serving.unit, own, ...all.filter((u) => WEIGHTS.includes(u))])].filter((u): u is FoodUnit => !!u && all.includes(u));
+  return [...new Set([food.serving.unit, own, ...all.filter((u) => WEIGHTS.includes(u))])].filter((u): u is FoodUnit => !!u && all.includes(u));
+}
+
+// The unit after this one on the chip
+export function nextUnit(food: Food, current?: FoodUnit): FoodUnit {
+  const list = unitChoices(food);
+  return list[(list.indexOf(current ?? food.serving.unit) + 1) % list.length];
 }
 
 // Totals for a list of items

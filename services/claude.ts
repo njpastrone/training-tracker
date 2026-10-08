@@ -78,7 +78,8 @@ export async function callClaude(
 // says how many days before it the exercise was done.
 // Every exercise comes back with an exerciseId and match, picked by the model from the user's own
 // exercises and the catalog entries the log mentions, then checked in code (server/src/identity.ts).
-export async function parseWorkout(input: string, options: ParseOptions): Promise<ParsedWorkoutResponse | null> {
+// fallbackText: what the no-AI parser reads if AI is off or fails (the workout part of a mixed message)
+export async function parseWorkout(input: string, options: ParseOptions, fallbackText = input): Promise<ParsedWorkoutResponse | null> {
   try {
     const { workouts, exerciseLibrary } = useWorkoutStore.getState();
     const candidates = buildCandidates(input, yourExercises(workouts, exerciseLibrary));
@@ -87,15 +88,15 @@ export async function parseWorkout(input: string, options: ParseOptions): Promis
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { parse: { input, ...options, exercises } });
     const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
-    return parsed ? flagGuesses(parsed, input) : fallbackParse(input);
+    return parsed ? flagGuesses(parsed, input) : fallbackParse(fallbackText);
   } catch (error) {
     // With AI off the log still works by hand: each line or comma becomes an exercise to fill in
-    if (error instanceof AiOffError) return fallbackParse(input);
+    if (error instanceof AiOffError) return fallbackParse(fallbackText);
     console.error('Error parsing workout:', error);
     if (error instanceof ApiError) throw error;
 
     // Fallback: try simple parsing without AI
-    return fallbackParse(input);
+    return fallbackParse(fallbackText);
   }
 }
 
@@ -137,7 +138,7 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
 // Parses what the user ate. The model picks foods from the table entries the log mentions and says
 // how much; the app computes USDA macros (services/foods.ts). Branded, restaurant and homemade food
 // comes back as the model's estimate. With AI off or unreachable, the on-phone parser reads it.
-export async function parseFood(input: string, date: string): Promise<FoodDraft> {
+export async function parseFood(input: string, date: string, fallbackText = input): Promise<FoodDraft> {
   const usual = usualPortions(useWorkoutStore.getState().foodEntries);
   try {
     const candidates = buildFoodCandidates(input);
@@ -145,12 +146,12 @@ export async function parseFood(input: string, date: string): Promise<FoodDraft>
     const req = buildFoodRequest(input, { date, foods });
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { food: { input, date, foods } });
     const read = readFoodItems(text, candidates.length);
-    return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence } : localFoodParse(input, usual);
+    return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence } : localFoodParse(fallbackText, usual);
   } catch (error) {
-    if (error instanceof AiOffError) return localFoodParse(input, usual);
+    if (error instanceof AiOffError) return localFoodParse(fallbackText, usual);
     console.error('Error parsing food:', error);
     if (error instanceof ApiError) throw error;
-    return localFoodParse(input, usual);
+    return localFoodParse(fallbackText, usual);
   }
 }
 
@@ -165,7 +166,7 @@ export async function correctFood(draft: FoodDraft, fix: string, date: string): 
     const items: DraftFoodForModel[] = draft.items.map((i) => {
       const k = i.foodId ? candidates.findIndex((f) => f.id === i.foodId) : -1;
       return {
-        food: k >= 0 ? `f${k + 1}` : null, name: i.name, qty: i.qty, unit: i.unit, grams: i.grams, dayOffset: i.dayOffset,
+        food: k >= 0 ? `f${k + 1}` : null, said: i.said, name: i.name, qty: i.qty, unit: i.unit, grams: i.grams, dayOffset: i.dayOffset,
         ...(k >= 0 ? {} : { kcal: i.macros.kcal, protein: i.macros.protein, carbs: i.macros.carbs, fat: i.macros.fat }),
       };
     });
@@ -197,8 +198,13 @@ export async function parseLog(input: string, options: ParseOptions): Promise<{ 
     return { workout: parts.workout ? fallbackParse(parts.workout) : null, food: parts.food ? localFoodParse(parts.food, usual) : null };
   }
   const has = <T,>(r: T | null, list: (r: T) => unknown[]) => (r && list(r).length ? r : null);
+  // When both run and AI fails, each side's no-AI fallback reads only its own part
+  const parts = splitLog(input);
   const run = (w: boolean, f: boolean) =>
-    Promise.all([w ? parseWorkout(input, options) : null, f ? parseFood(input, options.date) : null])
+    Promise.all([
+      w ? parseWorkout(input, options, f ? parts.workout || input : input) : null,
+      f ? parseFood(input, options.date, w ? parts.food || input : input) : null,
+    ])
       .then(([wr, fr]) => ({ workout: has(wr, (r) => r.exercises), food: has(fr, (r) => r.items) }));
   const first = await run(workout, food);
   if (first.workout || first.food || (workout && food)) return first;

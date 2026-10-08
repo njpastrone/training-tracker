@@ -6,7 +6,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, foodCategoryColors, spacing } from '../constants/theme';
 import { foodById } from '../data/foods';
-import { alternatives, macroLine, setQty, setUnit, sumMacros, swapFood, unitChoices } from '../services/foods';
+import { alternatives, macroLine, nextUnit, setQty, setUnit, sumMacros, swapFood, unitChoices } from '../services/foods';
 import { amountLabel } from '../services/foodUnits';
 import type { FoodDraft, FoodItem, Macros } from '../types/food';
 import NumberChip from './NumberChip';
@@ -27,7 +27,11 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
   const { colors } = useTheme();
   const [open, setOpen] = useState<number | null>(null);
   const edit = (i: number, item: Item) => onChange?.(items.map((x, k) => (k === i ? item : x)));
-  const remove = (i: number) => (onChange ? onChange(items.filter((_, k) => k !== i)) : onRemove?.(i));
+  const remove = (i: number) => {
+    setOpen(null); // rows are by position: an open panel would jump to the next food
+    if (onChange) onChange(items.filter((_, k) => k !== i));
+    else onRemove?.(i);
+  };
 
   return (
     <>
@@ -38,7 +42,7 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
         const day = item.dayOffset && date ? (item.dayOffset === -1 ? 'Yesterday' : format(addDays(parseISO(date), item.dayOffset), 'EEE, MMM d')) : null;
         // A name alone is the default serving: editing starts from it
         const base: Item = item.qty === undefined && food ? { ...item, qty: food.serving.qty, unit: food.serving.unit } : item;
-        const units = food ? unitChoices(food, base.unit) : [];
+        const units = food ? unitChoices(food) : [];
         return (
           <View key={i} style={[styles.row, { borderTopColor: colors.dim }]}>
             <View style={[styles.dot, estimate ? { borderWidth: 2, borderColor: color } : { backgroundColor: color }]} />
@@ -65,7 +69,7 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
               {onChange ? (
                 <View style={styles.amount}>
                   <NumberChip
-                    value={base.qty}
+                    value={base.qty === undefined ? undefined : Math.round(base.qty * 100) / 100}
                     suffix=""
                     label={`Amount of ${item.name}`}
                     unsure={false}
@@ -73,7 +77,7 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
                   />
                   {units.length > 1 ? (
                     <Pressable
-                      onPress={() => edit(i, setUnit(base, units[(units.indexOf(base.unit ?? units[0]) + 1) % units.length]))}
+                      onPress={() => edit(i, setUnit(base, nextUnit(food!, base.unit)))}
                       accessibilityRole="button"
                       accessibilityLabel={`Unit: ${unitText(base)}. Tap to switch`}
                       hitSlop={6}

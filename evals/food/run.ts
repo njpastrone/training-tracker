@@ -5,11 +5,12 @@
 //   npm run eval:food                          # full run, Haiku 4.5
 //   npm run eval:food -- --local               # the no-AI parser only (free, offline)
 //   npm run eval:food -- --hybrid              # the phone's parse when it's confident, AI for the rest
+//   npm run eval:food -- --cli                 # no API key: the model through `claude -p` (see evals/cli.ts)
 //   npm run eval:food -- --only branded,units  # categories or case ids
 //   npm run eval:food -- --verbose             # print every miss
 //   npm run eval:food -- --against evals/food/results/<earlier>.json
 //
-// Needs ANTHROPIC_API_KEY (exported or in .env.eval.local) unless --local. Never calls the Worker.
+// Needs ANTHROPIC_API_KEY (exported or in .env.eval.local) unless --local or --cli. Never calls the Worker.
 
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -17,12 +18,14 @@ import { buildFoodRequest, readFoodItems } from '../../server/src/food.ts';
 import { buildFoodCandidates, candidateName, confidentLocal, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog } from '../../services/foods.ts';
 import { MACROS, scoreFoodCase, type Predicted } from './score.ts';
 import type { FoodCase } from './cases.ts';
+import { callViaCli } from '../cli.ts';
 
 const { values: args } = parseArgs({
   options: {
     set: { type: 'string', default: 'cases' },
     local: { type: 'boolean', default: false },
     hybrid: { type: 'boolean', default: false }, // the phone's parse when it's confident, else AI
+    cli: { type: 'boolean', default: false }, // call the model through `claude -p` on your login (no API key)
     model: { type: 'string' },
     only: { type: 'string' },
     repeat: { type: 'string', default: '1' },
@@ -34,7 +37,7 @@ const { values: args } = parseArgs({
 });
 
 const key = process.env.ANTHROPIC_API_KEY;
-if (!args.local && !key) throw new Error('ANTHROPIC_API_KEY is not set (put it in .env.eval.local or export it), or pass --local');
+if (!args.local && !args.cli && !key) throw new Error('ANTHROPIC_API_KEY is not set (put it in .env.eval.local or export it), or pass --local or --cli');
 
 const { cases } = (await import(`./${args.set}.ts`)) as { cases: FoodCase[] };
 const only = args.only?.split(',');
@@ -81,7 +84,7 @@ async function runCase(c: FoodCase) {
     if (args.model) body.model = args.model;
     if (!String(body.model).startsWith('claude-haiku')) delete body.temperature;
     try {
-      const data = await callAnthropic(body);
+      const data = args.cli ? await callViaCli(body as Parameters<typeof callViaCli>[0]) : await callAnthropic(body);
       text = data.content.filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('');
       usage = data.usage;
       if (data.stop_reason !== 'end_turn') error = `stop_reason ${data.stop_reason}`;
@@ -151,6 +154,7 @@ console.log(`items ${items.length}: ${pct(items.filter((i) => i.source === 'usda
 const mixed = (r: (typeof results)[number]) => selected.find((c) => c.id === r.id)!.workout !== undefined;
 console.log(`router: food parser called for ${foodCases.filter((r) => r.router.food).length}/${foodCases.length} food logs; workout parser also called for ${results.filter((r) => !mixed(r) && r.router.workout).length} logs with no workout, missed for ${results.filter((r) => mixed(r) && !r.router.workout).length} of ${results.filter(mixed).length} with one`);
 if (!args.local) {
+  if (args.cli) console.log('via claude -p: temperature not pinned; tokens are the CLI\'s minus its own context; no API spend');
   console.log(`cost $${totalCost.toFixed(4)} this run, $${(totalCost / results.length).toFixed(5)} per food parse (no caching, like the Worker)  latency p50 ${latencies[Math.floor(latencies.length / 2)]}ms p90 ${latencies[Math.floor(latencies.length * 0.9)]}ms`);
   console.log(`tokens per parse: ${Math.round(results.reduce((s, r) => s + r.usage.input_tokens, 0) / results.length)} in, ${Math.round(results.reduce((s, r) => s + r.usage.output_tokens, 0) / results.length)} out`);
 }
@@ -160,11 +164,11 @@ if (errors.length) console.log(`${errors.length} errors, first: ${errors[0].erro
 const at = new Date().toISOString();
 const summary = { at, args, rows, cost: totalCost, cases: Object.fromEntries(results.map((r) => [r.id, r.all])) };
 mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
-const outFile = new URL(`./results/${at.replace(/[:.]/g, '-')}${args.local ? '-local' : args.hybrid ? '-hybrid' : ''}${args.label ? `-${args.label}` : ''}.json`, import.meta.url);
+const outFile = new URL(`./results/${at.replace(/[:.]/g, '-')}${args.local ? '-local' : args.hybrid ? '-hybrid' : ''}${args.cli ? '-cli' : ''}${args.label ? `-${args.label}` : ''}.json`, import.meta.url);
 writeFileSync(outFile, JSON.stringify({ ...summary, results }, null, 2));
 console.log(`saved ${outFile.pathname}`);
 // Running API spend across eval runs (the results folder is git-ignored)
-if (totalCost) {
+if (totalCost && !args.cli) {
   const ledger = new URL('./results/spend.log', import.meta.url);
   appendFileSync(ledger, `${at} food ${args.label || '-'} ${totalCost.toFixed(4)}\n`);
   const spent = readFileSync(ledger, 'utf8').trim().split('\n').reduce((s, l) => s + Number(l.split(' ').pop()), 0);

@@ -5,7 +5,7 @@ import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
   buildFoodCandidates, candidateName, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
-  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices,
+  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices, nextUnit,
 } from './foods';
 
 const food = (id: string) => {
@@ -141,9 +141,25 @@ test('alternatives and swapFood: one tap from cooked to dry, keeping the amount'
   assert.ok(tofu.unit === 'breast' ? !!tofu.grams : tofu.unit === 'g' && tofu.qty === breast.grams);
 });
 
-test('unitChoices: a short list, starting from what is shown', () => {
-  assert.deepEqual(unitChoices(food('egg'), 'each'), ['each', 'g', 'oz']);
-  assert.deepEqual(unitChoices(food('rice'), 'cup'), ['cup', 'g', 'oz']);
-  assert.deepEqual(unitChoices(food('chicken-breast'), 'g'), ['g', 'breast', 'each', 'oz']);
-  assert.deepEqual(unitChoices(food('milk-2'), 'fl_oz'), ['fl_oz', 'cup', 'ml']);
+test('unitChoices: a short list in a fixed order; nextUnit steps through all of it', () => {
+  assert.deepEqual(unitChoices(food('egg')), ['each', 'g', 'oz']);
+  assert.deepEqual(unitChoices(food('rice')), ['cup', 'g', 'oz']);
+  assert.deepEqual(unitChoices(food('chicken-breast')), ['breast', 'each', 'g', 'oz']);
+  assert.deepEqual(unitChoices(food('milk-2')), ['cup', 'fl_oz', 'ml']);
+  const seen = [food('chicken-breast').serving.unit];
+  for (let i = 0; i < 4; i++) seen.push(nextUnit(food('chicken-breast'), seen[seen.length - 1]));
+  assert.deepEqual(seen, ['breast', 'each', 'g', 'oz', 'breast']);
+});
+
+test('a misread amount shows in grams, so amount, weight and numbers agree', () => {
+  const [misread] = resolveItems([{ said: '200 chicken', food: 0, qty: 200, grams: 200 }], [food('chicken-breast')]);
+  assert.deepEqual([misread.qty, misread.unit, misread.grams], [200, 'g', 200]);
+  const [wedge] = resolveItems([{ said: 'a wedge of rice', food: 0, qty: 1, unit: 'wedge', grams: 40 }], [food('rice')]);
+  assert.deepEqual([wedge.qty, wedge.unit, wedge.grams], [40, 'g', 40]);
+});
+
+test('typing an estimate amount digit by digit keeps its numbers', () => {
+  const est = { name: 'Burrito', qty: 30, unit: 'g' as const, macros: { kcal: 130, protein: 6, carbs: 15, fat: 0.4 }, source: 'estimate' as const };
+  const typed = setQty(setQty(setQty(est, 2), 25), 250);
+  assert.ok(Math.abs(typed.macros.kcal - 1083.3) < 0.1 && Math.abs(typed.macros.fat - 3.33) < 0.01);
 });
