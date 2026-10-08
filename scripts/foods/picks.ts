@@ -644,7 +644,9 @@ export const PICKS: Pick[] = [
   { id: 'apricots-dried', name: 'Apricots, dried', aliases: ['dried apricots', 'dried apricot halves'], category: 'fruit', fdc: 173941, portionsFrom: [2709197], serving: { qty: 0.25, unit: 'cup' }, units: { each: 8 } },
   { id: 'cherries', name: 'Cherries', aliases: ['sweet cherries', 'bing cherries', 'fresh cherries'], category: 'fruit', fdc: 171719, portionsFrom: [2709231], serving: { qty: 1, unit: 'cup' } },
   { id: 'kiwi', name: 'Kiwi', aliases: ['kiwifruit', 'kiwi fruit', 'green kiwi'], category: 'fruit', fdc: 168153, portionsFrom: [2709239], serving: { qty: 1, unit: 'each' } },
-  { id: 'avocado', name: 'Avocado', aliases: ['hass avocado', 'avo'], category: 'fruit', fdc: 171705, portionsFrom: [2709223], serving: { qty: 1, unit: 'each' } },
+  // Hass (SR 171706, California): what US stores sell; one fruit without skin and seed is 136 g (SR).
+  // A name alone is half of one: avocado toast, a salad or a bowl rarely takes a whole one.
+  { id: 'avocado', name: 'Avocado', aliases: ['hass avocado', 'avo'], category: 'fruit', fdc: 171706, portionsFrom: [2709223], serving: { qty: 0.5, unit: 'each' }, units: { each: 136 } },
   // kcal below 4P+4C+9F: USDA's specific Atwater factors (low for this food's carbs/fiber); 4P+4(C-fiber)+9F fits
   { id: 'lemon', name: 'Lemon', aliases: ['fresh lemon'], category: 'fruit', fdc: 167746, portionsFrom: [2709168], serving: { qty: 1, unit: 'each' } },
   // kcal below 4P+4C+9F: USDA's specific Atwater factors (low for this food's carbs/fiber); 4P+4(C-fiber)+9F fits
