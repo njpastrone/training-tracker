@@ -6,7 +6,8 @@ import { SymbolView } from 'expo-symbols';
 import { Workout } from '../types/workout';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
-import { workoutSummary } from '../services/format';
+import { foodDayLine, workoutSummary } from '../services/format';
+import type { FoodDayTotal } from '../services/progress';
 import { SkyCard } from './Sky';
 import ExerciseRows from './ExerciseRows';
 
@@ -14,6 +15,7 @@ interface Props {
   workout: Workout;
   onPress?: () => void;
   selected?: boolean; // set while selecting: a check circle replaces the chevron
+  food?: FoodDayTotal; // History's day cards: the day's food in one line; the card then opens the day
 }
 
 export function dayLabel(date: string) {
@@ -21,7 +23,7 @@ export function dayLabel(date: string) {
   return isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'EEEE, MMM d');
 }
 
-export default function WorkoutCard({ workout, onPress, selected }: Props) {
+export default function WorkoutCard({ workout, onPress, selected, food }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -29,7 +31,7 @@ export default function WorkoutCard({ workout, onPress, selected }: Props) {
     if (onPress) {
       onPress();
     } else {
-      router.push(`/workout/${workout.id}`);
+      router.push(food ? `/day/${workout.date}` : `/workout/${workout.id}`);
     }
   };
 
@@ -38,7 +40,7 @@ export default function WorkoutCard({ workout, onPress, selected }: Props) {
       onPress={handlePress}
       accessibilityRole={selected === undefined ? 'button' : 'checkbox'}
       accessibilityState={selected === undefined ? undefined : { checked: selected }}
-      accessibilityHint={selected === undefined ? 'Opens the workout' : undefined}
+      accessibilityHint={selected === undefined ? (food ? 'Opens the day' : 'Opens the workout') : undefined}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
       <SkyCard style={styles.card} pointerEvents="box-only">
@@ -63,8 +65,20 @@ export default function WorkoutCard({ workout, onPress, selected }: Props) {
             {workout.notes}
           </Text>
         ) : null}
+        {food && <FoodLine food={food} />}
       </SkyCard>
     </Pressable>
+  );
+}
+
+// One quiet line for a day's food under its training. Wraps, never truncates.
+export function FoodLine({ food }: { food: FoodDayTotal }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.food}>
+      <SymbolView name="fork.knife" size={12} tintColor={colors.textTertiary} />
+      <Text variant="bodySmall" style={[styles.foodText, { color: colors.textSecondary }]}>{foodDayLine(food)}</Text>
+    </View>
   );
 }
 
@@ -84,5 +98,14 @@ const styles = StyleSheet.create({
   },
   notes: {
     marginTop: 6,
+  },
+  food: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  foodText: {
+    flexShrink: 1,
   },
 });

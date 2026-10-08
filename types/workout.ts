@@ -97,6 +97,7 @@ export interface Goals {
   timesPerWeek?: number; // each muscle trained on this many days; unset = off
   minSets?: Partial<Record<MuscleGroup, number>>; // minimum sets a week (MEV); a muscle without a number gets the default; unset = off
   custom: CustomGoal[];
+  protein?: number; // grams a day, checked on days with food logged; unset = off
 }
 
 // Goals someone sets for themselves: a weight to lift, or an exercise to do often

@@ -114,3 +114,21 @@ test('Undo restores a manually scheduled session exactly', async () => {
   assert.equal(session()?.completed, true);
   assert.equal(session()?.completedWorkoutId, 'manual');
 });
+
+test('editing a saved food replaces only that item and keeps its id, even after a swap', () => {
+  const item = (id: string, name: string, protein: number) => ({ id, name, source: 'estimate', macros: { kcal: 100, protein, carbs: 0, fat: 0 } }) as any;
+  store().addFoodEntry({ id: 'f1', date: day(0), items: [item('i1', 'Eggs', 12), item('i2', 'Toast', 8)], rawInput: 'eggs and toast', createdAt: '' });
+  store().addFoodEntry({ id: 'f2', date: day(0), items: [item('i1', 'Oats', 5)], rawInput: 'oats', createdAt: '' });
+
+  // A swapped food comes back without an id
+  const { id: _, ...swapped } = item('x', 'Egg whites', 20);
+  store().updateFoodItem('f1', 'i1', swapped);
+  const f1 = store().foodEntries.find((e) => e.id === 'f1')!;
+  assert.deepEqual(f1.items.map((i) => [i.id, i.name, i.macros.protein]), [['i1', 'Egg whites', 20], ['i2', 'Toast', 8]]);
+  assert.equal(store().foodEntries.find((e) => e.id === 'f2')!.items[0].name, 'Oats');
+
+  store().removeFoodItem('f1', 'i1');
+  store().removeFoodItem('f1', 'i2');
+  store().removeFoodItem('f2', 'i1');
+  assert.equal(store().foodEntries.length, 0);
+});

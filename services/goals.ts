@@ -1,8 +1,9 @@
 import { analyzeWeeklyVolume } from './coach';
 import { displayName } from './exerciseIdentity';
 import { trainingWindow } from './pace';
-import { entriesFor, inUnit, personalRecords } from './progress';
+import { entriesFor, foodWeek, inUnit, personalRecords } from './progress';
 import type { CustomGoal, ExerciseLibrary, Goals, MuscleGroup, Workout } from '../types/workout';
+import type { FoodEntry } from '../types/food';
 
 // Goals checked against the log over the same rolling last 7 days as the sky and the tiles
 // (services/pace.ts). Local and deterministic, no AI. Sets count only where they were written:
@@ -33,10 +34,18 @@ export interface CustomProgress {
   met: boolean;
 }
 
+// Protein a day, checked only on the days with food logged in the last 7
+export interface ProteinProgress {
+  target: number; // g a day
+  hit: number; // logged days at or over the target
+  logged: number; // days with food logged
+  met: boolean; // every logged day hit it
+}
+
 export const hasMuscleGoals = (g: Goals) => g.timesPerWeek !== undefined || g.minSets !== undefined;
 export const minSetsFor = (g: Goals, group: MuscleGroup) => g.minSets?.[group] ?? DEFAULT_MIN_SETS;
 
-export function goalProgress(goals: Goals, workouts: Workout[], library: ExerciseLibrary, now: Date = new Date()) {
+export function goalProgress(goals: Goals, workouts: Workout[], library: ExerciseLibrary, food: FoodEntry[] = [], now: Date = new Date()) {
   const win = trainingWindow(workouts.map(w => w.date), 7, now);
   const volume = analyzeWeeklyVolume(workouts, win);
 
@@ -62,9 +71,18 @@ export function goalProgress(goals: Goals, workouts: Workout[], library: Exercis
     return { goal, name, now: days, target: goal.perWeek, met: days >= goal.perWeek };
   });
 
+  let protein: ProteinProgress | undefined;
+  if (goals.protein) {
+    const target = goals.protein;
+    const week = foodWeek(food, now);
+    const hit = week.days.filter(d => d.total && d.total.protein >= target).length;
+    protein = { target, hit, logged: week.logged, met: week.logged > 0 && hit === week.logged };
+  }
+
   return {
     muscles,
     custom,
+    protein,
     timesMet: muscles.filter(m => m.timesGoal !== undefined && m.times >= m.timesGoal).length,
     setsMet: muscles.filter(m => m.setsGoal !== undefined && m.sets >= m.setsGoal).length,
   };

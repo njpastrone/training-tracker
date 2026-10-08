@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill, Segmented } from '../components/Glass';
 import Field from '../components/Field';
+import NumberChip from '../components/NumberChip';
 import ExercisePicker, { PickedExercise } from '../components/ExercisePicker';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -28,6 +29,7 @@ const TIMES = [
 export default function GoalsScreen() {
   const { colors } = useTheme();
   const { settings, updateSettings, exerciseLibrary } = useWorkoutStore();
+  const logsFood = useWorkoutStore(s => s.foodEntries.length > 0);
   const goals = settings.goals ?? NO_GOALS;
   const set = (patch: Partial<Goals>) => updateSettings({ goals: { ...goals, ...patch } });
   const toggleMuscle = (g: MuscleGroup) =>
@@ -122,7 +124,17 @@ export default function GoalsScreen() {
               </View>
             );
           })}
-          <NewGoal unit={settings.weightUnit} first={goals.custom.length === 0} onAdd={goal => set({ custom: [...goals.custom, goal] })} />
+          {/* Only for people who log food (or already set it) */}
+          {(logsFood || goals.protein !== undefined) && (
+            <View style={[styles.customRow, goals.custom.length > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+              <View style={styles.fill}>
+                <Text variant="bodyLarge" style={{ color: colors.text }}>Protein a day</Text>
+                <Text variant="bodySmall" style={{ color: colors.textSecondary }}>On days you log food. Empty is off.</Text>
+              </View>
+              <NumberChip value={goals.protein} suffix="g" unsure={false} label="Protein a day, grams" onChange={v => set({ protein: v === undefined ? undefined : Math.round(v) })} />
+            </View>
+          )}
+          <NewGoal unit={settings.weightUnit} first={goals.custom.length === 0 && !logsFood && goals.protein === undefined} onAdd={goal => set({ custom: [...goals.custom, goal] })} />
         </SkyCard>
       </ScrollView>
     </SkyScreen>

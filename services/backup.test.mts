@@ -71,7 +71,7 @@ async function seed() {
   useWorkoutStore.getState().updateSettings({
     weightUnit: 'kg',
     goals: {
-      muscles: ['chest', 'back'], timesPerWeek: 2, minSets: { chest: 10 },
+      muscles: ['chest', 'back'], timesPerWeek: 2, minSets: { chest: 10 }, protein: 140,
       custom: [{ id: 'g1', kind: 'lift', exerciseId: 'bench', weight: 100, unit: 'kg' }, { id: 'g2', kind: 'often', exerciseId: 'squat', perWeek: 2 }],
     },
   });
@@ -153,6 +153,7 @@ test('bad, old and too-new files are rejected without touching data', async () =
     ['bad custom goal', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x' }] }; return g; })()), /damaged/],
     ['unknown goal muscle', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['legs'], custom: [] }; return g; })()), /damaged/],
     ['bad times per week', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['chest'], timesPerWeek: '2', custom: [] }; return g; })()), /damaged/],
+    ['bad protein goal', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['chest'], protein: '140', custom: [] }; return g; })()), /damaged/],
     ['bad min sets', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: ['chest'], minSets: { chest: 'x' }, custom: [] }; return g; })()), /damaged/],
     ['unknown goal kind', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'max', exerciseId: 'bench' }] }; return g; })()), /damaged/],
     ['lift goal without weight', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'lift', exerciseId: 'bench', unit: 'lbs' }] }; return g; })()), /damaged/],

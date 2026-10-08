@@ -28,7 +28,7 @@ DESIGN-SYSTEM.md  # UI component standards and design guidelines
 ## Key Features
 1. **Natural Language Input**: Users describe workouts in plain text
 2. **AI Parsing**: Claude API extracts structured workout data
-3. **Workout History**: Calendar of logged and planned days (each day opens its day screen) and every workout by month
+3. **Workout History**: Calendar of logged and planned days (each day opens its day screen) and every day by month
 4. **Progress**: Goals (each muscle N× a week, minimum sets, your own lift and frequency goals) checked against the last 7 days, last done and how often per exercise, PRs where there are numbers, days since each muscle group, and natural-language corrections
 5. **Local Storage**: Data persists on device
 

@@ -13,15 +13,17 @@ import { Pill } from './Glass';
 interface Props {
   workouts: Workout[];
   schedule?: TemplateSchedule[];
+  foodDates?: Set<string>; // days with food logged
 }
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // Last week, this week and next week; "Show full month" opens the month grid.
-// Logged = sunrise disc, planned = cobalt ring, today = a ring around the date.
+// Logged = sunrise disc, planned = cobalt ring, today = a ring around the date, ate = a short line
+// under the date (only for people who log food).
 // Every day opens the day screen, which shows what was logged or planned there.
-export default function Calendar({ workouts, schedule = [] }: Props) {
+export default function Calendar({ workouts, schedule = [], foodDates }: Props) {
   const { colors } = useTheme();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [fullMonth, setFullMonth] = useState(false);
@@ -100,8 +102,9 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
           const hasScheduled = scheduledDates.has(dateStr) && !hasWorkout;
           const today = isToday(day);
           const past = isPast(day) && !today;
+          const ate = !!foodDates?.has(dateStr);
 
-          const state = [hasWorkout && 'workout logged', hasScheduled && 'workout planned', today && 'today'].filter(Boolean).join(', ');
+          const state = [hasWorkout && 'workout logged', hasScheduled && 'workout planned', ate && 'food logged', today && 'today'].filter(Boolean).join(', ');
 
           return (
             <Pressable
@@ -129,6 +132,7 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
                   {format(day, 'd')}
                 </Text>
               </View>
+              {ate && <View style={[styles.ate, { backgroundColor: colors.textTertiary }]} />}
             </Pressable>
           );
         })}
@@ -138,6 +142,7 @@ export default function Calendar({ workouts, schedule = [] }: Props) {
         <LegendItem label="Logged" swatch={{ backgroundColor: colors.sunrise }} />
         <LegendItem label="Planned" swatch={{ borderWidth: 2, borderColor: colors.cobalt }} />
         <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
+        {!!foodDates?.size && <LegendItem label="Ate" swatch={{ height: 2, borderRadius: 1, backgroundColor: colors.textTertiary }} />}
       </View>
 
       {/* A row sizes the pill to its label; alignSelf on the pill itself makes Yoga stretch it down the screen */}
@@ -219,6 +224,14 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Inside the 44 pt cell, under the 34 pt disc
+  ate: {
+    position: 'absolute',
+    bottom: 2,
+    width: 10,
+    height: 2,
+    borderRadius: 1,
   },
   dayText: {
     fontFamily: fonts.rounded,

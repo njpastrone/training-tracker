@@ -1,14 +1,19 @@
 import { Fragment } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { format, parseISO } from 'date-fns';
+import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Workout } from '../types/workout';
-import WorkoutCard from './WorkoutCard';
+import WorkoutCard, { dayLabel } from './WorkoutCard';
 import SwipeableWorkoutCard from './SwipeableWorkoutCard';
 import GroupedWorkoutCard from './GroupedWorkoutCard';
 import { spacing } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
+import { foodDayLine } from '../services/format';
+import type { FoodDayTotal } from '../services/progress';
+import { SkyCard } from './Sky';
 
 interface Props {
   workouts: Workout[];
@@ -17,9 +22,10 @@ interface Props {
   enableSwipe?: boolean;
   selected?: Set<string>; // select mode: a flat list where a tap toggles the workout
   onToggle?: (id: string) => void;
+  food?: Map<string, FoodDayTotal>; // grouped list: days, each card with its food; a food-only day is a quiet card
 }
 
-export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, enableSwipe = false, selected, onToggle }: Props) {
+export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, enableSwipe = false, selected, onToggle, food }: Props) {
   const { colors } = useTheme();
 
   if (selected && onToggle) {
@@ -61,15 +67,16 @@ export default function WorkoutList({ workouts, groupByDate = true, byMonth = fa
     return groups;
   }, {} as Record<string, Workout[]>);
 
-  // Sort dates in descending order
-  const sortedDates = Object.keys(groupedWorkouts).sort((a, b) => b.localeCompare(a));
+  // Every day with training or food, newest first
+  const sortedDates = [...new Set([...Object.keys(groupedWorkouts), ...(food?.keys() ?? [])])].sort((a, b) => b.localeCompare(a));
 
   return (
     <GestureHandlerRootView>
       <View style={styles.container}>
         {sortedDates.map((date, i) => {
-          const dateWorkouts = groupedWorkouts[date];
+          const dateWorkouts = groupedWorkouts[date] ?? [];
           const single = dateWorkouts.length === 1 && dateWorkouts[0];
+          const ate = food?.get(date);
           return (
             <Fragment key={date}>
               {byMonth && date.slice(0, 7) !== sortedDates[i - 1]?.slice(0, 7) && (
@@ -77,11 +84,13 @@ export default function WorkoutList({ workouts, groupByDate = true, byMonth = fa
                   {format(parseISO(date), 'MMMM yyyy')}
                 </Text>
               )}
-              {/* One workout: its own card (swipeable where asked); several: one card for the day */}
+              {/* One workout: its own card (swipeable where asked); several: one card for the day; none: the day's food */}
               {single ? (
-                enableSwipe ? <SwipeableWorkoutCard workout={single} /> : <WorkoutCard workout={single} />
+                enableSwipe ? <SwipeableWorkoutCard workout={single} food={ate} /> : <WorkoutCard workout={single} food={ate} />
+              ) : dateWorkouts.length ? (
+                <GroupedWorkoutCard date={date} workouts={dateWorkouts} food={ate} />
               ) : (
-                <GroupedWorkoutCard date={date} workouts={dateWorkouts} />
+                ate && <FoodDayCard date={date} food={ate} />
               )}
             </Fragment>
           );
@@ -91,9 +100,41 @@ export default function WorkoutList({ workouts, groupByDate = true, byMonth = fa
   );
 }
 
+// A day with food and no training: its totals, opening the day
+function FoodDayCard({ date, food }: { date: string; food: FoodDayTotal }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => router.push(`/day/${date}`)}
+      accessibilityRole="button"
+      accessibilityHint="Opens the day"
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    >
+      <SkyCard style={styles.quiet} pointerEvents="box-only">
+        <View style={styles.fill}>
+          <Text variant="titleMedium" style={{ color: colors.text }}>{dayLabel(date)}</Text>
+          <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{foodDayLine(food)}</Text>
+        </View>
+        <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
+      </SkyCard>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     gap: spacing.gap,
+  },
+  quiet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.gap,
+    marginBottom: 0,
+  },
+  fill: {
+    flex: 1,
   },
   month: {
     marginTop: spacing.sm,

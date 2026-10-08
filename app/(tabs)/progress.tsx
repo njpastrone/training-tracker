@@ -17,6 +17,8 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useLogDraft } from '../../hooks/useLogDraft';
 import { digest, target, ExerciseSummary, LiftTrend, Target } from '../../services/insights';
 import { daysAgo, lastDoneLine, paceLine } from '../../services/format';
+import { foodWeek } from '../../services/progress';
+import { format, parseISO } from 'date-fns';
 import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName } from '../../services/goals';
 import { missedChips } from '../../services/suggestions';
 import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
@@ -31,11 +33,12 @@ export default function ProgressScreen() {
   const { colors, sky } = useTheme();
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
-  const { workouts, exerciseLibrary, settings, updateSettings, deleteWorkouts, schedule, templates } = useWorkoutStore();
+  const { workouts, foodEntries, exerciseLibrary, settings, updateSettings, deleteWorkouts, schedule, templates } = useWorkoutStore();
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
   const trends = useMemo(() => new Map(d.liftTrends.map(t => [t.id, { trend: t, target: target(t) }])), [d]);
-  const goals = useMemo(() => settings.goals && goalProgress(settings.goals, workouts, exerciseLibrary), [settings.goals, workouts, exerciseLibrary]);
-  const hasGoals = !!goals && (goals.muscles.length > 0 || goals.custom.length > 0);
+  const goals = useMemo(() => settings.goals && goalProgress(settings.goals, workouts, exerciseLibrary, foodEntries), [settings.goals, workouts, exerciseLibrary, foodEntries]);
+  const hasGoals = !!goals && (goals.muscles.length > 0 || goals.custom.length > 0 || !!goals.protein);
+  const food = useMemo(() => foodWeek(foodEntries), [foodEntries]);
   const chips = useMemo(() => missedChips(workouts, schedule, templates), [workouts, schedule, templates]);
   const [showAll, setShowAll] = useState(false);
   const [logged, setLogged] = useState<Workout[] | null>(null);
@@ -102,6 +105,8 @@ export default function ProgressScreen() {
               />
             )
           )}
+
+          {food.logged > 0 && <FoodWeekCard week={food} />}
 
           <SectionLabel style={styles.label}>Your exercises</SectionLabel>
           <SkyCard>
@@ -179,6 +184,40 @@ const loggedOn = (date: string) => {
   const label = dayLabel(date);
   return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
 };
+
+// The last 7 days of food, only once there is some: protein a day on average and one plain bar a
+// day. Calories stay a plain number, no colour and no target.
+function FoodWeekCard({ week }: { week: ReturnType<typeof foodWeek> }) {
+  const { colors } = useTheme();
+  const top = Math.max(...week.days.map(d => d.total?.protein ?? 0), 1);
+  const detail = `Logged ${week.logged} of 7 days · ${week.kcal.toLocaleString('en-US')} kcal a day`;
+  return (
+    <>
+      <SectionLabel style={styles.label}>Food · last 7 days</SectionLabel>
+      <SkyCard accessible accessibilityLabel={`${week.protein} g protein a day on average. ${detail}`}>
+        <Text variant="titleMedium" style={{ color: colors.text }}>{week.protein} g protein a day on average</Text>
+        <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{detail}</Text>
+        <View style={styles.bars}>
+          {week.days.map(d => (
+            <View key={d.date} style={styles.barCol}>
+              <View style={styles.barSpace}>
+                <View
+                  style={[
+                    styles.foodBar,
+                    d.total ? { height: `${Math.max(4, (d.total.protein / top) * 100)}%`, backgroundColor: colors.sunrise } : { height: 3, backgroundColor: colors.dim },
+                  ]}
+                />
+              </View>
+              <Text variant="labelSmall" style={{ color: colors.textTertiary }}>
+                {format(parseISO(d.date), 'EEEEE')}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </SkyCard>
+    </>
+  );
+}
 
 // The first-use prompt for goals: the owner's own goal in one tap, your own on the Goals screen
 function GoalsPrompt({ onPreset, onOwn, onNotNow }: { onPreset: () => void; onOwn: () => void; onNotNow: () => void }) {
@@ -347,6 +386,25 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  bars: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.gap,
+  },
+  barCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  barSpace: {
+    alignSelf: 'stretch',
+    height: 40,
+    justifyContent: 'flex-end',
+  },
+  foodBar: {
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
   },
   groupDays: {
     fontFamily: fonts.rounded,
