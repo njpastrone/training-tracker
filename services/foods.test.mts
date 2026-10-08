@@ -197,3 +197,25 @@ test('typing an estimate amount digit by digit keeps its numbers', () => {
   const typed = setQty(setQty(setQty(est, 2), 25), 250);
   assert.ok(Math.abs(typed.macros.kcal - 1083.3) < 0.1 && Math.abs(typed.macros.fat - 3.33) < 0.01);
 });
+
+test('an inexact amount takes the model\'s weight; an exact one is converted', () => {
+  // A name alone or "some": the model's weight, shown in grams
+  const [some] = resolveItems([{ said: 'some blueberries', food: 0, grams: 50 }], [food('blueberries')]);
+  assert.deepEqual([some.qty, some.unit, some.grams], [50, 'g', 50]);
+  // A size USDA doesn't weigh for this food keeps its words but the model's weight, and edits scale it
+  const f = food('rice');
+  const [big] = resolveItems([{ said: 'a medium rice', food: 0, qty: 1, unit: 'medium', grams: 200 }], [f]);
+  assert.deepEqual([big.qty, big.unit, big.grams], [1, 'medium', 200]);
+  assert.equal(setQty(big, 2).grams, 400);
+  // Exact amounts never take the model's weight
+  const [cup] = resolveItems([{ said: '1 cup rice', food: 0, qty: 1, unit: 'cup', grams: 300 }], [f]);
+  assert.equal(cup.grams, Math.round(f.units.cup!));
+});
+
+test('emoji and other languages find the right table foods', () => {
+  assert.ok(ids('🍳🍳 + 🥑 toast').includes('egg'));
+  assert.ok(ids('desayuné dos huevos y arroz con pollo').includes('chicken-breast'));
+  assert.equal(mentionsFood('🍌 and ☕️ black'), true);
+  assert.equal(mentionsFood('comí arroz con frijoles'), true);
+  assert.equal(matchFood('huevos')?.id, 'egg');
+});

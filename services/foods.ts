@@ -8,6 +8,7 @@ import { catalogHits, editDistance } from '../server/src/identity';
 import type { RawFoodItem } from '../server/src/food';
 import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
 import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume } from './foodUnits';
+import { englishFoodWords } from './foodWords';
 
 const MAX_CANDIDATES = 50;
 
@@ -54,8 +55,9 @@ const more = buildIndex(MORE_FOODS);
 const vocabulary = [...new Set([...core.words.keys(), ...more.words.keys()])];
 
 // The log as singular words, amounts dropped. Numbers that name a food stay: "93%" lean, "80/20" beef.
+// Emoji and common foreign food words become the table's English first ("huevos", "🍳" → egg).
 const logWords = (log: string) =>
-  key(log.replace(/(\d+)\s*%/g, ' pct$1 ').replace(/\b(\d\d)\/(\d\d?)\b/g, ' pct$1 pct$2 ').replace(/(?<![a-z\d])\d+([.,/]\d+)?/g, ' '))
+  key(englishFoodWords(log).replace(/(\d+)\s*%/g, ' pct$1 ').replace(/\b(\d\d)\/(\d\d?)\b/g, ' pct$1 pct$2 ').replace(/(?<![a-z\d])\d+([.,/]\d+)?/g, ' '))
     .split(' ')
     .filter(Boolean)
     .map((w) => w.replace(/^pct(\d+)$/, '$1'));
@@ -129,7 +131,7 @@ const DISHES = /\b(pizza|burger|cheeseburger|burrito|sandwich|sub|salad|taco|tac
 // Does the log seem to mention food? Words the table knows (not gym words like "legs"), eating
 // words, kitchen amounts, or a dish or restaurant. Workouts alone must stay false.
 export function mentionsFood(log: string): boolean {
-  const lower = log.toLowerCase();
+  const lower = englishFoodWords(log).toLowerCase();
   if (EATING.test(lower) || FOOD_AMOUNT.test(lower) || DISHES.test(normalizeWords(lower))) return true;
   // No typo matching here: "plank" is one letter from "flank"
   const words = logWords(log);
@@ -158,21 +160,28 @@ const scaleMacros = (m: Macros, k: number): Macros => ({
   ...(m.fiber !== undefined ? { fiber: m.fiber * k } : {}),
 });
 
-const CONTAINERS = new Set<FoodUnit>(['bowl', 'plate', 'glass', 'can', 'bottle']);
+// An amount the conversion knows exactly: a weight or volume ("200 g", "1.5 cups"), a unit USDA
+// weighs for this food ("2 slices", "1 large"), or a count of whole items it weighs ("2 eggs")
+function exactAmount(food: Food, qty: number | undefined, unit: FoodUnit | undefined, how?: string) {
+  if (qty === undefined && !unit) return false;
+  if (unit) return isMass(unit) || isVolume(unit) || (food.units as Record<string, number | undefined>)[unit] !== undefined;
+  return how === 'portion' || how === 'size';
+}
 
-// A table food and an amount as an item, weighed by the conversion. When the food has no weight for
-// the unit, or a count of 50+ with no unit is far off the model's own estimate (a misread amount:
-// "200 chicken" isn't 200 breasts), the model's grams win and the amount shows in grams, so the
-// amount, the weight and the numbers always agree. A generic container (a bowl, a plate) yields to
-// the model's weight, which knows a bowl of oatmeal from a bowl of pasta. No amount at all is the
-// default serving.
+// A table food and an amount as an item. An exact amount is weighed by the conversion. Anything else
+// (no amount, "some", a size or container USDA doesn't weigh for this food: "medium fries", "a bowl")
+// takes the model's weight, which reads the context; a name alone then shows in grams. Without the
+// model's weight it's the conversion's convention or the default serving. A count of 50+ with no unit
+// far off the model's weight is a misread amount ("200 chicken" isn't 200 breasts) and shows in grams,
+// so the amount, the weight and the numbers always agree.
 export function itemFor(food: Food, qty?: number, unit?: FoodUnit, said?: string, modelGrams?: number): FoodItem {
   const weighed = toGrams(food, qty, unit);
   const converted = weighed?.grams;
   const misread = !unit && (qty ?? 0) >= 50 && !!converted && !!modelGrams && converted / modelGrams > 4;
-  if (modelGrams && (misread || !converted)) return itemFor(food, Math.round(modelGrams), 'g', said);
-  const container = !!unit && CONTAINERS.has(unit) && weighed?.how === 'generic';
-  const grams = Math.round((container && modelGrams) || (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
+  const nameOnly = qty === undefined && !unit;
+  if (modelGrams && (misread || !converted || nameOnly)) return itemFor(food, Math.round(modelGrams), 'g', said);
+  const exact = exactAmount(food, qty, unit, weighed?.how);
+  const grams = Math.round(!exact && modelGrams ? modelGrams : (converted ?? toGrams(food, undefined, undefined)?.grams ?? 100));
   const amount = converted ? { qty, unit } : { qty: grams, unit: 'g' as const };
   return { name: food.name, ...(said ? { said } : {}), foodId: food.id, ...amount, grams, macros: macrosFor(food, grams), source: 'usda' };
 }
@@ -303,8 +312,10 @@ export function setQty(item: FoodItem, qty: number): FoodItem {
   const food = item.foodId ? foodById.get(item.foodId) : undefined;
   if (food) {
     const perUnit = item.grams && item.qty ? item.grams / item.qty : undefined;
+    // An inexact amount ("1 bowl", "1 medium" fries) keeps the weight per unit it was logged with
     const weighed = toGrams(food, qty, item.unit);
-    const grams = Math.round(weighed && weighed.how !== 'generic' ? weighed.grams : perUnit ? perUnit * qty : weighed?.grams ?? 100);
+    const exact = weighed && exactAmount(food, qty, item.unit, weighed.how);
+    const grams = Math.round(exact ? weighed.grams : perUnit ? perUnit * qty : weighed?.grams ?? 100);
     return { ...item, qty, grams, macros: macrosFor(food, grams) };
   }
   const k = qty / (item.qty ?? 1);

@@ -4,7 +4,8 @@ import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems } from './f
 
 test('buildFoodRequest lists the candidate foods by key after the log', () => {
   const req = buildFoodRequest('2 eggs', { date: '2026-10-03', foods: ['Egg, whole (cooked)', 'Egg white (cooked)'] });
-  assert.equal(req.model, 'claude-haiku-4-5-20251001');
+  assert.equal(req.model, 'claude-sonnet-5-5');
+  assert.equal('temperature' in req, false); // 5.x models take only their default
   assert.match(req.messages[0].content, /Saturday 2026-10-03[\s\S]*<log>2 eggs<\/log>\n<foods>\nf1 Egg, whole \(cooked\)\nf2 Egg white \(cooked\)\n<\/foods>$/);
   assert.doesNotMatch(buildFoodRequest('x', { date: '2026-10-03' }).messages[0].content, /<foods>/);
 });
@@ -34,6 +35,7 @@ test('readFoodItems keeps valid picks and estimates and drops bad values', () =>
     { said: 'toast', unit: 'slice' },
   ]);
   assert.equal(readFoodItems('no json here', 3), null);
+  assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1",},],"confidence":0.9,}', 1)!.items.length, 1); // trailing commas
   assert.equal(readFoodItems('{"items":"x"}', 3), null);
   assert.equal(readFoodItems('{"items":[],"reply":"About 40 g."}', 0)!.reply, 'About 40 g.');
 });
