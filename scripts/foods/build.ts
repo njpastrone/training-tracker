@@ -11,9 +11,12 @@
 //   3. node --import tsx --test data/foods.test.mts
 // The folder is searched recursively, so the zips' nested folders are fine. Same input, same output.
 //
-// Numbers per pick: macros per 100 g from the pick's `fdc` food; unit weights from the portions of
-// `fdc` plus `portionsFrom`, normalized into FoodUnit keys by unitsOf() below, then the pick's own
-// `units` overrides on top.
+// Two tables come out:
+// - FOODS, the core: one row per pick. Macros per 100 g from the pick's `fdc` food; unit weights from
+//   the portions of `fdc` plus `portionsFrom`, normalized into FoodUnit keys by unitsOf() below, then
+//   the pick's own `units` on top. A pick whose USDA food lacks a macro fails the build (fiber may be
+//   missing only when carbs are ~0, or when the pick says `noFiber`).
+// - MORE_FOODS, the long tail: the rest of SR Legacy's whole foods, named and deduped by moreFoods().
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -53,13 +56,13 @@ function readCsv(path: string): Record<string, string>[] {
   return body.filter((r) => r.length > 1).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ''])));
 }
 
-// Both CSV releases share a layout; `keep` limits which fdc ids are loaded (the build only needs its picks)
-function loadCsvRelease(dir: string, dataset: Dataset, keep: (fdc: number) => boolean, out: Map<number, UsdaFood>) {
+// Both CSV releases share a layout
+function loadCsvRelease(dir: string, dataset: Dataset, out: Map<number, UsdaFood>) {
   const unitNames = new Map(readCsv(join(dir, 'measure_unit.csv')).map((r) => [r.id, r.name]));
   for (const r of readCsv(join(dir, 'food.csv'))) {
     const fdc = Number(r.fdc_id);
     if (dataset === 'foundation' && r.data_type !== 'foundation_food') continue; // skip lab sub-samples
-    if (keep(fdc)) out.set(fdc, { fdc, dataset, description: r.description, group: Number(r.food_category_id), nutrients: {}, portions: [] });
+    out.set(fdc, { fdc, dataset, description: r.description, group: Number(r.food_category_id), nutrients: {}, portions: [] });
   }
   for (const r of readCsv(join(dir, 'food_nutrient.csv'))) {
     const f = out.get(Number(r.fdc_id));
@@ -92,7 +95,7 @@ function splitQty(s: string): [number, string] {
   return [qty, m[5]];
 }
 
-export function loadUsda(dataDir: string, keep: (fdc: number) => boolean = () => true): Map<number, UsdaFood> {
+export function loadUsda(dataDir: string): Map<number, UsdaFood> {
   const files = (readdirSync(dataDir, { recursive: true }) as string[]).map((p) => join(dataDir, p));
   const release = (tag: string) => {
     const food = files.find((p) => basename(p) === 'food.csv' && p.includes(tag));
@@ -103,11 +106,10 @@ export function loadUsda(dataDir: string, keep: (fdc: number) => boolean = () =>
   if (!survey) throw new Error(`no surveyDownload.json under ${dataDir}`);
 
   const out = new Map<number, UsdaFood>();
-  loadCsvRelease(release('sr_legacy'), 'sr', keep, out);
-  loadCsvRelease(release('foundation'), 'foundation', keep, out);
+  loadCsvRelease(release('sr_legacy'), 'sr', out);
+  loadCsvRelease(release('foundation'), 'foundation', out);
   const foods = (JSON.parse(readFileSync(survey, 'utf8')) as { SurveyFoods: SurveyFood[] }).SurveyFoods;
   for (const s of foods) {
-    if (!keep(s.fdcId)) continue;
     const nutrients: Record<number, number> = {};
     for (const n of s.foodNutrients) if (WANTED.has(n.nutrient.id) && n.amount != null) nutrients[n.nutrient.id] = n.amount;
     const portions = [...(s.foodPortions ?? [])].sort((a, b) => a.sequenceNumber - b.sequenceNumber).map((p) => {
@@ -137,9 +139,11 @@ export function loadUsda(dataDir: string, keep: (fdc: number) => boolean = () =>
 // One unit key, several portions: take the plainest. Score 0 = the bare word, maybe with "NFS",
 // "any size", "cooked", "whole" or a parenthetical ("cup (8 fl oz)"); 1 = chopped/diced/cubed, or a
 // medium size word; 2 = any other qualifier (sliced, packed, shredded, mashed…); 3 = another size
-// ("large slice"). Ties go to the preferred dataset — SR Legacy for volumes (measured cups and
-// spoons), FNDDS for everything else (the "as eaten" sizes like "1 banana", "1 slice") — then USDA's
-// own portion order.
+// ("large slice"). Scores 0 and 1 count as equally plain; ties go to the preferred dataset — SR
+// Legacy for volumes (measured cups and spoons), FNDDS for everything else (the "as eaten" sizes like
+// "1 banana", "1 slice") — then the lower score, then USDA's own portion order. So a cup of broccoli
+// is SR's "cup, chopped", not FNDDS's "1 cup", and a slice of bread is FNDDS's "1 regular slice".
+// "oz (14 halves)"-style portions give a piece: the ounce over the count.
 
 const SKIP = /yield|guideline|not specified|inch|calorie|with sauce|with gravy|topping|\border\b|meal|pizza|sandwich(?! size)|crust|excluding refuse|with refuse|\bpeel\b|unpeeled|\bmeat only\b|\bcontents\b|\bdrained solids\b|\bsub\b/;
 // Yields that are a real weight of the food as eaten, not of its raw or dry ingredient
@@ -318,7 +322,7 @@ export function toFood(p: Pick, usda: Map<number, UsdaFood>, errors: string[], u
 // which SR calls raw — and the three canned syrup strengths folded into "in syrup". Rows that end up
 // with the same name (compared singularized) keep ONE, ranked by: plainest cooking method (roasted/
 // broiled/grilled/baked, then boiled/steamed, braised/stewed, pan-fried, fried); then fewest of:
-// select/prime grade, 1/4" trim, lean only (the cut as sold, trimmed to 0-1/8", wins), with salt,
+// select/prime grade, 1/4" trim, lean only (lean-and-fat trimmed to 0-1/8", the cut as sold, wins), with salt,
 // reduced sodium, fortified, frozen, added solution, USDA commodity; then fewest name parts; then the
 // lowest fdc id. Names equal to a core name or alias are dropped: the core entry covers them.
 //   "Beef, top sirloin, steak, separable lean and fat, trimmed to 1/8" fat, all grades, cooked, broiled"
@@ -334,7 +338,7 @@ const ONLY: Record<number, RegExp> = {
   14: /^(beverages, (coffee|tea|carbonated|water|almond|oat|rice|soy|coconut|sports|energy)|alcoholic beverage, (beer|wine|distilled|liqueur|rice)|water|tea|coffee|lemonade)/i,
 };
 const EXCLUDE = /babyfood|infant|toddler|fast food|restaurant|school lunch|sauce|gravy|breaded|batter|stuffed|stuffing|casserole|salad|sandwich|dinner|entree|pizza|soup|\bmix\b|prepared with|prepared-from-recipe|formula|meal replacement|commodity|\bpowder|cocktail|imitation|substitute|low calorie|aspartame|sucralose|dehydrated|stewed/i;
-const EXCLUDE_MEAT = /\b(australian|new zealand|composite|lungs|spleen|pancreas|thymus|brain|mechanically separated|giblets|neck|back|skin only|feet|ears|chitterlings|leaf fat|backfat|separable fat|cracklings|salt pork|fatback|fried)\b/i;
+const EXCLUDE_MEAT = /\b(australian|new zealand|composite|lungs|spleen|pancreas|thymus|brain|mechanically separated|giblets|neck|back(?! ?ribs)|skin only|feet|ears|chitterlings|leaf fat|backfat|separable fat|cracklings|salt pork|fatback|fried)\b/i;
 const MEAT_GROUPS = new Set([5, 10, 13, 17]);
 const isBrand = (d: string) => /\b[A-Z]{3,}\b/.test(d.replace(/\bUSDA\b/g, ''))
   || d.split(', ').some((part, i) => /\b[A-Z][a-z'’]+ [A-Z][a-z'’]+/.test(i ? part : part.replace(/^(New Zealand|Great Northern)\b/, '')));

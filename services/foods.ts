@@ -256,6 +256,18 @@ export function setUnit(item: FoodItem, unit: FoodUnit): FoodItem {
   return setQty({ ...item, unit, qty }, qty);
 }
 
+// Other table foods the user may have meant ("Rice, brown", "Rice, white, dry"), for a one-tap swap
+// (close siblings first: those sharing the most words with what was said and the food's name)
+export function alternatives(item: FoodItem, max = 3): Food[] {
+  return buildFoodCandidates(`${item.said ?? ''} ${item.name}`).filter((f) => f.id !== item.foodId).slice(0, max);
+}
+
+// The same amount of another table food: in the same unit when it has a weight for it, else in grams
+export function swapFood(item: FoodItem, food: Food): FoodItem {
+  const sameUnit = item.qty === undefined || !item.unit || toGrams(food, item.qty, item.unit);
+  return sameUnit ? itemFor(food, item.qty, item.unit, item.said) : itemFor(food, item.grams, 'g', item.said);
+}
+
 // Totals for a list of items
 export function sumMacros(items: { macros: Macros }[]): Macros {
   const t = items.reduce((s, { macros: m }) => ({ kcal: s.kcal + m.kcal, protein: s.protein + m.protein, carbs: s.carbs + m.carbs, fat: s.fat + m.fat }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });

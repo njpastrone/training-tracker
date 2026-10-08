@@ -6,7 +6,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, foodCategoryColors, spacing } from '../constants/theme';
 import { foodById } from '../data/foods';
-import { macroLine, setQty, setUnit, sumMacros } from '../services/foods';
+import { alternatives, macroLine, setQty, setUnit, sumMacros, swapFood } from '../services/foods';
 import { amountLabel, unitsFor } from '../services/foodUnits';
 import type { FoodDraft, FoodItem, Macros } from '../types/food';
 import NumberChip from './NumberChip';
@@ -114,6 +114,22 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
                       ? `USDA${item.grams ? `, ${item.grams} g` : ''}: ${food.source}`
                       : `A best guess from AI${item.said ? ` for “${item.said}”` : ''}. Tap a number to change it.`}
                   </Text>
+                  {food && onChange ? (
+                    <View style={styles.swaps}>
+                      <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Not this one?</Text>
+                      {alternatives(item).map(alt => (
+                        <Pressable
+                          key={alt.id}
+                          onPress={() => edit(i, { ...swapFood(item, alt), ...(item.dayOffset ? { dayOffset: item.dayOffset } : {}) })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Use ${alt.name} instead`}
+                          style={[styles.swap, { borderColor: colors.glassLine }]}
+                        >
+                          <Text variant="labelMedium" style={{ color: colors.text }}>{alt.name}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               )}
             </View>
@@ -212,6 +228,19 @@ const styles = StyleSheet.create({
   },
   note: {
     marginTop: spacing.xs,
+  },
+  swaps: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  swap: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   macroChips: {
     flexDirection: 'row',

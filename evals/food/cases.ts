@@ -187,10 +187,10 @@ export const cases: FoodCase[] = [
     id: 'simple-tofu-brown-rice',
     category: 'simple',
     input: '150g firm tofu with a cup of brown rice',
-    ref: { kcal: 464, protein: 31.4, carbs: 55.9, fat: 15.1 },
+    ref: { kcal: 365, protein: 19, carbs: 56.1, fat: 8.3 },
     items: [
-      { name: 'Firm tofu', grams: 150, kcal: 216, protein: 25.9, carbs: 4.2, fat: 13.1,
-        source: 'USDA SR 172475 "Tofu, raw, firm, prepared with calcium sulfate"; 150 g' },
+      { name: 'Firm tofu', grams: 150, kcal: 117, protein: 13.5, carbs: 4.4, fat: 6.3,
+        source: 'USDA SR 172448 "Tofu, raw, firm, prepared with nigari" (78 kcal/100 g, like US supermarket firm tofu labels; SR 172475, calcium sulfate, is 144); 150 g' },
       { name: 'Brown rice, cooked', grams: 202, kcal: 248, protein: 5.5, carbs: 51.7, fat: 2,
         source: "USDA SR 169704 \"Rice, brown, long-grain, cooked (Includes foods for USDA's Food Distribution Program)\"; \"1 cup\" = 202 g" },
     ],

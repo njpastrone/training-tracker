@@ -113,8 +113,8 @@ test('spot checks against known USDA values', () => {
     ['beer', 'beer'], ['tofu', 'tofu-firm'], ['protein powder', 'whey-protein']];
   for (const [word, id] of defaults) assert.equal(byWord.get(singularWords(word)), id, `"${word}"`);
   assert.equal(byWord.get('protein'), undefined, '"protein" alone is too broad to name a food');
-  // The plain egg is cooked without added fat; firm tofu is the dense calcium-set kind
+  // The plain egg is cooked without added fat; firm tofu is the supermarket kind (about 78 kcal/100 g)
   near(get('egg').per100g.kcal, 155, 5, 'hard-boiled egg kcal/100 g');
-  near(get('tofu-firm').per100g.kcal, 144, 5, 'firm tofu kcal/100 g');
+  near(get('tofu-firm').per100g.kcal, 78, 5, 'firm tofu kcal/100 g');
   near(get('whey-protein').units.scoop, 30, 3, 'scoop of whey');
 });

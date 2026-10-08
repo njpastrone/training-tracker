@@ -5,7 +5,7 @@ import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
   buildFoodCandidates, candidateName, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
-  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions,
+  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood,
 } from './foods';
 
 const food = (id: string) => {
@@ -125,4 +125,18 @@ test('the long tail never shadows the core table', () => {
   const core = new Set(FOODS.map(f => f.id));
   assert.ok(MORE_FOODS.every(f => !core.has(f.id)));
   assert.equal(matchFood('banana')?.id, 'banana');
+});
+
+test('alternatives and swapFood: one tap from cooked to dry, keeping the amount', () => {
+  const cup = itemFor(food('rice'), 1, 'cup', '1 cup rice');
+  const alts = alternatives(cup).map(f => f.id);
+  assert.ok(alts.includes('rice-dry'), alts.join());
+  assert.ok(!alts.includes('rice'));
+  const dry = swapFood(cup, food('rice-dry'));
+  assert.deepEqual([dry.foodId, dry.qty, dry.unit], ['rice-dry', 1, 'cup']);
+  assert.ok(dry.macros.kcal > 2 * cup.macros.kcal);
+  // A unit the new food has no weight for becomes grams
+  const breast = itemFor(food('chicken-breast'), 1, 'breast');
+  const tofu = swapFood(breast, food('tofu-firm'));
+  assert.ok(tofu.unit === 'breast' ? !!tofu.grams : tofu.unit === 'g' && tofu.qty === breast.grams);
 });

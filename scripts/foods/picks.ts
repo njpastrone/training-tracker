@@ -923,10 +923,11 @@ export const PICKS: Pick[] = [
   { id: 'hummus', name: 'Hummus', aliases: ['humus', 'houmous', 'hommus'], category: 'legumes', fdc: 321358, portionsFrom: [174289, 2707402], serving: { qty: 2, unit: 'tbsp' } },
   // Edamame: shelled, cooked from frozen; 1 cup of shelled beans (a cup in pods weighs differently)
   { id: 'edamame', name: 'Edamame', aliases: ['shelled edamame', 'edamame beans', 'green soybeans'], category: 'legumes', fdc: 168411, portionsFrom: [2707436], serving: { qty: 1, unit: 'cup' }, state: 'cooked' },
-  // "tofu" → firm tofu (the block most people buy): SR 172475 'Tofu, raw, firm, prepared with calcium
-  // sulfate' (144 kcal/100 g). SR's nigari firm tofu (172448, 78 kcal) is closer to regular tofu.
+  // "tofu" → firm tofu (the block most people buy): SR 172448 'Tofu, raw, firm, prepared with nigari'
+  // (78 kcal/100 g), in line with US supermarket firm tofu labels (about 75-90 kcal/100 g). SR's
+  // calcium-sulfate firm tofu (172475, 144 kcal) is denser than what stores sell.
   // 3 oz serving = the FDA RACC for tofu
-  { id: 'tofu-firm', name: 'Tofu, firm', aliases: ['tofu', 'firm tofu', 'bean curd'], category: 'legumes', fdc: 172475, serving: { qty: 3, unit: 'oz' } },
+  { id: 'tofu-firm', name: 'Tofu, firm', aliases: ['tofu', 'firm tofu', 'bean curd'], category: 'legumes', fdc: 172448, serving: { qty: 3, unit: 'oz' } },
   // cup: 252 g, the cup weight of firm tofu (SR 172448); USDA gives extra-firm no portion
   { id: 'tofu-extra-firm', name: 'Tofu, extra firm', aliases: ['extra firm tofu', 'super firm tofu'], category: 'legumes', fdc: 174290, serving: { qty: 3, unit: 'oz' }, units: { cup: 252 } },
   { id: 'tofu-soft', name: 'Tofu, soft', aliases: ['soft tofu', 'silken tofu'], category: 'legumes', fdc: 172449, serving: { qty: 3, unit: 'oz' } },
