@@ -20,6 +20,12 @@ globalThis.fetch = (async (_url: string, init: RequestInit) => {
   const body = JSON.parse(String(init.body));
   sent.push(body);
   if (offline) throw new TypeError('Network request failed');
+  if (body.food?.fix) {
+    // Keeps the draft's own keys: the egg is f1 because draft foods are listed first
+    const reply = /protein/.test(body.food.fix) ? 'About 19 g of protein.' : null;
+    const qty = /3 eggs/.test(body.food.fix) ? 3 : 2;
+    return Response.json({ text: JSON.stringify({ items: [{ said: 'eggs', food: 'f1', qty, grams: qty * 50 }], confidence: 0.9, reply }) });
+  }
   if (body.food) {
     const items = /big mac/i.test(body.food.input)
       ? [{ said: 'a Big Mac', food: null, name: 'Big Mac', qty: 1, grams: 219, kcal: 580, protein: 25, carbs: 45, fat: 34 }]
@@ -30,7 +36,7 @@ globalThis.fetch = (async (_url: string, init: RequestInit) => {
   return Response.json({ text: JSON.stringify({ exercises, muscleGroups: exercises.length ? ['quads'] : [], confidence: 0.9 }) });
 }) as typeof fetch;
 
-const { parseLog } = await import('./claude');
+const { parseLog, correctFood } = await import('./claude');
 const { useWorkoutStore } = await import('../stores/workoutStore');
 const options = { date: '2026-10-03', unit: 'lbs' as const };
 const foods = (r: Awaited<ReturnType<typeof parseLog>>) => r.food?.items.map(i => i.foodId ?? i.name) ?? [];
@@ -91,4 +97,14 @@ test('offline with both halves: each falls back to its own part, never the whole
   assert.deepEqual(asked().sort(), ['food', 'workout']);
   assert.deepEqual(r.workout?.exercises.map(e => e.name), ['squat 3x5']);
   assert.deepEqual(foods(r), ['Big Mac']);
+});
+
+test('a typed fix to the food keeps its table food and recomputes; a question gets an answer', async () => {
+  const draft = (await parseLog('2 eggs', options)).food!;
+  const fixed = await correctFood(draft, 'it was 3 eggs', options.date);
+  assert.equal(sent[0].food!.foods[0].startsWith('Egg'), true);
+  assert.deepEqual(fixed!.draft.items.map(i => [i.foodId, i.qty, i.grams]), [['egg', 3, 150]]);
+  assert.ok(fixed!.draft.items[0].macros.kcal > draft.items[0].macros.kcal);
+  const asked = await correctFood(draft, 'how much protein is that?', options.date);
+  assert.equal(asked!.reply, 'About 19 g of protein.');
 });
