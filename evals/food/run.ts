@@ -4,6 +4,7 @@
 //
 //   npm run eval:food                          # full run, Haiku 4.5
 //   npm run eval:food -- --local               # the no-AI parser only (free, offline)
+//   npm run eval:food -- --hybrid              # the phone's parse when it's confident, AI for the rest
 //   npm run eval:food -- --only branded,units  # categories or case ids
 //   npm run eval:food -- --verbose             # print every miss
 //   npm run eval:food -- --against evals/food/results/<earlier>.json
@@ -13,7 +14,7 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { buildFoodRequest, readFoodItems } from '../../server/src/food.ts';
-import { buildFoodCandidates, candidateName, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog } from '../../services/foods.ts';
+import { buildFoodCandidates, candidateName, confidentLocal, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog } from '../../services/foods.ts';
 import { MACROS, scoreFoodCase, type Predicted } from './score.ts';
 import type { FoodCase } from './cases.ts';
 
@@ -21,6 +22,7 @@ const { values: args } = parseArgs({
   options: {
     set: { type: 'string', default: 'cases' },
     local: { type: 'boolean', default: false },
+    hybrid: { type: 'boolean', default: false }, // the phone's parse when it's confident, else AI
     model: { type: 'string' },
     only: { type: 'string' },
     repeat: { type: 'string', default: '1' },
@@ -67,7 +69,10 @@ async function runCase(c: FoodCase) {
   let cost = 0;
   let usage = { input_tokens: 0, output_tokens: 0 };
   const candidates = buildFoodCandidates(c.input);
-  if (args.local) {
+  const confident = args.hybrid ? confidentLocal(c.input) : null;
+  if (confident) {
+    predicted = { items: confident.items };
+  } else if (args.local) {
     // What the app does with AI off: food parts of the message, read on the phone
     const food = splitLog(c.input).food;
     predicted = { items: food ? localFoodParse(food).items : [] };
@@ -140,7 +145,7 @@ const totalCost = results.reduce((s, r) => s + r.cost, 0);
 const latencies = results.map((r) => r.ms).sort((a, b) => a - b);
 const items = results.flatMap((r) => r.predicted?.items ?? []);
 const foodCases = results.filter((r) => selected.find((c) => c.id === r.id)!.items.length > 0);
-console.log(`${args.local ? 'local parser (no AI)' : `model ${String(buildFoodRequest('', { date: '2026-10-03' }).model)}${args.model ? ` → ${args.model}` : ''}`}  cases ${selected.length} x${args.repeat}  (within 20%, floors kcal 25, macros 3 g)`);
+console.log(`${args.hybrid ? `hybrid (phone for ${results.filter((r) => !r.usage.input_tokens && !r.error).length} logs) + ` : ''}${args.local ? 'local parser (no AI)' : `model ${String(buildFoodRequest('', { date: '2026-10-03' }).model)}${args.model ? ` → ${args.model}` : ''}`}  cases ${selected.length} x${args.repeat}  (within 20%, floors kcal 25, macros 3 g)`);
 console.table(rows);
 console.log(`items ${items.length}: ${pct(items.filter((i) => i.source === 'usda').length, items.length)} from USDA, ${pct(items.filter((i) => i.source === 'estimate').length, items.length)} AI estimates`);
 const mixed = (r: (typeof results)[number]) => selected.find((c) => c.id === r.id)!.workout !== undefined;
@@ -155,7 +160,7 @@ if (errors.length) console.log(`${errors.length} errors, first: ${errors[0].erro
 const at = new Date().toISOString();
 const summary = { at, args, rows, cost: totalCost, cases: Object.fromEntries(results.map((r) => [r.id, r.all])) };
 mkdirSync(new URL('./results/', import.meta.url), { recursive: true });
-const outFile = new URL(`./results/${at.replace(/[:.]/g, '-')}${args.local ? '-local' : ''}${args.label ? `-${args.label}` : ''}.json`, import.meta.url);
+const outFile = new URL(`./results/${at.replace(/[:.]/g, '-')}${args.local ? '-local' : args.hybrid ? '-hybrid' : ''}${args.label ? `-${args.label}` : ''}.json`, import.meta.url);
 writeFileSync(outFile, JSON.stringify({ ...summary, results }, null, 2));
 console.log(`saved ${outFile.pathname}`);
 // Running API spend across eval runs (the results folder is git-ignored)
