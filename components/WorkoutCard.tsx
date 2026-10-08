@@ -6,7 +6,7 @@ import { SymbolView } from 'expo-symbols';
 import { Workout } from '../types/workout';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
-import { foodDayLine, workoutSummary } from '../services/format';
+import { cardTargets, foodDayLine, workoutSummary } from '../services/format';
 import type { FoodDayTotal } from '../services/progress';
 import { SkyCard } from './Sky';
 import ExerciseRows from './ExerciseRows';
@@ -15,7 +15,7 @@ interface Props {
   workout: Workout;
   onPress?: () => void;
   selected?: boolean; // set while selecting: a check circle replaces the chevron
-  food?: FoodDayTotal; // History's day cards: the day's food in one line; the card then opens the day
+  food?: FoodDayTotal; // History's day cards: the day's food in one line, which opens the day
 }
 
 export function dayLabel(date: string) {
@@ -26,48 +26,54 @@ export function dayLabel(date: string) {
 export default function WorkoutCard({ workout, onPress, selected, food }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
-
-  const handlePress = () => {
-    if (onPress) {
-      onPress();
-    } else {
-      router.push(food ? `/day/${workout.date}` : `/workout/${workout.id}`);
-    }
-  };
+  const targets = cardTargets(workout);
+  const handlePress = onPress ?? (() => router.push(targets.body));
 
   return (
-    <Pressable
-      onPress={handlePress}
-      accessibilityRole={selected === undefined ? 'button' : 'checkbox'}
-      accessibilityState={selected === undefined ? undefined : { checked: selected }}
-      accessibilityHint={selected === undefined ? (food ? 'Opens the day' : 'Opens the workout') : undefined}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-    >
-      <SkyCard style={styles.card} pointerEvents="box-only">
-        <View style={styles.header}>
-          <View style={styles.title}>
-            <Text variant="titleMedium" style={{ color: colors.text }}>
-              {dayLabel(workout.date)}
-            </Text>
-            <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
-              {workoutSummary(workout.exercises)}
-            </Text>
+    <SkyCard style={styles.card}>
+      <Pressable
+        onPress={handlePress}
+        accessibilityRole={selected === undefined ? 'button' : 'checkbox'}
+        accessibilityState={selected === undefined ? undefined : { checked: selected }}
+        accessibilityHint={selected === undefined ? 'Opens the workout' : undefined}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
+        <View pointerEvents="box-only">
+          <View style={styles.header}>
+            <View style={styles.title}>
+              <Text variant="titleMedium" style={{ color: colors.text }}>
+                {dayLabel(workout.date)}
+              </Text>
+              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
+                {workoutSummary(workout.exercises)}
+              </Text>
+            </View>
+            {selected === undefined ? (
+              <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
+            ) : (
+              <SymbolView name={selected ? 'checkmark.circle.fill' : 'circle'} size={22} tintColor={selected ? colors.sunrise : colors.textTertiary} />
+            )}
           </View>
-          {selected === undefined ? (
-            <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
-          ) : (
-            <SymbolView name={selected ? 'checkmark.circle.fill' : 'circle'} size={22} tintColor={selected ? colors.sunrise : colors.textTertiary} />
-          )}
+          <ExerciseRows exercises={workout.exercises} limit={3} />
+          {workout.notes ? (
+            <Text variant="bodySmall" style={[styles.notes, { color: colors.textSecondary }]} numberOfLines={2}>
+              {workout.notes}
+            </Text>
+          ) : null}
         </View>
-        <ExerciseRows exercises={workout.exercises} limit={3} />
-        {workout.notes ? (
-          <Text variant="bodySmall" style={[styles.notes, { color: colors.textSecondary }]} numberOfLines={2}>
-            {workout.notes}
-          </Text>
-        ) : null}
-        {food && <FoodLine food={food} />}
-      </SkyCard>
-    </Pressable>
+      </Pressable>
+      {food && (
+        <Pressable
+          onPress={() => router.push(targets.food)}
+          disabled={selected !== undefined}
+          accessibilityRole="button"
+          accessibilityHint="Opens the day"
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        >
+          <FoodLine food={food} />
+        </Pressable>
+      )}
+    </SkyCard>
   );
 }
 

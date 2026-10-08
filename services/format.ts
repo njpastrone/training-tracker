@@ -1,4 +1,4 @@
-import type { Exercise } from '../types/workout';
+import type { Exercise, Workout } from '../types/workout';
 import type { FoodDayTotal } from './progress';
 
 type ExerciseValues = Omit<Exercise, 'id'>;
@@ -77,6 +77,9 @@ export function weekLine(logged: number, planned: number): string {
 // A day's food in one line, for History's day cards: "90 g protein · 941 kcal · 4 foods"
 export const foodDayLine = (t: FoodDayTotal) =>
   `${t.protein} g protein · ${t.kcal.toLocaleString('en-US')} kcal · ${t.foods} food${t.foods === 1 ? '' : 's'}`;
+
+// Where a History day card's taps go: the card opens its workout, the food line opens the day
+export const cardTargets = (w: Pick<Workout, 'id' | 'date'>) => ({ body: `/workout/${w.id}`, food: `/day/${w.date}` });
 
 // Progress's subtitle: the sky's training days in the last 7 against its target
 export function paceLine(done: number, target: number): string {

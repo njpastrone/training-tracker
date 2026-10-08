@@ -9,6 +9,7 @@ import { SkyCard } from './Sky';
 import ExerciseRows from './ExerciseRows';
 import { dayLabel, FoodLine } from './WorkoutCard';
 import type { FoodDayTotal } from '../services/progress';
+import { cardTargets } from '../services/format';
 
 interface Props {
   date: string;
@@ -34,7 +35,7 @@ export default function GroupedWorkoutCard({ date, workouts, food }: Props) {
       {workouts.map((workout, index) => (
         <Pressable
           key={workout.id}
-          onPress={() => router.push(`/workout/${workout.id}`)}
+          onPress={() => router.push(cardTargets(workout).body)}
           accessibilityRole="button"
           accessibilityLabel={`Session ${index + 1}`}
           accessibilityHint="Opens the workout"
@@ -48,7 +49,7 @@ export default function GroupedWorkoutCard({ date, workouts, food }: Props) {
       ))}
       {food && (
         <Pressable
-          onPress={() => router.push(`/day/${date}`)}
+          onPress={() => router.push(cardTargets(workouts[0]).food)}
           accessibilityRole="button"
           accessibilityHint="Opens the day"
           style={({ pressed }) => [styles.session, { borderTopColor: colors.border, opacity: pressed ? 0.7 : 1 }]}

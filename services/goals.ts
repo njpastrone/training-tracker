@@ -88,6 +88,16 @@ export function goalProgress(goals: Goals, workouts: Workout[], library: Exercis
   };
 }
 
+// What Progress shows: workout goals only once there are workouts; the protein goal and the food
+// week whenever they apply, so someone who only logs food still sees them
+export function progressSections(hasWorkouts: boolean, goals: ReturnType<typeof goalProgress> | undefined, foodLogged: number) {
+  const shown = goals && (hasWorkouts ? goals : { ...goals, muscles: [], custom: [], timesMet: 0, setsMet: 0 });
+  return {
+    goals: shown && (shown.muscles.length > 0 || shown.custom.length > 0 || !!shown.protein) ? shown : undefined,
+    food: foodLogged > 0,
+  };
+}
+
 // "8", "5½", and "5½+" when some sets weren't written down
 export const formatSets = (sets: number, missing: boolean) =>
   `${Math.floor(sets)}${sets % 1 ? '½' : ''}${missing ? '+' : ''}`.replace(/^0½/, '½');

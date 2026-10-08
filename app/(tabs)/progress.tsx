@@ -19,7 +19,7 @@ import { digest, target, ExerciseSummary, LiftTrend, Target } from '../../servic
 import { daysAgo, lastDoneLine, paceLine } from '../../services/format';
 import { foodWeek } from '../../services/progress';
 import { format, parseISO } from 'date-fns';
-import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName } from '../../services/goals';
+import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName, progressSections } from '../../services/goals';
 import { missedChips } from '../../services/suggestions';
 import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import type { MuscleGroup, Workout } from '../../types/workout';
@@ -37,8 +37,8 @@ export default function ProgressScreen() {
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
   const trends = useMemo(() => new Map(d.liftTrends.map(t => [t.id, { trend: t, target: target(t) }])), [d]);
   const goals = useMemo(() => settings.goals && goalProgress(settings.goals, workouts, exerciseLibrary, foodEntries), [settings.goals, workouts, exerciseLibrary, foodEntries]);
-  const hasGoals = !!goals && (goals.muscles.length > 0 || goals.custom.length > 0 || !!goals.protein);
   const food = useMemo(() => foodWeek(foodEntries), [foodEntries]);
+  const show = progressSections(workouts.length > 0, goals, food.logged);
   const chips = useMemo(() => missedChips(workouts, schedule, templates), [workouts, schedule, templates]);
   const [showAll, setShowAll] = useState(false);
   const [logged, setLogged] = useState<Workout[] | null>(null);
@@ -83,21 +83,23 @@ export default function ProgressScreen() {
         />
       )}
 
-      {reviewing ? null : workouts.length === 0 ? (
-        <SkyCard style={styles.empty}>
-          <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
-          <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
-          <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-            Log a workout and you'll see when you last did each exercise and how often. Numbers are optional.
-          </Text>
-        </SkyCard>
-      ) : (
+      {reviewing ? null : (
         <>
+          {workouts.length === 0 && (
+            <SkyCard style={styles.empty}>
+              <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
+              <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
+              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+                Log a workout and you'll see when you last did each exercise and how often. Numbers are optional.
+              </Text>
+            </SkyCard>
+          )}
+
           {/* Goals lead the page; until there are some, a prompt to set them (it stays gone after Not now) */}
-          {hasGoals ? (
-            <GoalsCard progress={goals} daysSince={d.daysSinceGroupTrained} />
+          {show.goals ? (
+            <GoalsCard progress={show.goals} daysSince={d.daysSinceGroupTrained} />
           ) : (
-            !settings.goalsPromptDismissed && (
+            workouts.length > 0 && !settings.goalsPromptDismissed && (
               <GoalsPrompt
                 onPreset={() => updateSettings({ goals: { ...(settings.goals ?? NO_GOALS), muscles: settings.goals?.muscles.length ? settings.goals.muscles : DEFAULT_MUSCLES, timesPerWeek: 2 } })}
                 onOwn={() => router.push('/goals')}
@@ -106,71 +108,75 @@ export default function ProgressScreen() {
             )
           )}
 
-          {food.logged > 0 && <FoodWeekCard week={food} />}
+          {show.food && <FoodWeekCard week={food} />}
 
-          <SectionLabel style={styles.label}>Your exercises</SectionLabel>
-          <SkyCard>
-            {shown.map((e, i) => (
-              <ExerciseRow
-                key={e.id}
-                exercise={e}
-                lift={trends.get(e.id)}
-                first={i === 0}
-                onPress={() => router.push({ pathname: '/exercise', params: { id: e.id } })}
-              />
-            ))}
-            {d.exercises.length > SHOWN && (
-              <Pill
-                variant="glass"
-                size="small"
-                label={showAll ? 'Show fewer' : `Show all ${d.exercises.length}`}
-                onPress={() => setShowAll(!showAll)}
-                style={styles.more}
-              />
-            )}
-          </SkyCard>
-
-          {/* With muscle goals on, the goals card shows each muscle instead */}
-          {!goals?.muscles.length && (
+          {workouts.length > 0 && (
             <>
-              <View style={[styles.header, styles.label]}>
-                <SectionLabel style={styles.fill}>Days since trained</SectionLabel>
-                {!goals?.custom.length && settings.goalsPromptDismissed && (
-                  <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" hitSlop={10}>
-                    <Text variant="labelLarge" style={{ color: colors.sunrise }}>Set goals</Text>
-                  </Pressable>
-                )}
-              </View>
+              <SectionLabel style={styles.label}>Your exercises</SectionLabel>
               <SkyCard>
-                <View style={styles.groups}>
-                  {groups.map(g => {
-                    const days = d.daysSinceGroupTrained[g]!;
-                    const stale = d.staleGroups.includes(g);
-                    return (
-                      <Pressable
-                        key={g}
-                        onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${muscleName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
-                        style={({ pressed }) => [
-                          styles.group,
-                          { width: fontScale > LIST_AT_FONT_SCALE ? '100%' : '48%' }, // two a row so names fit; one at large text
-                          { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <View style={styles.groupName}>
-                          <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
-                          <Text variant="labelMedium" style={[styles.shrink, { color: colors.textSecondary }]}>{muscleName(g)}</Text>
-                        </View>
-                        <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
-                          {days === 0 ? 'Today' : `${days}d`}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                {shown.map((e, i) => (
+                  <ExerciseRow
+                    key={e.id}
+                    exercise={e}
+                    lift={trends.get(e.id)}
+                    first={i === 0}
+                    onPress={() => router.push({ pathname: '/exercise', params: { id: e.id } })}
+                  />
+                ))}
+                {d.exercises.length > SHOWN && (
+                  <Pill
+                    variant="glass"
+                    size="small"
+                    label={showAll ? 'Show fewer' : `Show all ${d.exercises.length}`}
+                    onPress={() => setShowAll(!showAll)}
+                    style={styles.more}
+                  />
+                )}
               </SkyCard>
+    
+              {/* With muscle goals on, the goals card shows each muscle instead */}
+              {!goals?.muscles.length && (
+                <>
+                  <View style={[styles.header, styles.label]}>
+                    <SectionLabel style={styles.fill}>Days since trained</SectionLabel>
+                    {!goals?.custom.length && settings.goalsPromptDismissed && (
+                      <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" hitSlop={10}>
+                        <Text variant="labelLarge" style={{ color: colors.sunrise }}>Set goals</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <SkyCard>
+                    <View style={styles.groups}>
+                      {groups.map(g => {
+                        const days = d.daysSinceGroupTrained[g]!;
+                        const stale = d.staleGroups.includes(g);
+                        return (
+                          <Pressable
+                            key={g}
+                            onPress={() => router.push({ pathname: '/exercise', params: { group: g } })}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${muscleName(g)}, ${daysAgo(days)}${stale ? ', longer than usual' : ''}`}
+                            style={({ pressed }) => [
+                              styles.group,
+                              { width: fontScale > LIST_AT_FONT_SCALE ? '100%' : '48%' }, // two a row so names fit; one at large text
+                              { backgroundColor: stale ? colors.warning + '1A' : colors.dim, borderColor: stale ? colors.warning : 'transparent' },
+                              pressed && styles.pressed,
+                            ]}
+                          >
+                            <View style={styles.groupName}>
+                              <View style={[styles.dot, { backgroundColor: muscleGroupColors[g] }]} />
+                              <Text variant="labelMedium" style={[styles.shrink, { color: colors.textSecondary }]}>{muscleName(g)}</Text>
+                            </View>
+                            <Text style={[styles.groupDays, { color: stale ? colors.warning : colors.text }]}>
+                              {days === 0 ? 'Today' : `${days}d`}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </SkyCard>
+                </>
+              )}
             </>
           )}
         </>

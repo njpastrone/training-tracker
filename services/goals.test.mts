@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, formatSets, goalLines } from './goals';
+import { goalProgress, formatSets, goalLines, progressSections } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -118,4 +118,18 @@ test('protein a day: days at the target out of the days food was logged; off unt
   assert.deepEqual(goalProgress({ ...GOALS, protein: 100 }, WORKOUTS, lib, FOOD, NOW).protein, { target: 100, hit: 3, logged: 3, met: true });
   // Nothing logged is never met
   assert.deepEqual(goalProgress({ ...GOALS, protein: 100 }, WORKOUTS, lib, [], NOW).protein, { target: 100, hit: 0, logged: 0, met: false });
+});
+
+test('Progress shows the protein goal and the food week for someone with food but no workouts', () => {
+  const goals = { ...GOALS, protein: 140 };
+  const foodOnly = progressSections(false, goalProgress(goals, [], lib, FOOD, NOW), foodWeek(FOOD, NOW).logged);
+  assert.equal(foodOnly.food, true);
+  assert.deepEqual(foodOnly.goals?.muscles, []);
+  assert.deepEqual(foodOnly.goals?.custom, []);
+  assert.deepEqual(foodOnly.goals?.protein, { target: 140, hit: 2, logged: 3, met: false });
+
+  assert.equal(progressSections(false, goalProgress(GOALS, [], lib, FOOD, NOW), 0).goals, undefined);
+  assert.equal(progressSections(false, undefined, 0).food, false);
+  const both = progressSections(true, goalProgress(goals, WORKOUTS, lib, FOOD, NOW), 3);
+  assert.ok(both.goals!.muscles.length > 0 && both.goals!.protein);
 });
