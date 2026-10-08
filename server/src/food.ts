@@ -140,9 +140,9 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 
 const macro = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined);
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
 
-// Model text → items with bad values dropped; null when the text holds no usable JSON object.
-// `foods` is the candidate count: a key outside it is dropped (the item then needs a name).
-export function readFoodItems(text: string, foods: number): { items: RawFoodItem[]; confidence: number; reply?: string } | null {
+// Model text → items with bad values dropped (`sent` counts the items before dropping); null when the
+// text holds no usable JSON object. `foods` is the candidate count: a key outside it is dropped (the item then needs a name).
+export function readFoodItems(text: string, foods: number): { items: RawFoodItem[]; sent: number; confidence: number; reply?: string } | null {
   // Trailing commas are the one JSON slip models make: drop them rather than lose the log
   const parse = (s: string): { items?: unknown; confidence?: unknown; reply?: unknown } | undefined => {
     try {
@@ -180,14 +180,15 @@ export function readFoodItems(text: string, foods: number): { items: RawFoodItem
   });
   return {
     items,
+    sent: raw.items.length,
     confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.5,
     ...(str(raw.reply) ? { reply: str(raw.reply) } : {}),
   };
 }
 
 // True when Haiku's reply to a food log should go to Sonnet: unfinished (cut off, refused), unreadable,
-// or items less sure than ESCALATE_BELOW. A finished reply with no items is a confident "no food eaten".
+// or items that are less sure than ESCALATE_BELOW or all unusable. A finished reply with no items is a confident "no food eaten".
 export const needsEscalation = (stopReason: string | undefined, text: string, foods: number) => {
   const read = readFoodItems(text, foods);
-  return stopReason !== 'end_turn' || !read || (read.items.length > 0 && read.confidence < ESCALATE_BELOW);
+  return stopReason !== 'end_turn' || !read || (read.sent > 0 && (read.items.length === 0 || read.confidence < ESCALATE_BELOW));
 };

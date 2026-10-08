@@ -225,7 +225,7 @@ test('food mode sends the server-side food prompt with the app\'s food list, beh
 });
 
 test('a food reply Haiku is unsure of, unfinished or unreadable goes to Sonnet on one cap slot', async () => {
-  const food = { input: 'a burrito', date: '2026-10-03', foods: [] };
+  const food = { input: 'a burrito', date: '2026-10-03', foods: ['a', 'b', 'c'] };
   const sure = '{"items":[{"said":"a burrito","name":"Burrito","kcal":700}],"confidence":0.9}';
   const models = () => upstream.map((u) => JSON.parse(u.init.body as string).model);
   for (const [first, escalated] of [
@@ -234,6 +234,7 @@ test('a food reply Haiku is unsure of, unfinished or unreadable goes to Sonnet o
     [{ text: sure, stop_reason: 'max_tokens' }, true],
     [{ text: sure, stop_reason: 'refusal' }, true],
     [{ text: 'not json', stop_reason: 'end_turn' }, true],
+    [{ text: '{"items":[{"food":"f9","qty":2}],"confidence":0.4}', stop_reason: 'end_turn' }, true],
   ] as const) {
     const { env, store } = makeEnv('5');
     replies = [first, { text: 'from sonnet', stop_reason: 'end_turn' }];
