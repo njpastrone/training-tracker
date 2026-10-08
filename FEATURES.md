@@ -161,7 +161,7 @@ Log what you ate in the same box you log workouts with, in as much or as little 
   - A plain egg is hard-boiled (no added fat).
   - "Milk" is 2%, "greek yogurt" is nonfat plain, "chicken" is breast, "steak" is sirloin.
   - Firm tofu matches supermarket labels (about 78 kcal per 100 g). An avocado is a Hass, and "avocado" alone is half of one.
-  - A name alone is your last logged amount of that food, else a typical serving.
+  - A name alone is the weight or volume you last logged of that food, else a typical serving. Counts aren't remembered: "banana" is one banana even after "3 bananas".
   - A plural with no number ("eggs and toast") is two.
 - **Where lookup runs:** in the app bundle (892 KB raw, about 145 KB gzipped). It's instant, works offline and with AI off, and needs no Worker change to update.
 - **The model sees the "usual" food:** foods the log names outright are labelled `(usual for "greek yogurt")` in the candidate list. Long-tail foods are offered only for words the core table doesn't know, so near-duplicates never compete with the usual pick.
