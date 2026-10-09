@@ -59,15 +59,6 @@ export const daysAgo = (n: number) => (n <= 0 ? 'today' : n === 1 ? 'yesterday' 
 export const lastDoneLine = (e: { lastDoneDaysAgo: number; timesLast28Days: number }) =>
   `last done ${daysAgo(e.lastDoneDaysAgo)}${e.timesLast28Days ? ` · ${e.timesLast28Days}× in 4 wks` : ''}`;
 
-// What an empty day screen offers: today and future days can be planned, today and past days can be logged.
-// undefined when the day has a logged or planned workout to show instead.
-export function emptyDay(date: string, today: string, logged: boolean, planned: boolean) {
-  if (logged || planned) return undefined;
-  return date < today
-    ? { title: 'No workouts on this day', plan: false, log: true }
-    : { title: 'Nothing planned', plan: true, log: date === today };
-}
-
 // History's subtitle: logged days (workout or food) in the last 7 days and planned training days in the next 7
 export function weekLine(logged: number, planned: number): string {
   if (!logged && !planned) return 'Nothing logged in the last 7';

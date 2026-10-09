@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SymbolView, SFSymbol } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
-import { Workout } from '../types/workout';
+import { FoodGoal, Workout } from '../types/workout';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
@@ -23,10 +23,11 @@ interface Props {
   byMonth?: boolean;
   full?: boolean;
   food?: Map<string, FoodDayTotal>; // a Days list: see WorkoutList. Select mode still picks workouts only
+  goal?: FoodGoal;
 }
 
 // A workout list with a Select mode for deleting several at once
-export default function SelectableWorkoutList({ label, workouts, groupByDate, enableSwipe, byMonth, food, full }: Props) {
+export default function SelectableWorkoutList({ label, workouts, groupByDate, enableSwipe, byMonth, food, goal, full }: Props) {
   const deleteWithUndo = useWorkoutStore(s => s.deleteWithUndo);
   const [selected, setSelected] = useState<Set<string> | null>(null);
 
@@ -93,6 +94,7 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
         onToggle={toggle}
         food={food}
         full={full}
+        goal={goal}
       />
     </View>
   );

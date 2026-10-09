@@ -60,7 +60,9 @@ export default function HistoryScreen() {
     const planned = new Set(schedule.filter(s => s.date >= today && s.date <= last && !s.completed && !s.skipped && !trained.has(s.date)).map(s => s.date));
     return weekLine(logged.size, planned.size);
   }, [workouts, foodDates, schedule, today]);
-  const starters = useMemo(() => planChips(workouts, settings.weeklyTarget), [workouts, settings.weeklyTarget]);
+  // Plan chips are for people who train; someone who only logs food doesn't get them
+  const foodOnly = !workouts.length && foodDates.size > 0;
+  const starters = useMemo(() => (foodOnly ? [] : planChips(workouts, settings.weeklyTarget)), [foodOnly, workouts, settings.weeklyTarget]);
 
   useEffect(() => {
     loadTemplates();
@@ -156,7 +158,7 @@ export default function HistoryScreen() {
 
           {months.length > 0 ? (
             <>
-              <SelectableWorkoutList label="Days" workouts={shown} byMonth food={shownFood} />
+              <SelectableWorkoutList label="Days" workouts={shown} byMonth food={shownFood} goal={settings.goals?.food} />
               {oldestShown !== months[months.length - 1] && (
                 <Pill variant="glass" label="Show earlier" onPress={() => setPages(pages + 1)} style={styles.earlier} />
               )}

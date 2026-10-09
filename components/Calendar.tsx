@@ -20,8 +20,8 @@ const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // Last week, this week and next week; "Show full month" opens the month grid.
-// Logged = sunrise disc, planned = cobalt ring, today = a ring around the date, ate = a short line
-// under the date (only for people who log food).
+// Trained = sunrise disc, planned = cobalt ring, today = a ring around the date, ate = a grey dot
+// under the date. The legend names only the marks for what you log (training, food or both).
 // Every day opens the day screen, which shows what was logged or planned there.
 export default function Calendar({ workouts, schedule = [], foodDates }: Props) {
   const { colors } = useTheme();
@@ -40,6 +40,9 @@ export default function Calendar({ workouts, schedule = [], foodDates }: Props) 
         .map(s => s.date)
     );
   }, [schedule]);
+
+  const eats = !!foodDates?.size;
+  const lifts = workouts.length > 0 || scheduledDates.size > 0 || !eats; // a new user sees the training marks
 
   const calendarDays = useMemo(() => {
     if (!fullMonth) {
@@ -132,17 +135,18 @@ export default function Calendar({ workouts, schedule = [], foodDates }: Props) 
                   {format(day, 'd')}
                 </Text>
               </View>
-              {ate && <View style={[styles.ate, { backgroundColor: colors.textTertiary }]} />}
+              {/* Always there so the dates line up; clear on a day without food */}
+              <View style={[styles.ate, ate && { backgroundColor: colors.textTertiary }]} />
             </Pressable>
           );
         })}
       </View>
 
       <View style={styles.legend}>
-        <LegendItem label="Logged" swatch={{ backgroundColor: colors.sunrise }} />
-        <LegendItem label="Planned" swatch={{ borderWidth: 2, borderColor: colors.cobalt }} />
+        {lifts && <LegendItem label="Trained" swatch={{ backgroundColor: colors.sunrise }} />}
+        {lifts && <LegendItem label="Planned" swatch={{ borderWidth: 2, borderColor: colors.cobalt }} />}
+        {eats && <LegendItem label="Ate" swatch={{ backgroundColor: colors.textTertiary }} />}
         <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
-        {!!foodDates?.size && <LegendItem label="Ate" swatch={{ height: 2, borderRadius: 1, backgroundColor: colors.textTertiary }} />}
       </View>
 
       {/* A row sizes the pill to its label; alignSelf on the pill itself makes Yoga stretch it down the screen */}
@@ -214,7 +218,7 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: `${100 / 7}%`,
-    height: 44,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -225,13 +229,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Inside the 44 pt cell, under the 34 pt disc
+  // Under the 34 pt disc, inside the 46 pt cell
   ate: {
-    position: 'absolute',
-    bottom: 2,
-    width: 10,
-    height: 2,
-    borderRadius: 1,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 3,
   },
   dayText: {
     fontFamily: fonts.rounded,
@@ -242,8 +245,9 @@ const styles = StyleSheet.create({
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.gap,
-    marginTop: spacing.sm,
+    rowGap: 6,
+    columnGap: 14,
+    marginTop: 10,
   },
   legendItem: {
     flexDirection: 'row',
