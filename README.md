@@ -149,7 +149,7 @@ Type what you want in the chat bar on the History tab ("Plan your week…"), or 
 ### Viewing History
 
 History is the record; how it's going (streaks, PRs, goals) is on Progress. The History tab shows:
-- This week's logged and planned training days
+- Days logged (workouts or food) in the last 7 days and training days planned in the next 7
 - A calendar of logged and planned days: last week, this week and next week (**Show full month** for the whole month)
 - Your days by month (each workout, plus a line for what you ate when you logged food), a few months at a time (**Show earlier** for more)
 
@@ -158,7 +158,7 @@ Tap any day on the calendar to open it: its workouts, or its planned workout (**
 ### Backing Up
 
 All data lives on the phone. It is included in the iPhone's normal iCloud device backup, and **Settings › Backup** adds:
-- **Export backup** - saves workouts, plans, templates and schedule as one `.json` file via the share sheet (Files, iCloud Drive, AirDrop, ...)
+- **Export backup** - saves workouts, food, plans, templates and schedule as one `.json` file via the share sheet (Files, iCloud Drive, AirDrop, ...)
 - **Restore from backup** - picks a LiftText backup file and replaces the data on this phone. The current data is saved first as a safety file.
 - **Weekly backup** - on app launch, saves a file at most once a week to Files › On My iPhone › LiftText › Backups (keeps the last 8). This folder is on the phone, not in iCloud Drive; it leaves the phone only through the iCloud device backup.
 
