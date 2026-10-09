@@ -56,7 +56,8 @@ export default function HistoryScreen() {
     const first = format(subDays(new Date(), 6), 'yyyy-MM-dd');
     const last = format(addDays(new Date(), 6), 'yyyy-MM-dd');
     const logged = new Set([...workouts.map(w => w.date), ...foodDates].filter(d => d >= first && d <= today));
-    const planned = new Set(schedule.filter(s => s.date >= today && s.date <= last && !s.completed && !s.skipped && !logged.has(s.date)).map(s => s.date));
+    const trained = new Set(workouts.map(w => w.date));
+    const planned = new Set(schedule.filter(s => s.date >= today && s.date <= last && !s.completed && !s.skipped && !trained.has(s.date)).map(s => s.date));
     return weekLine(logged.size, planned.size);
   }, [workouts, foodDates, schedule, today]);
   const starters = useMemo(() => planChips(workouts, settings.weeklyTarget), [workouts, settings.weeklyTarget]);
