@@ -123,14 +123,17 @@ export default function ProgressScreen() {
                     onPress={() => router.push({ pathname: '/exercise', params: { id: e.id } })}
                   />
                 ))}
+                {/* A row sizes the pill to its label; alignSelf on the pill itself makes Yoga stretch it down the screen */}
                 {d.exercises.length > SHOWN && (
-                  <Pill
-                    variant="glass"
-                    size="small"
-                    label={showAll ? 'Show fewer' : `Show all ${d.exercises.length}`}
-                    onPress={() => setShowAll(!showAll)}
-                    style={styles.more}
-                  />
+                  <View style={styles.moreRow}>
+                    <Pill
+                      variant="glass"
+                      size="small"
+                      label={showAll ? 'Show fewer' : `Show all ${d.exercises.length}`}
+                      onPress={() => setShowAll(!showAll)}
+                      style={styles.more}
+                    />
+                  </View>
                 )}
               </SkyCard>
     
@@ -367,9 +370,12 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.6,
   },
-  more: {
-    alignSelf: 'flex-start',
+  moreRow: {
+    flexDirection: 'row',
     marginTop: spacing.sm,
+  },
+  more: {
+    flexShrink: 1, // wraps at large text sizes instead of running past the card
   },
   groups: {
     flexDirection: 'row',
