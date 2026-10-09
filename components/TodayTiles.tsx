@@ -87,7 +87,7 @@ function FoodTile({ goal, day, today }: NonNullable<Props['food']> & { today: st
   const value = day ? foodValue(goal, day) : 0;
   const centre = goal.kind === 'protein' ? `${value} g` : n(value);
   const title = `${foodGoalName(goal)} today`;
-  const sub = !day ? 'Nothing logged yet' : goal.kind === 'protein' ? meals! : `${calorieLeft(goal, day.kcal)} · ${day.protein} g protein`;
+  const sub = !day ? 'Nothing logged yet' : goal.kind === 'protein' ? meals! : `${calorieLeft(goal, day.kcal)} · ${day.protein}\u00a0g protein`; // the number keeps its unit when it wraps
   return (
     <Tile kicker="Food" onPress={open} label={`${title}, ${centre} of ${foodTarget(goal)}, ${sub}`} title={title} sub={sub}>
       <GoalRing goal={goal} day={day} size={96}>

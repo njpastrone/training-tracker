@@ -103,7 +103,7 @@ export function WeekGrid({ muscles, workouts, food, days }: GridProps) {
             {!list && label(foodGoalName(food.goal))}
             {days.map(d => (
               <View key={d.date} style={styles.cell}>
-                <GoalRing goal={food.goal} day={d.total} size={24} />
+                <GoalRing goal={food.goal} day={d.total} size={22} />
               </View>
             ))}
             <Text style={[styles.count, styles.countText, { color: colors.textSecondary }]}>{food.hit}/{food.logged}</Text>
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gridLabel: {
-    width: 96,
+    width: 104, // fits "Hamstrings" at the default text size
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   count: {
-    width: 44,
+    width: 32,
   },
   countText: {
     fontFamily: fonts.rounded,
