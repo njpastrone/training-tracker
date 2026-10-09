@@ -116,7 +116,7 @@ export default function DayDetailScreen() {
         )}
 
         {workouts.length > 0 ? (
-          <SelectableWorkoutList label="Training" workouts={workouts} groupByDate={false} enableSwipe />
+          <SelectableWorkoutList label="Training" workouts={workouts} groupByDate={false} enableSwipe full />
         ) : empty && (
           <SkyCard style={styles.empty}>
             <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>{empty.title}</Text>

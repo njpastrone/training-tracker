@@ -82,7 +82,7 @@ export default function LogScreen() {
   const hasUpcoming = schedule.some(s => s.date >= today && !s.completed && !s.skipped);
 
   // Just finished setup: the first log happens here, then the planner is offered for the rest of the week
-  const firstRun = !!settings.onboardedAt && workouts.length === 0;
+  const firstRun = !!settings.onboardedAt && workouts.length === 0 && foodEntries.length === 0;
   const justStarted = !!settings.onboardedAt && workouts.length === 1 && workouts[0].date === today;
   const weeklyTarget = settings.weeklyTarget ?? 3;
   // Planning happens in History's chat bar
@@ -331,7 +331,7 @@ export default function LogScreen() {
 
       {!reviewing && <FoodDay date={today} label="Food today" />}
 
-      {!reviewing && (
+      {!reviewing && (recentWorkouts.length > 0 || foodEntries.length === 0) && (
         <View style={styles.recent}>
           <SectionLabel style={styles.label}>Recent</SectionLabel>
           {recentWorkouts.length > 0 ? (

@@ -66,7 +66,7 @@ export default function ProgressScreen() {
         )
       }
     >
-      <LargeTitle title="Progress" subtitle={paceLine(sky.done, sky.target)} />
+      <LargeTitle title="Progress" subtitle={workouts.length === 0 && food.logged ? `Food logged on ${food.logged} of the last 7 days` : paceLine(sky.done, sky.target)} />
 
       {/* Corrections: a missed workout in plain words goes to its own day */}
       {log.sent && <UserBubble text={log.sent} />}
@@ -85,7 +85,7 @@ export default function ProgressScreen() {
 
       {reviewing ? null : (
         <>
-          {workouts.length === 0 && (
+          {workouts.length === 0 && !food.logged && (
             <SkyCard style={styles.empty}>
               <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>

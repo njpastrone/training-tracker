@@ -22,17 +22,18 @@ interface Props {
   enableSwipe?: boolean;
   selected?: Set<string>; // select mode: a flat list where a tap toggles the workout
   onToggle?: (id: string) => void;
+  full?: boolean; // every exercise on each card
   food?: Map<string, FoodDayTotal>; // grouped list: days, each card with its food; a food-only day is a quiet card
 }
 
-export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, enableSwipe = false, selected, onToggle, food }: Props) {
+export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, enableSwipe = false, selected, onToggle, food, full }: Props) {
   const { colors } = useTheme();
 
   if (selected && onToggle) {
     return (
       <View style={styles.container}>
         {workouts.map((workout) => (
-          <WorkoutCard key={workout.id} workout={workout} selected={selected.has(workout.id)} onPress={() => onToggle(workout.id)} />
+          <WorkoutCard key={workout.id} workout={workout} full={full} selected={selected.has(workout.id)} onPress={() => onToggle(workout.id)} />
         ))}
       </View>
     );
@@ -47,9 +48,10 @@ export default function WorkoutList({ workouts, groupByDate = true, byMonth = fa
               <SwipeableWorkoutCard
                 key={workout.id}
                 workout={workout}
+                full={full}
               />
             ) : (
-              <WorkoutCard key={workout.id} workout={workout} />
+              <WorkoutCard key={workout.id} workout={workout} full={full} />
             )
           ))}
         </View>

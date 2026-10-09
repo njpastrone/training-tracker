@@ -14,9 +14,10 @@ import { v4 as uuidv4 } from 'uuid';
 interface Props {
   workout: Workout;
   food?: FoodDayTotal;
+  full?: boolean;
 }
 
-export default function SwipeableWorkoutCard({ workout, food }: Props) {
+export default function SwipeableWorkoutCard({ workout, food, full }: Props) {
   const { deleteWithUndo, addWorkout } = useWorkoutStore();
   const { colors } = useTheme();
   let swipeableRef: Swipeable | null = null;
@@ -66,7 +67,7 @@ export default function SwipeableWorkoutCard({ workout, food }: Props) {
       overshootLeft={false}
       overshootRight={false}
     >
-      <WorkoutCard workout={workout} food={food} />
+      <WorkoutCard workout={workout} food={food} full={full} />
     </Swipeable>
   );
 }

@@ -154,7 +154,7 @@ export default function SettingsScreen() {
             first
             icon="square.and.arrow.up"
             title="Export backup"
-            subtitle="Save workouts, plans, templates and schedule to a file"
+            subtitle="Save workouts, food, plans, templates and schedule to a file"
             onPress={handleExport}
           />
           <Row

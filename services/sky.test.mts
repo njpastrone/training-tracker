@@ -60,6 +60,8 @@ test('with a plan the target is the planned days in the last 7, and missing one 
   assert.equal(onTrack.planned, true);
   assert.equal(onTrack.phase, 'dawn'); // today's session isn't owed until today is over
   assert.equal(weekSky(w('2026-10-02', '2026-10-06'), PLAN, THU).phase, 'dusk');
+  // Training more days than planned raises the target, never "3 of 2"
+  assert.equal(weekSky(w('2026-10-02', '2026-10-04', '2026-10-06'), w('2026-10-02', '2026-10-04'), THU).target, 3);
   // Planned days outside the last 7 don't count
   assert.equal(weekSky([], [...PLAN, ...w('2026-10-01', '2026-10-09')], THU).target, 4);
 });

@@ -15,7 +15,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import Calendar from '../../components/Calendar';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
 import { spacing } from '../../constants/theme';
-import { endOfWeek, format, startOfWeek } from 'date-fns';
+import { addDays, format, subDays } from 'date-fns';
 import { getPlans, deletePlan } from '../../services/planner';
 import { planChips, toChips } from '../../services/suggestions';
 import { weekLine } from '../../services/format';
@@ -50,15 +50,16 @@ export default function HistoryScreen() {
   const shown = useMemo(() => workouts.filter(w => w.date.slice(0, 7) >= oldestShown), [workouts, oldestShown]);
   const shownFood = useMemo(() => new Map([...food].filter(([date]) => date.slice(0, 7) >= oldestShown)), [food, oldestShown]);
 
-  // This calendar week (Monday first, like the calendar) in training days: logged, and planned from today on
+  // The rolling 7 days: days with a workout or food logged, and planned days from today on
   const today = format(new Date(), 'yyyy-MM-dd');
   const thisWeek = useMemo(() => {
-    const monday = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const sunday = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const logged = new Set(workouts.filter(w => w.date >= monday && w.date <= sunday).map(w => w.date));
-    const planned = new Set(schedule.filter(s => s.date >= today && s.date <= sunday && !s.completed && !s.skipped && !logged.has(s.date)).map(s => s.date));
+    const first = format(subDays(new Date(), 6), 'yyyy-MM-dd');
+    const last = format(addDays(new Date(), 6), 'yyyy-MM-dd');
+    const logged = new Set([...workouts.map(w => w.date), ...foodDates].filter(d => d >= first && d <= today));
+    const trained = new Set(workouts.map(w => w.date));
+    const planned = new Set(schedule.filter(s => s.date >= today && s.date <= last && !s.completed && !s.skipped && !trained.has(s.date)).map(s => s.date));
     return weekLine(logged.size, planned.size);
-  }, [workouts, schedule, today]);
+  }, [workouts, foodDates, schedule, today]);
   const starters = useMemo(() => planChips(workouts, settings.weeklyTarget), [workouts, settings.weeklyTarget]);
 
   useEffect(() => {
