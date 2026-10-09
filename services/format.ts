@@ -68,7 +68,7 @@ export function emptyDay(date: string, today: string, logged: boolean, planned: 
     : { title: 'Nothing planned', plan: true, log: date === today };
 }
 
-// History's subtitle: this calendar week's logged and still-planned training days
+// History's subtitle: the last 7 days' logged days (workout or food) and still-planned training days
 export function weekLine(logged: number, planned: number): string {
   if (!logged && !planned) return 'Nothing logged yet this week';
   return [logged && `${logged} logged`, planned && `${planned} planned`].filter(Boolean).join(' · ') + ' this week';

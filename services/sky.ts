@@ -42,7 +42,7 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
   const daysHere = prefs.startedAt ? Math.max(1, differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1) : Infinity;
   const firstWeek = !planned && daysHere <= 7;
   const usual = prefs.weeklyTarget ?? usualPerWeek(dates, now);
-  const target = planned ? plannedDates.length : firstWeek ? Math.min(usual, daysHere) : usual;
+  const target = planned ? Math.max(plannedDates.length, done) : firstWeek ? Math.min(usual, daysHere) : usual;
   const progress = Math.min(1, done / target);
   const behind = planned
     ? done < plannedDates.filter(d => d < win.last).length // planned days already gone by
