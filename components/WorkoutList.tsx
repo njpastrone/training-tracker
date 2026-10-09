@@ -1,11 +1,9 @@
 import { Fragment } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { format, parseISO } from 'date-fns';
 import { FoodGoal, Workout } from '../types/workout';
 import WorkoutCard from './WorkoutCard';
-import SwipeableWorkoutCard from './SwipeableWorkoutCard';
 import DayRow from './DayRow';
 import { spacing } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,14 +14,13 @@ interface Props {
   workouts: Workout[];
   groupByDate?: boolean;
   byMonth?: boolean; // grouped list: a month name above each month's days
-  enableSwipe?: boolean;
   selected?: Set<string>; // select mode: a flat list where a tap toggles the workout
   onToggle?: (id: string) => void;
   food?: Map<string, FoodDayTotal>; // grouped list: days with training or food, each a day row
   goal?: FoodGoal; // grouped list: the food goal the day rows' rings measure
 }
 
-export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, enableSwipe = false, selected, onToggle, food, goal }: Props) {
+export default function WorkoutList({ workouts, groupByDate = true, byMonth = false, selected, onToggle, food, goal }: Props) {
   const { colors } = useTheme();
 
   if (selected && onToggle) {
@@ -38,21 +35,11 @@ export default function WorkoutList({ workouts, groupByDate = true, byMonth = fa
 
   if (!groupByDate) {
     return (
-      <GestureHandlerRootView>
-        <View style={styles.container}>
-          {workouts.map((workout) => (
-            enableSwipe ? (
-              <SwipeableWorkoutCard
-                key={workout.id}
-                workout={workout}
-               
-              />
-            ) : (
-              <WorkoutCard key={workout.id} workout={workout} />
-            )
-          ))}
-        </View>
-      </GestureHandlerRootView>
+      <View style={styles.container}>
+        {workouts.map((workout) => (
+          <WorkoutCard key={workout.id} workout={workout} />
+        ))}
+      </View>
     );
   }
 

@@ -57,11 +57,14 @@ export default function ProgressScreen() {
   const foodGoal = food.logged ? g?.food : undefined; // the grid's food row needs food to show
   // Someone who only logs food hears about their food, in the goal's own number
   const subtitle =
-    workouts.length === 0 && food.logged
-      ? settings.goals?.food && settings.goals.food.kind !== 'protein'
-        ? `${food.kcal.toLocaleString('en-US')} kcal a day over the last 7`
-        : `Protein ${food.protein} g a day over the last 7`
-      : paceLine(sky.done, sky.target);
+    workouts.length > 0 || foodEntries.length === 0
+      ? paceLine(sky.done, sky.target)
+      : !food.logged
+        ? 'No food logged in the last 7'
+        : settings.goals?.food && settings.goals.food.kind !== 'protein'
+          ? `${food.kcal.toLocaleString('en-US')} kcal a day over the last 7`
+          : `Protein ${food.protein} g a day over the last 7`;
+  const lapsed = (workouts.length > 0 || foodEntries.length > 0) && !sky.done && !food.logged;
 
   return (
     <ChatScreen
@@ -105,6 +108,16 @@ export default function ProgressScreen() {
               <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
                 Log a workout and you'll see when you last did each exercise and how often. Numbers are optional.
+              </Text>
+            </SkyCard>
+          )}
+
+          {lapsed && (
+            <SkyCard style={styles.empty}>
+              <SymbolView name="calendar.badge.clock" size={30} tintColor={colors.sunrise} />
+              <Text variant="titleMedium" style={{ color: colors.text }}>Nothing in the last 7 days</Text>
+              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+                Log a workout or a meal and this week fills in again.
               </Text>
             </SkyCard>
           )}

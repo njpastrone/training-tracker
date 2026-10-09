@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { SkyCard } from './Sky';
 import { useTheme } from '../contexts/ThemeContext';
 import { foodTarget, type FoodProgress } from '../services/goals';
-import type { foodWeek } from '../services/progress';
+import type { FoodDayTotal, foodWeek } from '../services/progress';
 import { fonts, spacing } from '../constants/theme';
 
 interface Props {
@@ -19,9 +19,9 @@ const n = (v: number) => v.toLocaleString('en-US');
 const daysOf = (hit: number, of: number) => `${hit} of ${of} day${of === 1 ? '' : 's'}`;
 
 // Food over the last 7 days, only once there is some. With a protein goal (or none): protein a day
-// on average, a bar a day with the goal as a dashed line, then calories, carbs · fat and where the
-// protein came from. With a cut or bulk: calories a day and how many days were on target, no bars.
-// Calories are never red and never a grade.
+// on average, then calories, carbs · fat and where the protein came from. With a cut or bulk: calories
+// a day and how many days were on target, then protein and carbs · fat. Either way a bar a day of the
+// goal's number with the target as a dashed line. Calories are never red and never a grade.
 export default function FoodBreakdown({ week, goal }: Props) {
   const { colors } = useTheme();
   const g = goal?.goal;
@@ -51,7 +51,7 @@ export default function FoodBreakdown({ week, goal }: Props) {
         <Text variant="bodySmall" style={{ color: colors.textTertiary }}>{line}</Text>
       </View>
 
-      {!calories && <ProteinBars days={week.days} goal={g?.target} />}
+      <DayBars days={week.days} kcal={!!calories} goal={g && foodTarget(g)} target={g?.target} />
 
       {rows.map(([label, value]) => (
         <View key={label} style={[styles.row, { borderTopColor: colors.dim }]} accessible accessibilityLabel={`${label}: ${value}`}>
@@ -63,21 +63,23 @@ export default function FoodBreakdown({ week, goal }: Props) {
   );
 }
 
-// Protein a day, one sunrise bar each (a stub on a day without food), with the goal as a dashed line
-function ProteinBars({ days, goal }: { days: Props['week']['days']; goal?: number }) {
+// Protein (or calories, for a cut or bulk) a day, one sunrise bar each (a stub on a day without food),
+// with the target as a dashed line labelled "150 g" or "2,000"
+function DayBars({ days, kcal, goal, target }: { days: Props['week']['days']; kcal: boolean; goal?: string; target?: number }) {
   const { colors } = useTheme();
-  const max = Math.max(goal ?? 0, ...days.map(d => d.total?.protein ?? 0), 1) * 1.05;
-  const goalY = goal ? (goal / max) * BARS : undefined;
-  const said = days.map(d => `${format(parseISO(d.date), 'EEEE')} ${d.total ? `${d.total.protein} g` : 'no food'}`).join(', ');
+  const value = (t: FoodDayTotal) => (kcal ? t.kcal : t.protein);
+  const max = Math.max(target ?? 0, ...days.map(d => (d.total ? value(d.total) : 0)), 1) * 1.05;
+  const goalY = target ? (target / max) * BARS : undefined;
+  const said = days.map(d => `${format(parseISO(d.date), 'EEEE')} ${d.total ? (kcal ? `${n(d.total.kcal)} kcal` : `${d.total.protein} g`) : 'no food'}`).join(', ');
   return (
-    <View accessible accessibilityLabel={`Protein by day: ${said}`}>
+    <View accessible accessibilityLabel={`${kcal ? 'Calories' : 'Protein'} by day: ${said}`}>
       <View style={styles.bars}>
         {days.map(d => (
           <View key={d.date} style={styles.barCol}>
             <View
               style={[
                 styles.bar,
-                d.total ? { height: Math.max(3, (d.total.protein / max) * BARS), backgroundColor: colors.sunrise } : { height: 3, backgroundColor: colors.dim },
+                d.total ? { height: Math.max(3, (value(d.total) / max) * BARS), backgroundColor: colors.sunrise } : { height: 3, backgroundColor: colors.dim },
               ]}
             />
           </View>
@@ -87,7 +89,7 @@ function ProteinBars({ days, goal }: { days: Props['week']['days']; goal?: numbe
             <Svg width="100%" height={2} style={[styles.goalLine, { bottom: goalY - 1 }]}>
               <Line x1="0" y1="1" x2="100%" y2="1" stroke={colors.textTertiary} strokeWidth={2} strokeDasharray="4 4" />
             </Svg>
-            <Text style={[styles.goalLabel, { bottom: goalY + 4, color: colors.textTertiary }]}>{goal} g</Text>
+            <Text style={[styles.goalLabel, { bottom: goalY + 4, color: colors.textTertiary }]}>{goal}</Text>
           </>
         )}
       </View>
