@@ -2,7 +2,7 @@ import { analyzeWeeklyVolume } from './coach';
 import { displayName } from './exerciseIdentity';
 import { trainingWindow } from './pace';
 import { entriesFor, foodWeek, inUnit, personalRecords } from './progress';
-import type { CustomGoal, ExerciseLibrary, Goals, MuscleGroup, Workout } from '../types/workout';
+import type { CustomGoal, ExerciseLibrary, FoodGoal, Goals, MuscleGroup, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 
 // Goals checked against the log over the same rolling last 7 days as the sky and the tiles
@@ -34,12 +34,36 @@ export interface CustomProgress {
   met: boolean;
 }
 
-// Protein a day, checked only on the days with food logged in the last 7
-export interface ProteinProgress {
-  target: number; // g a day
-  hit: number; // logged days at or over the target
+// The food goal, checked only on the days with food logged in the last 7
+export interface FoodProgress {
+  goal: FoodGoal;
+  hit: number; // logged days that met it
   logged: number; // days with food logged
-  met: boolean; // every logged day hit it
+  met: boolean; // every logged day met it
+}
+
+type DayFood = { protein: number; kcal: number };
+// The number a food goal measures: protein grams, or kcal on a cut or bulk
+export const foodValue = (goal: FoodGoal, t: DayFood) => (goal.kind === 'protein' ? t.protein : t.kcal);
+// Met: at least the target for protein and a bulk, at or under it on a cut
+export const foodMet = (goal: FoodGoal, t: DayFood) => (goal.kind === 'cut' ? t.kcal <= goal.target : foodValue(goal, t) >= goal.target);
+export const foodGoalName = (goal: FoodGoal) => (goal.kind === 'protein' ? 'Protein' : 'Calories');
+// "160 g" or "2,000"
+export const foodTarget = (goal: FoodGoal) => (goal.kind === 'protein' ? `${goal.target} g` : goal.target.toLocaleString('en-US'));
+// Calories against a cut or bulk in plain words, never a grade: "876 left · cutting", "124 over · cutting", "876 to go · bulking", "reached · bulking"
+export function calorieLeft(goal: FoodGoal, kcal: number): string {
+  const diff = goal.target - kcal;
+  const n = (v: number) => Math.round(v).toLocaleString('en-US');
+  if (goal.kind === 'cut') return `${diff >= 0 ? `${n(diff)} left` : `${n(-diff)} over`} · cutting`;
+  return `${diff > 0 ? `${n(diff)} to go` : 'reached'} · bulking`;
+}
+
+// Persisted settings from before the one food goal: a protein target becomes a protein food goal
+export function withFoodGoal<T extends { settings?: { goals?: Goals & { protein?: number } } }>(state: T): T {
+  const goals = state.settings?.goals;
+  if (!goals || goals.protein === undefined) return state;
+  const { protein, ...rest } = goals;
+  return { ...state, settings: { ...state.settings, goals: { ...rest, food: rest.food ?? { kind: 'protein', target: protein } } } };
 }
 
 export const hasMuscleGoals = (g: Goals) => g.timesPerWeek !== undefined || g.minSets !== undefined;
@@ -71,29 +95,29 @@ export function goalProgress(goals: Goals, workouts: Workout[], library: Exercis
     return { goal, name, now: days, target: goal.perWeek, met: days >= goal.perWeek };
   });
 
-  let protein: ProteinProgress | undefined;
-  if (goals.protein) {
-    const target = goals.protein;
+  let foodGoal: FoodProgress | undefined;
+  if (goals.food) {
+    const goal = goals.food;
     const week = foodWeek(food, now);
-    const hit = week.days.filter(d => d.total && d.total.protein >= target).length;
-    protein = { target, hit, logged: week.logged, met: week.logged > 0 && hit === week.logged };
+    const hit = week.days.filter(d => d.total && foodMet(goal, d.total)).length;
+    foodGoal = { goal, hit, logged: week.logged, met: week.logged > 0 && hit === week.logged };
   }
 
   return {
     muscles,
     custom,
-    protein,
+    food: foodGoal,
     timesMet: muscles.filter(m => m.timesGoal !== undefined && m.times >= m.timesGoal).length,
     setsMet: muscles.filter(m => m.setsGoal !== undefined && m.sets >= m.setsGoal).length,
   };
 }
 
-// What Progress shows: workout goals only once there are workouts; the protein goal and the food
+// What Progress shows: workout goals only once there are workouts; the food goal and the food
 // week whenever they apply, so someone who only logs food still sees them
 export function progressSections(hasWorkouts: boolean, goals: ReturnType<typeof goalProgress> | undefined, foodLogged: number) {
   const shown = goals && (hasWorkouts ? goals : { ...goals, muscles: [], custom: [], timesMet: 0, setsMet: 0 });
   return {
-    goals: shown && (shown.muscles.length > 0 || shown.custom.length > 0 || !!shown.protein) ? shown : undefined,
+    goals: shown && (shown.muscles.length > 0 || shown.custom.length > 0 || !!shown.food) ? shown : undefined,
     food: foodLogged > 0,
   };
 }

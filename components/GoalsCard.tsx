@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { resolveId } from '../services/exerciseIdentity';
 import { daysAgo } from '../services/format';
-import { formatSets, muscleName, type CustomProgress, type MuscleProgress, type ProteinProgress, type goalProgress } from '../services/goals';
+import { formatSets, muscleName, type CustomProgress, type MuscleProgress, type FoodProgress, type goalProgress, foodGoalName, foodTarget } from '../services/goals';
 import { muscleGroupColors, spacing } from '../constants/theme';
 import type { MuscleGroup } from '../types/workout';
 
@@ -27,7 +27,7 @@ export default function GoalsCard({ progress, daysSince }: Props) {
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const perRow = fontScale > LIST_AT_FONT_SCALE ? 1 : 2;
-  const { muscles, custom, protein, timesMet, setsMet } = progress;
+  const { muscles, custom, food, timesMet, setsMet } = progress;
   const rows = Array.from({ length: Math.ceil(muscles.length / perRow) }, (_, i) => muscles.slice(i * perRow, (i + 1) * perRow));
   const total = muscles.length;
   const summary = [
@@ -58,7 +58,7 @@ export default function GoalsCard({ progress, daysSince }: Props) {
         {custom.map((c, i) => (
           <CustomRow key={c.goal.id} c={c} first={i === 0 && total === 0} />
         ))}
-        {protein && <ProteinRow p={protein} first={total === 0 && custom.length === 0} />}
+        {food && <ProteinRow p={food} first={total === 0 && custom.length === 0} />}
       </SkyCard>
     </>
   );
@@ -122,9 +122,9 @@ function CustomRow({ c, first }: { c: CustomProgress; first: boolean }) {
 }
 
 // Protein a day, on the days food was logged: a day without food never counts against it
-function ProteinRow({ p, first }: { p: ProteinProgress; first: boolean }) {
+function ProteinRow({ p, first }: { p: FoodProgress; first: boolean }) {
   const { colors } = useTheme();
-  const title = `Protein ${p.target} g a day`;
+  const title = `${foodGoalName(p.goal)} ${foodTarget(p.goal)}${p.goal.kind === 'protein' ? '' : ' kcal'} a day`;
   const status = p.logged ? `${p.hit} of ${p.logged} days with food` : 'No food logged';
   return (
     <View accessible accessibilityLabel={`${title}, ${status}`} style={[styles.custom, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>

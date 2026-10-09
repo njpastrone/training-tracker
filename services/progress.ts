@@ -99,17 +99,19 @@ export function personalRecords(entries: Entry[], metric: Metric, userUnit: Weig
   }
 }
 
-// Each day's food: protein and calories summed (rounded once, for the day), and how many foods
+// Each day's food: protein and calories summed (rounded once, for the day), how many foods and meals (logged messages)
 export interface FoodDayTotal {
   protein: number;
   kcal: number;
   foods: number;
+  meals: number;
 }
 
 export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   const raw = new Map<string, FoodDayTotal>();
   for (const e of entries) {
-    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0 };
+    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0, meals: 0 };
+    t.meals++;
     for (const i of e.items) {
       t.protein += i.macros.protein;
       t.kcal += i.macros.kcal;
@@ -124,7 +126,7 @@ export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   return raw;
 }
 
-// The last 7 days of food, oldest first, for Progress and the protein goal. Averages are over the
+// The last 7 days of food, oldest first, for Progress and the food goal. Averages are over the
 // days with food logged: a day nothing was written down is unknown, not zero.
 export function foodWeek(entries: FoodEntry[], now: Date = new Date()) {
   const totals = foodByDay(entries);

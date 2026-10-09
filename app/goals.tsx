@@ -125,16 +125,16 @@ export default function GoalsScreen() {
             );
           })}
           {/* Only for people who log food (or already set it) */}
-          {(logsFood || goals.protein !== undefined) && (
+          {(logsFood || goals.food !== undefined) && (
             <View style={[styles.customRow, goals.custom.length > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
               <View style={styles.fill}>
                 <Text variant="bodyLarge" style={{ color: colors.text }}>Protein a day</Text>
                 <Text variant="bodySmall" style={{ color: colors.textSecondary }}>On days you log food. Empty is off.</Text>
               </View>
-              <NumberChip value={goals.protein} suffix="g" unsure={false} label="Protein a day, grams" onChange={v => set({ protein: v === undefined ? undefined : Math.round(v) })} />
+              <NumberChip value={goals.food?.kind === 'protein' ? goals.food.target : undefined} suffix="g" unsure={false} label="Protein a day, grams" onChange={v => set({ food: v === undefined ? undefined : { kind: 'protein', target: Math.round(v) } })} />
             </View>
           )}
-          <NewGoal unit={settings.weightUnit} first={goals.custom.length === 0 && !logsFood && goals.protein === undefined} onAdd={goal => set({ custom: [...goals.custom, goal] })} />
+          <NewGoal unit={settings.weightUnit} first={goals.custom.length === 0 && !logsFood && goals.food === undefined} onAdd={goal => set({ custom: [...goals.custom, goal] })} />
         </SkyCard>
       </ScrollView>
     </SkyScreen>

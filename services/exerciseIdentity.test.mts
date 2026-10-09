@@ -47,7 +47,7 @@ test('updating the app migrates stored workouts to version 1 after a byte-identi
   assert.equal(mem.get('@training-tracker/storage.v0-backup'), raw);
 
   const stored = JSON.parse(mem.get('@training-tracker/storage')!);
-  assert.equal(stored.version, 1);
+  assert.equal(stored.version, 2); // the latest version: v1's identity migration ran on the way
   const byId = Object.fromEntries(stored.state.workouts.flatMap((w: any) => w.exercises).map((e: any) => [e.id, e]));
   const got = (id: string) => [byId[id].exerciseId, byId[id].match];
 

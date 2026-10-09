@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, emptyDay, weekLine, paceLine, cardTargets } from './format';
+import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, emptyDay, weekLine, paceLine, cardTargets, workoutName } from './format';
 
 const bench = { name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const };
 const run = { name: 'Run', muscleGroup: 'cardio' as const, duration: 25, distance: 5, distanceUnit: 'km' as const };
@@ -62,4 +62,17 @@ test('weekLine and paceLine always say something', () => {
 
 test("a day card's body opens its workout and its food line opens the day", () => {
   assert.deepEqual(cardTargets({ id: 'w1', date: '2026-10-08' }), { body: '/workout/w1', food: '/day/2026-10-08' });
+});
+
+test('a workout is named by its split, else by its muscles', () => {
+  assert.equal(workoutName(['chest', 'shoulders', 'triceps']), 'Push');
+  assert.equal(workoutName(['back', 'biceps', 'core']), 'Pull');
+  assert.equal(workoutName(['quads', 'glutes']), 'Legs');
+  assert.equal(workoutName(['chest', 'back']), 'Upper body');
+  assert.equal(workoutName(['chest', 'quads']), 'Full body');
+  assert.equal(workoutName(['chest']), 'Chest');
+  assert.equal(workoutName(['cardio']), 'Cardio');
+  assert.equal(workoutName(['cardio', 'quads']), 'Cardio and quads');
+  assert.equal(workoutName(['core']), 'Core');
+  assert.equal(workoutName([]), 'Workout');
 });

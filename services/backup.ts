@@ -64,7 +64,8 @@ const goalsOk = (g: any) =>
   listOf(g.muscles, (m) => GOAL_MUSCLES.includes(m)) &&
   (g.timesPerWeek === undefined || isCount(g.timesPerWeek)) &&
   (g.minSets === undefined || (isObject(g.minSets) && Object.values(g.minSets).every(isCount))) &&
-  (g.protein === undefined || isCount(g.protein)) &&
+  (g.protein === undefined || isCount(g.protein)) && // before the one food goal; the store migration turns it into food
+  (g.food === undefined || (['protein', 'cut', 'bulk'].includes(g.food?.kind) && isCount(g.food.target))) &&
   listOf(g.custom, customGoalOk);
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {

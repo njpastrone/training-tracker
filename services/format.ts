@@ -1,4 +1,4 @@
-import type { Exercise, Workout } from '../types/workout';
+import type { Exercise, MuscleGroup, Workout } from '../types/workout';
 import type { FoodDayTotal } from './progress';
 
 type ExerciseValues = Omit<Exercise, 'id'>;
@@ -86,4 +86,26 @@ export function paceLine(done: number, target: number): string {
   if (!done) return 'No training days in the last 7';
   if (done >= target) return `${done} training day${done === 1 ? '' : 's'} in the last 7 · goal met`;
   return `${done} of ${target} training days in the last 7`;
+}
+
+// A workout's short name from its muscles, for the day rows and Log: "Push", "Pull", "Legs", "Upper body",
+// "Full body", else the muscles ("Chest and biceps"). Core never decides the name.
+const SPLITS: [string, MuscleGroup[]][] = [
+  ['Push', ['chest', 'shoulders', 'triceps']],
+  ['Pull', ['back', 'biceps', 'forearms']],
+  ['Legs', ['quads', 'hamstrings', 'glutes', 'calves']],
+  ['Upper body', ['chest', 'shoulders', 'triceps', 'back', 'biceps', 'forearms']],
+];
+export function workoutName(groups: MuscleGroup[]): string {
+  const main = groups.filter(g => g !== 'core');
+  if (!main.length) return groups.length ? 'Core' : 'Workout';
+  if (main.includes('full_body')) return 'Full body';
+  if (main.length > 1) {
+    const split = SPLITS.find(([, of]) => main.every(g => of.includes(g)));
+    if (split) return split[0];
+    if (main.some(g => SPLITS[2][1].includes(g)) && main.some(g => SPLITS[3][1].includes(g))) return 'Full body';
+  }
+  const names = main.map(g => g.charAt(0).toUpperCase() + g.slice(1));
+  const said = names.length > 2 ? [names[0], names[1].toLowerCase()] : names.map((n, i) => (i ? n.toLowerCase() : n));
+  return said.join(' and ');
 }
