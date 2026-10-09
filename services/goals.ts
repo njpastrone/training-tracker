@@ -1,7 +1,9 @@
 import { analyzeWeeklyVolume } from './coach';
 import { displayName } from './exerciseIdentity';
+import { daysAgo } from './format';
 import { trainingWindow } from './pace';
-import { entriesFor, foodWeek, inUnit, personalRecords } from './progress';
+import { format, subDays } from 'date-fns';
+import { entriesFor, foodWeek, inUnit, personalRecords, type Entry } from './progress';
 import type { CustomGoal, ExerciseLibrary, FoodGoal, Goals, MuscleGroup, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 
@@ -32,6 +34,8 @@ export interface CustomProgress {
   now: number; // lift: best weight ever, in the goal's unit (0 if never logged); often: days in the last 7
   target: number;
   met: boolean;
+  weeks?: (number | undefined)[]; // lift: heaviest set in each of the last 4 rolling weeks, oldest first
+  change?: number; // lift: best now minus best before those 4 weeks; unknown with nothing logged before them
 }
 
 // The food goal, checked only on the days with food logged in the last 7
@@ -87,9 +91,16 @@ export function goalProgress(goals: Goals, workouts: Workout[], library: Exercis
     const entries = entriesFor(workouts, goal.exerciseId, library);
     const name = displayName(goal.exerciseId, library) ?? goal.exerciseId;
     if (goal.kind === 'lift') {
-      const best = personalRecords(entries, 'weight-reps', goal.unit).heaviest?.exercise;
-      const top = best?.weight ? Math.round(inUnit(best.weight, best.unit, goal.unit) * 10) / 10 : 0;
-      return { goal, name, now: top, target: goal.weight, met: top >= goal.weight };
+      const heaviest = (list: Entry[]) => {
+        const best = personalRecords(list, 'weight-reps', goal.unit).heaviest?.exercise;
+        return best?.weight ? Math.round(inUnit(best.weight, best.unit, goal.unit) * 10) / 10 : undefined;
+      };
+      const ago = (days: number) => format(subDays(now, days), 'yyyy-MM-dd');
+      const top = heaviest(entries) ?? 0;
+      const weeks = [3, 2, 1, 0].map(i => heaviest(entries.filter(e => e.date > ago(7 * (i + 1)) && e.date <= ago(7 * i))));
+      const before = heaviest(entries.filter(e => e.date <= ago(28)));
+      const change = before === undefined ? undefined : Math.round((top - before) * 10) / 10;
+      return { goal, name, now: top, target: goal.weight, met: top >= goal.weight, weeks, change };
     }
     const days = new Set(entries.filter(e => e.date >= win.first && e.date <= win.last).map(e => e.date)).size;
     return { goal, name, now: days, target: goal.perWeek, met: days >= goal.perWeek };
@@ -125,6 +136,14 @@ export function progressSections(hasWorkouts: boolean, goals: ReturnType<typeof 
 // "8", "5½", and "5½+" when some sets weren't written down
 export const formatSets = (sets: number, missing: boolean) =>
   `${Math.floor(sets)}${sets % 1 ? '½' : ''}${missing ? '+' : ''}`.replace(/^0½/, '½');
+
+// When a muscle was last trained, for its tile: "Trained today", "Trained Tuesday" within the last 7 days,
+// "Trained 9 days ago" before that
+export function trainedLine(days: number | undefined, now: Date = new Date()): string {
+  if (days === undefined) return 'Not trained yet';
+  if (days <= 1 || days > 6) return `Trained ${daysAgo(days)}`;
+  return `Trained ${format(subDays(now, days), 'EEEE')}`;
+}
 
 export const muscleName = (g: MuscleGroup) => (g === 'full_body' ? 'Full body' : g.charAt(0).toUpperCase() + g.slice(1));
 

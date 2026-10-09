@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal } from './goals';
+import { goalProgress, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal, trainedLine } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -67,6 +67,24 @@ test('your own goals: best lift ever in the goal unit, and days done in the last
   assert.equal(reached.met, true);
 });
 
+test('a lift goal: heaviest set in each of the last 4 weeks, and the change since before them', () => {
+  const [lift] = goalProgress(GOALS, WORKOUTS, lib, [], NOW).custom;
+  assert.deepEqual(lift.weeks, [undefined, undefined, 205, 220.5]); // Sep 28 is the week before the last 7
+  assert.equal(lift.change, undefined); // nothing logged before the 4 weeks
+  const [older] = goalProgress(GOALS, [...WORKOUTS, w('2026-09-01', ['bench-press', 5, 185])], lib, [], NOW).custom;
+  assert.equal(older.change, 35.5);
+  assert.equal(goalProgress(GOALS, WORKOUTS, lib, [], NOW).custom[1].weeks, undefined);
+});
+
+test('when a muscle was last trained reads as a day', () => {
+  assert.equal(trainedLine(undefined, NOW), 'Not trained yet');
+  assert.equal(trainedLine(0, NOW), 'Trained today');
+  assert.equal(trainedLine(1, NOW), 'Trained yesterday');
+  assert.equal(trainedLine(2, NOW), 'Trained Sunday');
+  assert.equal(trainedLine(6, NOW), 'Trained Wednesday');
+  assert.equal(trainedLine(9, NOW), 'Trained 9 days ago');
+});
+
 test('only the goals that are on are checked', () => {
   const timesOnly = goalProgress({ ...GOALS, minSets: undefined }, WORKOUTS, lib, [], NOW).muscles.find(m => m.group === 'back')!;
   assert.equal(timesOnly.setsGoal, undefined);
@@ -109,7 +127,20 @@ test('food over the last 7 days: per day, averaged over the days with food only'
   assert.equal(week.days[1].total, undefined);
   assert.equal(week.logged, 3);
   assert.equal(week.protein, Math.round((141 + 100 + 150) / 3));
-  assert.deepEqual(foodWeek([], NOW), { days: week.days.map(d => ({ date: d.date, total: undefined })), logged: 0, protein: 0, kcal: 0 });
+  assert.deepEqual(foodWeek([], NOW), { days: week.days.map(d => ({ date: d.date, total: undefined })), logged: 0, protein: 0, kcal: 0, carbs: 0, fat: 0, top: [] });
+});
+
+test('food week: carbs and fat a day, and the top 3 protein sources by short name', () => {
+  const item = (name: string, protein: number, carbs = 0, fat = 0) => ({ id: name, name, source: 'usda' as const, macros: { kcal: 0, protein, carbs, fat } });
+  const entry = (date: string, ...items: ReturnType<typeof item>[]): FoodEntry => ({ id: date + items.length, date, rawInput: '', createdAt: date, items });
+  const week = foodWeek([
+    entry('2026-09-29', item('Tuna', 500)), // before the window
+    entry('2026-10-01', item('Chicken breast', 50, 0, 6), item('Rice, white', 6, 90, 1)),
+    entry('2026-10-06', item('Chicken breast, raw', 40, 0, 4), item('Egg', 19, 2, 15), item('Whey protein powder', 24, 3, 1), item('Banana', 1, 27, 0)),
+  ], NOW);
+  assert.equal(week.carbs, Math.round((90 + 2 + 3 + 27) / 2));
+  assert.equal(week.fat, Math.round((6 + 1 + 4 + 15 + 1) / 2));
+  assert.deepEqual(week.top, ['chicken breast', 'whey protein powder', 'egg']);
 });
 
 const protein = (target: number) => ({ kind: 'protein' as const, target });
