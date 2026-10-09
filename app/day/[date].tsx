@@ -1,23 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
-import { format, parseISO, isToday, isYesterday, isFuture, formatDistanceToNow } from 'date-fns';
+import { format, parseISO, isToday, isFuture } from 'date-fns';
 import { spacing } from '../../constants/theme';
-import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
+import { UndoToast } from '../../components/SelectableWorkoutList';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import FoodDay from '../../components/FoodDay';
+import DayTraining from '../../components/DayTraining';
+import { dayLabel } from '../../components/WorkoutCard';
 import { HeaderButton, Pill } from '../../components/Glass';
 import { deletePlan } from '../../services/planner';
-import { emptyDay } from '../../services/format';
+import { workoutName } from '../../services/format';
+import { sumMacros } from '../../services/foods';
 
 export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
   const { getWorkoutsByDate, schedule, getTemplate, loadSchedule, loadTemplates, cancelScheduledWorkout, deleteRecurringSeries } = useWorkoutStore();
-  const ate = useWorkoutStore(s => s.foodEntries.some(e => e.date === date));
+  const allFood = useWorkoutStore(s => s.foodEntries);
+  const goal = useWorkoutStore(s => s.settings.goals?.food);
+  const food = useMemo(() => allFood.filter(e => e.date === date), [allFood, date]);
   const { colors } = useTheme();
 
   const workouts = getWorkoutsByDate(date);
@@ -25,23 +30,20 @@ export default function DayDetailScreen() {
   const future = isFuture(dateObj) && !isToday(dateObj);
   const planned = schedule.find(s => s.date === date && !s.completed && !s.skipped);
   const plannedTemplate = planned ? getTemplate(planned.templateId) : undefined;
-  const empty = emptyDay(date, format(new Date(), 'yyyy-MM-dd'), workouts.length > 0 || ate, !!planned);
+  const empty = !workouts.length && !food.length && !planned;
+
+  // "Push · 88 g protein · 1,124 kcal", each part only when there is one
+  const t = food.length ? sumMacros(food.flatMap(e => e.items)) : undefined;
+  const summary = [
+    workouts.length && workoutName([...new Set(workouts.flatMap(w => w.muscleGroups))]),
+    t && `${t.protein} g protein`,
+    t && `${t.kcal.toLocaleString('en-US')} kcal`,
+  ].filter(Boolean).join(' · ') || 'Nothing logged';
 
   useEffect(() => {
     loadSchedule();
     loadTemplates();
   }, []);
-
-  const getDateLabel = () => {
-    if (isToday(dateObj)) return 'Today';
-    if (isYesterday(dateObj)) return 'Yesterday';
-    return format(dateObj, 'EEEE, MMMM d');
-  };
-
-  const getRelativeTime = () => {
-    if (isToday(dateObj) || isYesterday(dateObj)) return undefined;
-    return formatDistanceToNow(dateObj, { addSuffix: true });
-  };
 
   const handleQuickAdd = () => {
     // Navigate to the input screen with pre-filled date
@@ -89,7 +91,7 @@ export default function DayDetailScreen() {
         }}
       />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-        <LargeTitle title={getDateLabel()} subtitle={getRelativeTime()} />
+        <LargeTitle title={dayLabel(date)} subtitle={summary} />
 
         {planned && (
           <SkyCard>
@@ -115,22 +117,19 @@ export default function DayDetailScreen() {
           </SkyCard>
         )}
 
-        {workouts.length > 0 ? (
-          <SelectableWorkoutList label="Training" workouts={workouts} groupByDate={false} enableSwipe full />
-        ) : empty && (
+        <DayTraining workouts={workouts} />
+        <FoodDay entries={food} goal={goal} />
+
+        {empty && (
           <SkyCard style={styles.empty}>
-            <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>{empty.title}</Text>
+            {/* Ahead there's nothing to log yet (and no +), only a plan to make */}
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{future ? 'Nothing planned' : 'Nothing logged this day'}</Text>
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-              {empty.plan ? 'Plan a workout and it shows up on your calendar.' : 'Add a workout or food for this day'}
+              {future ? 'Plan a workout and it shows up on your calendar.' : 'Tap + to add a workout or food.'}
             </Text>
-            {empty.plan && <Pill icon="logo" label="Plan this day" onPress={planThisDay} style={styles.emptyButton} />}
-            {empty.log && (
-              <Pill variant={empty.plan ? 'glass' : undefined} icon="plus" label="Add workout or food" onPress={handleQuickAdd} style={styles.emptyButton} />
-            )}
+            {(future || isToday(dateObj)) && <Pill icon="logo" label="Plan this day" onPress={planThisDay} style={styles.emptyButton} />}
           </SkyCard>
         )}
-
-        <FoodDay date={date} />
       </ScrollView>
       <UndoToast />
     </SkyScreen>
@@ -154,8 +153,14 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
+    gap: spacing.xs,
+    paddingVertical: 22,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   center: {
     textAlign: 'center',
