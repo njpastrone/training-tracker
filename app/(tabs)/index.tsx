@@ -331,12 +331,12 @@ export default function LogScreen() {
 
       {!reviewing && <FoodDay date={today} label="Food today" />}
 
-      {!reviewing && (
+      {!reviewing && (recentWorkouts.length > 0 || foodEntries.length === 0) && (
         <View style={styles.recent}>
           <SectionLabel style={styles.label}>Recent</SectionLabel>
           {recentWorkouts.length > 0 ? (
             <WorkoutList workouts={recentWorkouts} enableSwipe={true} />
-          ) : foodEntries.length === 0 && (
+          ) : (
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
               No workouts yet. Tell me what you did or ate below.
             </Text>
