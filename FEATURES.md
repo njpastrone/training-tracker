@@ -137,7 +137,7 @@ Streamlined workout planning and logging through templates and calendar scheduli
 ## Feature 3: Food logging (prototype)
 
 ### Description
-Log what you ate in the same box you log workouts with, in as much or as little detail as you like, in plain words, slang, typos, emoji or another language: "2 eggs and toast", "200g chicken and 1.5 cups of rice", "chipotle bowl w chicken and guac", "2 huevos y arroz", or both at once: "did legs, squat 3x5 at 225, then ate 2 eggs and toast". One review card shows the workout and the food; tap an amount or a unit to change it, type a fix in the chat bar, Save. Food shows on each day's screen and as "Food today" on Log. Protein and calories up front; carbs, fat, fiber and where the numbers come from on tap.
+Log what you ate in the same box you log workouts with, in as much or as little detail as you like, in plain words, slang, typos, emoji or another language: "2 eggs and toast", "200g chicken and 1.5 cups of rice", "chipotle bowl w chicken and guac", "2 huevos y arroz", or both at once: "did legs, squat 3x5 at 225, then ate 2 eggs and toast". One review card shows the workout and the food; tap an amount or a unit to change it, type a fix in the chat bar, Save. Food shows on each day's screen, grouped by meal, and as a ring on Log. Protein and calories up front; carbs, fat, fiber and where the numbers come from on tap.
 
 ### How it works
 - **Router** (`services/claude.ts` `parseLog`, `services/foods.ts`): food words, eating words, kitchen amounts, food emoji and common foreign food words send a message to the food parser; exercises and workout words to the workout parser; both at once when both show. If the one that ran finds nothing, the other gets a try.
@@ -163,7 +163,7 @@ Log what you ate in the same box you log workouts with, in as much or as little 
 - **"Usual breakfast" chip:** what you logged around this time on at least 2 of the last 14 days.
 - **Privacy:** the AI consent sheet now mentions food; people who already said yes aren't asked again.
 - **Backups** include food. A backup from before food logging restores with no food.
-- **Where food shows (one record, 2026-10-08):** a day holds its training and its food. The day screen has Training and Food sections and edits saved food in place; the History calendar marks days with food and its list is Days (workout card plus a food line, or a quiet food-only card); Progress has a "Food · last 7 days" card; Goals has protein a day, checked on the days with food logged in the last 7. Each appears only once there is food, so lift-only users see nothing new. Log's top is unchanged.
+- **Where food shows (one record, 2026-10-08; summary first, 2026-10-09):** a day holds its training and its food. Log opens on two ring tiles (training days in the last 7, the food goal today), then Up next and three recent days. The day screen has Training (the whole workout) and Food (by meal, a food's amount editable on tap); the History calendar puts a grey dot under days with food and its list is Days, one row per day; Progress has a food-goal row in its last-7-days grid and a "Food · last 7 days" card; Goals has one food goal, Protein, Cut or Bulk, checked on the days with food logged in the last 7. Each appears only once there is food (or a food goal), so lift-only users see nothing new.
 
 ### Accuracy
 Measured 2026-10-08 through `claude -p` (`npm run eval:food -- --cli`; no API key was available, so temperature isn't pinned and results move about 2 points run to run; confirm with an API-key run before release). A hit is a meal total within 20% (or 10%) of the reference, or within 25 kcal / 3 g for small numbers. Every reference number has a source (a USDA FoodData Central id and grams, or the brand's label).
@@ -199,7 +199,7 @@ Measured 2026-10-08 through `claude -p` (`npm run eval:food -- --cli`; no API ke
 - CLI evals only: confirm with `npm run eval:food -- --set holdout` on an API key before release (about $0.60), and check the Worker log's `cache_read_input_tokens` is above 0. Haiku 5.5 thinks about 500 tokens per log at its default effort (most of its cost); turning thinking off couldn't be tested through the CLI. A refusal from Haiku goes to Sonnet; no other refusal fallback. Haiku 5.5 is a day old.
 - Estimates are estimates: dish and restaurant portions are the main miss. Slice conventions can differ from what people mean (deli vs roast turkey, bacon thickness); the swap chip fixes it in one tap.
 - A workout plus food is two AI requests, so two slots of the daily caps.
-- Not built yet: "same as yesterday", saved meals, quick-adding raw numbers ("450 cal 30 g protein"), hidden-fat nudges ("cooked in oil?"), food on Log's Recent.
+- Not built yet: "same as yesterday", saved meals, quick-adding raw numbers ("450 cal 30 g protein"), hidden-fat nudges ("cooked in oil?").
 - The food table adds 892 KB to the app's code (about 145 KB compressed over the air); the long tail (720 KB) could move to the Worker later.
 
 ---
