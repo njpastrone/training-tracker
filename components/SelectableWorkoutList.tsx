@@ -21,13 +21,12 @@ interface Props {
   groupByDate?: boolean;
   enableSwipe?: boolean;
   byMonth?: boolean;
-  full?: boolean;
   food?: Map<string, FoodDayTotal>; // a Days list: see WorkoutList. Select mode still picks workouts only
   goal?: FoodGoal;
 }
 
 // A workout list with a Select mode for deleting several at once
-export default function SelectableWorkoutList({ label, workouts, groupByDate, enableSwipe, byMonth, food, goal, full }: Props) {
+export default function SelectableWorkoutList({ label, workouts, groupByDate, enableSwipe, byMonth, food, goal }: Props) {
   const deleteWithUndo = useWorkoutStore(s => s.deleteWithUndo);
   const [selected, setSelected] = useState<Set<string> | null>(null);
 
@@ -93,7 +92,6 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, en
         selected={selected ?? undefined}
         onToggle={toggle}
         food={food}
-        full={full}
         goal={goal}
       />
     </View>

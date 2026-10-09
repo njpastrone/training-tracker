@@ -14,7 +14,6 @@ import ExerciseRows from './ExerciseRows';
 interface Props {
   workout: Workout;
   onPress?: () => void;
-  full?: boolean; // every exercise, not the first three (the day screen)
   selected?: boolean; // set while selecting: a check circle replaces the chevron
   food?: FoodDayTotal; // History's day cards: the day's food in one line, which opens the day
 }
@@ -24,7 +23,7 @@ export function dayLabel(date: string) {
   return isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterday' : format(d, 'EEEE, MMM d');
 }
 
-export default function WorkoutCard({ workout, onPress, selected, food, full }: Props) {
+export default function WorkoutCard({ workout, onPress, selected, food }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
   const targets = cardTargets(workout);
@@ -57,7 +56,7 @@ export default function WorkoutCard({ workout, onPress, selected, food, full }: 
               <SymbolView name={selected ? 'checkmark.circle.fill' : 'circle'} size={22} tintColor={selected ? colors.sunrise : colors.textTertiary} />
             )}
           </View>
-          <ExerciseRows exercises={workout.exercises} limit={full ? undefined : 3} />
+          <ExerciseRows exercises={workout.exercises} limit={3} />
           {workout.notes ? (
             <Text variant="bodySmall" style={[styles.notes, { color: colors.textSecondary }]} numberOfLines={2}>
               {workout.notes}
