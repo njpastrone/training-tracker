@@ -114,7 +114,7 @@ Rules that keep the four tabs one app. Check every UI change against them on a 3
 | Tab | Subtitle | With nothing to count |
 |---|---|---|
 | Log | Today's date, "Tuesday, October 6" | (always a date) |
-| History | Days logged (workout or food) in the last 7 and training days planned in the next 7, "2 logged in the last 7 days · 2 planned in the next 7" | "Nothing logged in the last 7 days" |
+| History | Days logged (workout or food) in the last 7 and training days planned in the next 7, "Last 7: 2 logged · Next 7: 2 planned" | "Nothing logged in the last 7" |
 | Progress | The sky's pace, "2 of 3 training days in the last 7" ("3 training days in the last 7 · goal met" once reached) | "No training days in the last 7"; with only food logged, "Food logged on 3 of the last 7 days" |
 | Settings | The weekly backup, "Backed up Oct 5" | "Not backed up yet" |
 

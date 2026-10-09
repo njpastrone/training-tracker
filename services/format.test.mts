@@ -49,10 +49,10 @@ test('emptyDay offers Plan today and ahead, logging today and before', () => {
 });
 
 test('weekLine and paceLine always say something', () => {
-  assert.equal(weekLine(5, 4), '5 logged in the last 7 days · 4 planned in the next 7');
-  assert.equal(weekLine(2, 0), '2 logged in the last 7 days');
-  assert.equal(weekLine(0, 3), '3 planned in the next 7');
-  assert.equal(weekLine(0, 0), 'Nothing logged in the last 7 days');
+  assert.equal(weekLine(5, 4), 'Last 7: 5 logged · Next 7: 4 planned');
+  assert.equal(weekLine(2, 0), 'Last 7: 2 logged');
+  assert.equal(weekLine(0, 3), 'Next 7: 3 planned');
+  assert.equal(weekLine(0, 0), 'Nothing logged in the last 7');
   assert.equal(paceLine(2, 3), '2 of 3 training days in the last 7');
   assert.equal(paceLine(0, 3), 'No training days in the last 7');
   assert.equal(paceLine(3, 3), '3 training days in the last 7 · goal met');
