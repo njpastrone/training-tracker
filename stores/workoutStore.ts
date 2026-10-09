@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, UserSettings, MuscleGroup, ExerciseLibrary } from '../types/workout';
-import { FoodEntry } from '../types/food';
+import { FoodEntry, FoodItem } from '../types/food';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
@@ -39,6 +39,7 @@ interface WorkoutState {
   getWorkoutsByDate: (date: string) => Workout[];
   addFoodEntry: (entry: FoodEntry) => void;
   removeFoodItem: (entryId: string, itemId: string) => void; // the entry goes when its last item does
+  updateFoodItem: (entryId: string, itemId: string, item: FoodItem) => void; // a new amount, unit or food; keeps its id
   updateSettings: (settings: Partial<UserSettings>) => void;
   createCustomExercise: (name: string, muscleGroup: MuscleGroup) => string;
   rememberName: (exerciseId: string, words: string) => void;
@@ -184,6 +185,14 @@ export const useWorkoutStore = create<WorkoutState>()(
           foodEntries: state.foodEntries
             .map((e) => (e.id === entryId ? { ...e, items: e.items.filter((i) => i.id !== itemId) } : e))
             .filter((e) => e.items.length > 0),
+        }));
+      },
+
+      updateFoodItem: (entryId, itemId, item) => {
+        set((state) => ({
+          foodEntries: state.foodEntries.map((e) =>
+            e.id === entryId ? { ...e, items: e.items.map((i) => (i.id === itemId ? { ...item, id: itemId } : i)) } : e
+          ),
         }));
       },
 

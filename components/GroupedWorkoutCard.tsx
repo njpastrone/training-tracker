@@ -7,15 +7,18 @@ import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import { SkyCard } from './Sky';
 import ExerciseRows from './ExerciseRows';
-import { dayLabel } from './WorkoutCard';
+import { dayLabel, FoodLine } from './WorkoutCard';
+import type { FoodDayTotal } from '../services/progress';
+import { cardTargets } from '../services/format';
 
 interface Props {
   date: string;
   workouts: Workout[];
+  food?: FoodDayTotal; // the day's food in one line, opening the day
 }
 
 // Several sessions on one day: one card, each session tappable
-export default function GroupedWorkoutCard({ date, workouts }: Props) {
+export default function GroupedWorkoutCard({ date, workouts, food }: Props) {
   const router = useRouter();
   const { colors } = useTheme();
   const totalExercises = workouts.reduce((sum, w) => sum + w.exercises.length, 0);
@@ -32,7 +35,7 @@ export default function GroupedWorkoutCard({ date, workouts }: Props) {
       {workouts.map((workout, index) => (
         <Pressable
           key={workout.id}
-          onPress={() => router.push(`/workout/${workout.id}`)}
+          onPress={() => router.push(cardTargets(workout).body)}
           accessibilityRole="button"
           accessibilityLabel={`Session ${index + 1}`}
           accessibilityHint="Opens the workout"
@@ -44,6 +47,19 @@ export default function GroupedWorkoutCard({ date, workouts }: Props) {
           <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
         </Pressable>
       ))}
+      {food && (
+        <Pressable
+          onPress={() => router.push(cardTargets(workouts[0]).food)}
+          accessibilityRole="button"
+          accessibilityHint="Opens the day"
+          style={({ pressed }) => [styles.session, { borderTopColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <View style={styles.rows}>
+            <FoodLine food={food} />
+          </View>
+          <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
+        </Pressable>
+      )}
     </SkyCard>
   );
 }

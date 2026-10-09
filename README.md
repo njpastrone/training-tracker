@@ -6,7 +6,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 
 - **Natural Language Input** - Just type what you did: "Hit chest today - bench press 3x10 at 185, incline dumbbell press, cable flyes"
 - **AI-Powered Parsing** - Claude API extracts exercises, sets, reps, weights, and muscle groups automatically
-- **Workout History** - Calendar of logged and planned days, and every workout by month
+- **Workout History** - Calendar of logged and planned days, and every day by month
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Progress** - When you last did each exercise and how often, PRs where you logged numbers, days since each muscle group, and a box to add a workout you forgot ("did legs six days ago")
 - **Goals** - Set goals on Progress (each muscle 1-3× a week, minimum sets per muscle, days a week, a weight to lift or an exercise to do often) and see them against your last 7 days; the planner aims at them
@@ -151,9 +151,9 @@ Type what you want in the chat bar on the History tab ("Plan your week…"), or 
 History is the record; how it's going (streaks, PRs, goals) is on Progress. The History tab shows:
 - This week's logged and planned training days
 - A calendar of logged and planned days: last week, this week and next week (**Show full month** for the whole month)
-- Your workouts by month, a few months at a time (**Show earlier** for more)
+- Your days by month (each workout, plus a line for what you ate when you logged food), a few months at a time (**Show earlier** for more)
 
-Tap any day on the calendar to open it: its workouts, or its planned workout (**Remove** it, or for today **Start on Log**), or **Plan this day** for an empty today or future day (today also offers **Add workout**). Tap a workout to edit or delete it. To delete several at once (for example test entries), tap **Select** on the day or on the workouts list, pick the workouts, and tap **Delete**. Any delete (Select, swipe, or the trash on a workout) shows **Undo** for a few seconds, which restores the workouts along with any calendar session they had completed.
+Tap any day on the calendar to open it: its workouts, or its planned workout (**Remove** it, or for today **Start on Log**), or **Plan this day** for an empty today or future day (today also offers **Add workout**). Tap a workout to edit or delete it. To delete several at once (for example test entries), tap **Select** on the day or on the Days list, pick the workouts, and tap **Delete**. Any delete (Select, swipe, or the trash on a workout) shows **Undo** for a few seconds, which restores the workouts along with any calendar session they had completed.
 
 ### Backing Up
 

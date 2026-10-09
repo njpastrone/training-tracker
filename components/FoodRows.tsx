@@ -16,7 +16,7 @@ type Item = FoodItem & { dayOffset?: number };
 interface Props {
   items: Item[];
   onChange?: (items: Item[]) => void; // editable: amount chips, unit switch, estimate numbers, remove
-  onRemove?: (index: number) => void; // read-only lists that still let you delete a row
+  onRemove?: (index: number) => void; // a row's ×; without it, × edits the list through onChange
   date?: string; // the logging date, for day tags on multi-day logs
 }
 
@@ -29,8 +29,8 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
   const edit = (i: number, item: Item) => onChange?.(items.map((x, k) => (k === i ? item : x)));
   const remove = (i: number) => {
     setOpen(null); // rows are by position: an open panel would jump to the next food
-    if (onChange) onChange(items.filter((_, k) => k !== i));
-    else onRemove?.(i);
+    if (onRemove) onRemove(i);
+    else onChange?.(items.filter((_, k) => k !== i));
   };
 
   return (

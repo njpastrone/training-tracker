@@ -2,7 +2,9 @@
 
 import { catalogById, type Metric } from '../data/catalog';
 import { resolveId } from './exerciseIdentity';
+import { format, subDays } from 'date-fns';
 import type { Exercise, ExerciseLibrary, WeightUnit, Workout } from '../types/workout';
+import type { FoodEntry } from '../types/food';
 
 export interface Entry {
   date: string;
@@ -95,4 +97,42 @@ export function personalRecords(entries: Entry[], metric: Metric, userUnit: Weig
     case 'session':
       return {};
   }
+}
+
+// Each day's food: protein and calories summed (rounded once, for the day), and how many foods
+export interface FoodDayTotal {
+  protein: number;
+  kcal: number;
+  foods: number;
+}
+
+export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
+  const raw = new Map<string, FoodDayTotal>();
+  for (const e of entries) {
+    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0 };
+    for (const i of e.items) {
+      t.protein += i.macros.protein;
+      t.kcal += i.macros.kcal;
+      t.foods++;
+    }
+    raw.set(e.date, t);
+  }
+  for (const t of raw.values()) {
+    t.protein = Math.round(t.protein);
+    t.kcal = Math.round(t.kcal);
+  }
+  return raw;
+}
+
+// The last 7 days of food, oldest first, for Progress and the protein goal. Averages are over the
+// days with food logged: a day nothing was written down is unknown, not zero.
+export function foodWeek(entries: FoodEntry[], now: Date = new Date()) {
+  const totals = foodByDay(entries);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = format(subDays(now, 6 - i), 'yyyy-MM-dd');
+    return { date, total: totals.get(date) };
+  });
+  const logged = days.flatMap(d => (d.total ? [d.total] : []));
+  const avg = (k: 'protein' | 'kcal') => (logged.length ? Math.round(logged.reduce((s, t) => s + t[k], 0) / logged.length) : 0);
+  return { days, logged: logged.length, protein: avg('protein'), kcal: avg('kcal') };
 }

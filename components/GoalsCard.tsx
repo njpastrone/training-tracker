@@ -7,7 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { resolveId } from '../services/exerciseIdentity';
 import { daysAgo } from '../services/format';
-import { formatSets, muscleName, type CustomProgress, type MuscleProgress, type goalProgress } from '../services/goals';
+import { formatSets, muscleName, type CustomProgress, type MuscleProgress, type ProteinProgress, type goalProgress } from '../services/goals';
 import { muscleGroupColors, spacing } from '../constants/theme';
 import type { MuscleGroup } from '../types/workout';
 
@@ -20,14 +20,14 @@ interface Props {
 }
 
 // Goals on Progress: each muscle's days and sets against its goals (it replaces "Days since trained"),
-// then your own goals. Two muscles a row; one at large text sizes. Labels wrap, never truncate.
+// then your own goals and protein. Two muscles a row; one at large text sizes. Labels wrap, never truncate.
 // The section label and Edit sit above the card, like every section label.
 export default function GoalsCard({ progress, daysSince }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
   const perRow = fontScale > LIST_AT_FONT_SCALE ? 1 : 2;
-  const { muscles, custom, timesMet, setsMet } = progress;
+  const { muscles, custom, protein, timesMet, setsMet } = progress;
   const rows = Array.from({ length: Math.ceil(muscles.length / perRow) }, (_, i) => muscles.slice(i * perRow, (i + 1) * perRow));
   const total = muscles.length;
   const summary = [
@@ -58,6 +58,7 @@ export default function GoalsCard({ progress, daysSince }: Props) {
         {custom.map((c, i) => (
           <CustomRow key={c.goal.id} c={c} first={i === 0 && total === 0} />
         ))}
+        {protein && <ProteinRow p={protein} first={total === 0 && custom.length === 0} />}
       </SkyCard>
     </>
   );
@@ -117,6 +118,22 @@ function CustomRow({ c, first }: { c: CustomProgress; first: boolean }) {
       </View>
       <Bar progress={c.now / c.target} done={c.met} />
     </Pressable>
+  );
+}
+
+// Protein a day, on the days food was logged: a day without food never counts against it
+function ProteinRow({ p, first }: { p: ProteinProgress; first: boolean }) {
+  const { colors } = useTheme();
+  const title = `Protein ${p.target} g a day`;
+  const status = p.logged ? `${p.hit} of ${p.logged} days with food` : 'No food logged';
+  return (
+    <View accessible accessibilityLabel={`${title}, ${status}`} style={[styles.custom, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+      <View style={styles.customText}>
+        <Text variant="bodyLarge" style={[styles.shrink, { color: colors.text }]}>{title}</Text>
+        <Text variant="bodyMedium" style={{ color: p.met ? colors.mint : colors.textSecondary }}>{status}</Text>
+      </View>
+      <Bar progress={p.logged ? p.hit / p.logged : 0} done={p.met} />
+    </View>
   );
 }
 

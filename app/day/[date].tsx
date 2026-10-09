@@ -5,7 +5,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { format, parseISO, isToday, isYesterday, isFuture, formatDistanceToNow } from 'date-fns';
-import { fonts, radius, spacing } from '../../constants/theme';
+import { spacing } from '../../constants/theme';
 import SelectableWorkoutList, { UndoToast } from '../../components/SelectableWorkoutList';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
 import FoodDay from '../../components/FoodDay';
@@ -17,6 +17,7 @@ export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const router = useRouter();
   const { getWorkoutsByDate, schedule, getTemplate, loadSchedule, loadTemplates, cancelScheduledWorkout, deleteRecurringSeries } = useWorkoutStore();
+  const ate = useWorkoutStore(s => s.foodEntries.some(e => e.date === date));
   const { colors } = useTheme();
 
   const workouts = getWorkoutsByDate(date);
@@ -24,7 +25,7 @@ export default function DayDetailScreen() {
   const future = isFuture(dateObj) && !isToday(dateObj);
   const planned = schedule.find(s => s.date === date && !s.completed && !s.skipped);
   const plannedTemplate = planned ? getTemplate(planned.templateId) : undefined;
-  const empty = emptyDay(date, format(new Date(), 'yyyy-MM-dd'), workouts.length > 0, !!planned);
+  const empty = emptyDay(date, format(new Date(), 'yyyy-MM-dd'), workouts.length > 0 || ate, !!planned);
 
   useEffect(() => {
     loadSchedule();
@@ -79,14 +80,6 @@ export default function DayDetailScreen() {
     Alert.alert('Remove the planned workout?', 'Logged workouts stay.', buttons);
   };
 
-  const totalExercises = workouts.reduce((sum, w) => sum + w.exercises.length, 0);
-  const allMuscleGroups = [...new Set(workouts.flatMap(w => w.muscleGroups))];
-  const tiles = [
-    { value: workouts.length, label: workouts.length === 1 ? 'Session' : 'Sessions' },
-    { value: totalExercises, label: 'Exercises' },
-    { value: allMuscleGroups.length, label: 'Muscle groups' },
-  ];
-
   return (
     <SkyScreen edges={[]}>
       <Stack.Screen
@@ -123,27 +116,16 @@ export default function DayDetailScreen() {
         )}
 
         {workouts.length > 0 ? (
-          <>
-            <View style={styles.tiles}>
-              {tiles.map(tile => (
-                <SkyCard key={tile.label} style={styles.tile}>
-                  <Text style={[styles.tileValue, { color: colors.text }]}>{tile.value}</Text>
-                  <Text variant="labelMedium" style={{ color: colors.textSecondary }}>{tile.label}</Text>
-                </SkyCard>
-              ))}
-            </View>
-
-            <SelectableWorkoutList label="Workouts" workouts={workouts} groupByDate={false} enableSwipe />
-          </>
+          <SelectableWorkoutList label="Training" workouts={workouts} groupByDate={false} enableSwipe />
         ) : empty && (
           <SkyCard style={styles.empty}>
             <Text variant="titleLarge" style={[styles.center, { color: colors.text }]}>{empty.title}</Text>
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-              {empty.plan ? 'Plan a workout and it shows up on your calendar.' : 'Add a workout for this day'}
+              {empty.plan ? 'Plan a workout and it shows up on your calendar.' : 'Add a workout or food for this day'}
             </Text>
             {empty.plan && <Pill icon="logo" label="Plan this day" onPress={planThisDay} style={styles.emptyButton} />}
             {empty.log && (
-              <Pill variant={empty.plan ? 'glass' : undefined} icon="plus" label="Add workout" onPress={handleQuickAdd} style={styles.emptyButton} />
+              <Pill variant={empty.plan ? 'glass' : undefined} icon="plus" label="Add workout or food" onPress={handleQuickAdd} style={styles.emptyButton} />
             )}
           </SkyCard>
         )}
@@ -159,25 +141,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.screen,
     paddingBottom: spacing.xl,
-  },
-  tiles: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.gap,
-  },
-  tile: {
-    flex: 1,
-    marginBottom: 0,
-    borderRadius: radius.tile,
-    paddingHorizontal: spacing.gap,
-    paddingVertical: spacing.gap,
-  },
-  tileValue: {
-    fontFamily: fonts.rounded,
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
   },
   plannedName: {
     marginTop: spacing.xs,

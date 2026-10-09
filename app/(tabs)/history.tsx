@@ -19,15 +19,17 @@ import { endOfWeek, format, startOfWeek } from 'date-fns';
 import { getPlans, deletePlan } from '../../services/planner';
 import { planChips, toChips } from '../../services/suggestions';
 import { weekLine } from '../../services/format';
+import { foodByDay } from '../../services/progress';
 import { TrainingPlan } from '../../types/plan';
 
 // Chat bar chips: a new plan from your own week (services/suggestions.ts), an open plan from its own tweaks
 const DEFAULT_TWEAKS = ['Easier', 'Harder', '45 min max', 'Different days', 'Add cardio'];
 const MONTHS_PER_PAGE = 3;
 
-// The record: the calendar, then every workout by month. How it's going lives on Progress.
+// The record: the calendar, then every day by month (its training, and its food for people who log it).
+// How it's going lives on Progress.
 export default function HistoryScreen() {
-  const { workouts, schedule, loadTemplates, loadSchedule, settings, updateSettings } = useWorkoutStore();
+  const { workouts, foodEntries, schedule, loadTemplates, loadSchedule, settings, updateSettings } = useWorkoutStore();
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -41,9 +43,12 @@ export default function HistoryScreen() {
 
   // A few months at a time, newest first (the store keeps the log sorted by date)
   const [pages, setPages] = useState(1);
-  const months = useMemo(() => [...new Set(workouts.map(w => w.date.slice(0, 7)))], [workouts]);
+  const food = useMemo(() => foodByDay(foodEntries), [foodEntries]);
+  const foodDates = useMemo(() => new Set(food.keys()), [food]);
+  const months = useMemo(() => [...new Set([...workouts.map(w => w.date), ...foodDates].map(d => d.slice(0, 7)))].sort().reverse(), [workouts, foodDates]);
   const oldestShown = months[Math.min(pages * MONTHS_PER_PAGE, months.length) - 1];
   const shown = useMemo(() => workouts.filter(w => w.date.slice(0, 7) >= oldestShown), [workouts, oldestShown]);
+  const shownFood = useMemo(() => new Map([...food].filter(([date]) => date.slice(0, 7) >= oldestShown)), [food, oldestShown]);
 
   // This calendar week (Monday first, like the calendar) in training days: logged, and planned from today on
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -145,13 +150,13 @@ export default function HistoryScreen() {
 
           {/* Every day opens its day screen: what was logged, or what's planned and how to change it */}
           <SkyCard>
-            <Calendar workouts={workouts} schedule={schedule} />
+            <Calendar workouts={workouts} schedule={schedule} foodDates={foodDates} />
           </SkyCard>
 
-          {workouts.length > 0 ? (
+          {months.length > 0 ? (
             <>
-              <SelectableWorkoutList label="Workouts" workouts={shown} byMonth />
-              {shown.length < workouts.length && (
+              <SelectableWorkoutList label="Days" workouts={shown} byMonth food={shownFood} />
+              {oldestShown !== months[months.length - 1] && (
                 <Pill variant="glass" label="Show earlier" onPress={() => setPages(pages + 1)} style={styles.earlier} />
               )}
             </>

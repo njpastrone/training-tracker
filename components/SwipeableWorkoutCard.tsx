@@ -1,10 +1,10 @@
 import { Alert, StyleSheet, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import WorkoutCard from './WorkoutCard';
 import { Workout } from '../types/workout';
+import type { FoodDayTotal } from '../services/progress';
 import { useTheme } from '../contexts/ThemeContext';
 import { radius } from '../constants/theme';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -13,10 +13,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface Props {
   workout: Workout;
+  food?: FoodDayTotal;
 }
 
-export default function SwipeableWorkoutCard({ workout }: Props) {
-  const router = useRouter();
+export default function SwipeableWorkoutCard({ workout, food }: Props) {
   const { deleteWithUndo, addWorkout } = useWorkoutStore();
   const { colors } = useTheme();
   let swipeableRef: Swipeable | null = null;
@@ -66,10 +66,7 @@ export default function SwipeableWorkoutCard({ workout }: Props) {
       overshootLeft={false}
       overshootRight={false}
     >
-      <WorkoutCard 
-        workout={workout} 
-        onPress={() => router.push(`/workout/${workout.id}`)}
-      />
+      <WorkoutCard workout={workout} food={food} />
     </Swipeable>
   );
 }
