@@ -144,7 +144,7 @@ Before the first AI call, the app asks whether what you type may be sent to Anth
 
 ### Planning a Week
 
-Type what you want in the chat bar on the History tab ("Plan your week…"), or tap **Plan it for me** on the Log tab (shown when nothing is scheduled) to start there. The plan shows as a card on the page; adjust it with the tweak chips or a short note in the same bar, then tap **Plan it** to add the sessions to your calendar. Plan it replaces any not-completed sessions on the same dates. Undo from the History banner, or tap a planned day on the calendar, tap **Remove**, and choose **Delete the whole plan** to remove its upcoming sessions (completed workouts stay).
+Type what you want in the chat bar on the History tab ("Plan your week…"), or, after your first workout with nothing scheduled, tap **Plan my week** on the Log tab. The plan shows as a card on the page; adjust it with the tweak chips or a short note in the same bar, then tap **Plan it** to add the sessions to your calendar. Plan it replaces any not-completed sessions on the same dates. Undo from the History banner, or tap a planned day on the calendar, tap **Remove**, and choose **Delete the whole plan** to remove its upcoming sessions (completed workouts stay).
 
 ### Viewing History
 
