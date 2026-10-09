@@ -68,10 +68,10 @@ export function emptyDay(date: string, today: string, logged: boolean, planned: 
     : { title: 'Nothing planned', plan: true, log: date === today };
 }
 
-// History's subtitle: the last 7 days' logged days (workout or food) and still-planned training days
+// History's subtitle: logged days (workout or food) in the last 7 days and planned training days in the next 7
 export function weekLine(logged: number, planned: number): string {
-  if (!logged && !planned) return 'Nothing logged yet this week';
-  return [logged && `${logged} logged`, planned && `${planned} planned`].filter(Boolean).join(' · ') + ' this week';
+  if (!logged && !planned) return 'Nothing logged in the last 7 days';
+  return [logged && `${logged} logged in the last 7 days`, planned && `${planned} planned in the next 7`].filter(Boolean).join(' · ');
 }
 
 // A day's food in one line, for History's day cards: "90 g protein · 941 kcal · 4 foods"
