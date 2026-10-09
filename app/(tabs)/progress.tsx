@@ -99,7 +99,7 @@ export default function ProgressScreen() {
 
       {reviewing ? null : (
         <>
-          {workouts.length === 0 && food.logged === 0 && (
+          {workouts.length === 0 && foodEntries.length === 0 && (
             <SkyCard style={styles.empty}>
               <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
