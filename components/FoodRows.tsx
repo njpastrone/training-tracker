@@ -18,12 +18,13 @@ interface Props {
   onChange?: (items: Item[]) => void; // editable: amount chips, unit switch, estimate numbers, remove
   onRemove?: (index: number) => void; // a row's ×; without it, × edits the list through onChange
   date?: string; // the logging date, for day tags on multi-day logs
+  onClose?: () => void; // an editor opened from a read-only row: details show, tapping the row closes it
 }
 
 // Food rows: dot, name, amount, protein and calories up front; tap a row for carbs, fat, fiber and
 // where the numbers come from. USDA rows get a filled category dot; the AI's estimates (branded,
 // restaurant, homemade) an open ring and a "≈" on the calories.
-export default function FoodRows({ items, onChange, onRemove, date }: Props) {
+export default function FoodRows({ items, onChange, onRemove, date, onClose }: Props) {
   const { colors } = useTheme();
   const [open, setOpen] = useState<number | null>(null);
   const edit = (i: number, item: Item) => onChange?.(items.map((x, k) => (k === i ? item : x)));
@@ -48,10 +49,10 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
             <View style={[styles.dot, estimate ? { borderWidth: 2, borderColor: color } : { backgroundColor: color }]} />
             <View style={styles.flex}>
               <Pressable
-                onPress={() => setOpen(open === i ? null : i)}
+                onPress={onClose ?? (() => setOpen(open === i ? null : i))}
                 accessibilityRole="button"
-                accessibilityState={{ expanded: open === i }}
-                accessibilityHint="Shows carbs, fat and where the numbers come from"
+                accessibilityState={{ expanded: !!onClose || open === i }}
+                accessibilityHint={onClose ? 'Closes the editor' : 'Shows carbs, fat and where the numbers come from'}
                 style={styles.top}
               >
                 <View style={styles.flex}>
@@ -94,7 +95,7 @@ export default function FoodRows({ items, onChange, onRemove, date }: Props) {
                 <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{amountLabel(item.qty, item.unit, food)}</Text>
               )}
 
-              {open === i && (
+              {(onClose || open === i) && (
                 <View style={[styles.detail, { backgroundColor: colors.dim }]}>
                   {estimate && onChange ? (
                     <View style={styles.macroChips}>

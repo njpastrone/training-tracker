@@ -8,6 +8,7 @@ import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
 import { emptyLibrary, migrateToV1, rememberName, withIdentity } from '../services/exerciseIdentity';
+import { withFoodGoal } from '../services/goals';
 import { format } from 'date-fns';
 
 // Undo payload: the deleted workouts and the plan sessions their delete reopened
@@ -354,11 +355,13 @@ export const useWorkoutStore = create<WorkoutState>()(
       name: STORAGE_KEY,
       storage: createJSONStorage(() => AsyncStorage),
       // 1: exercise identity (exerciseId and match on every logged exercise, plus the library)
-      version: 1,
+      // 2: goals.protein becomes the one food goal, goals.food
+      version: 2,
       migrate: async (persisted, version) => {
         if (version === 0) await backupV0();
         try {
-          return migrateToV1(persisted as Partial<WorkoutState>) as WorkoutState;
+          const state = version < 1 ? migrateToV1(persisted as Partial<WorkoutState>) : (persisted as Partial<WorkoutState>);
+          return withFoodGoal(state) as WorkoutState;
         } catch (error) {
           // Never fail hydration: that would leave the store empty and the next save would overwrite the data
           console.error('Error migrating workouts:', error);

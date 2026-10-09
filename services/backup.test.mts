@@ -71,7 +71,7 @@ async function seed() {
   useWorkoutStore.getState().updateSettings({
     weightUnit: 'kg',
     goals: {
-      muscles: ['chest', 'back'], timesPerWeek: 2, minSets: { chest: 10 }, protein: 140,
+      muscles: ['chest', 'back'], timesPerWeek: 2, minSets: { chest: 10 }, food: { kind: 'protein', target: 140 },
       custom: [{ id: 'g1', kind: 'lift', exerciseId: 'bench', weight: 100, unit: 'kg' }, { id: 'g2', kind: 'often', exerciseId: 'squat', perWeek: 2 }],
     },
   });

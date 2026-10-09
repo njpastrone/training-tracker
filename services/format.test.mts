@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, emptyDay, weekLine, paceLine, cardTargets } from './format';
+import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, weekLine, paceLine, workoutName } from './format';
 
 const bench = { name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const };
 const run = { name: 'Run', muscleGroup: 'cardio' as const, duration: 25, distance: 5, distanceUnit: 'km' as const };
@@ -38,16 +38,6 @@ test('lastDoneLine reads well for any recency, and leaves out an empty count', (
   assert.equal(lastDoneLine({ lastDoneDaysAgo: 40, timesLast28Days: 0 }), 'last done 40 days ago');
 });
 
-test('emptyDay offers Plan today and ahead, logging today and before', () => {
-  const today = '2026-10-06';
-  assert.deepEqual(emptyDay(today, today, false, false), { title: 'Nothing planned', plan: true, log: true });
-  assert.deepEqual(emptyDay('2026-10-07', today, false, false), { title: 'Nothing planned', plan: true, log: false });
-  assert.deepEqual(emptyDay('2026-10-05', today, false, false), { title: 'No workouts on this day', plan: false, log: true });
-  assert.equal(emptyDay(today, today, false, true), undefined);
-  assert.equal(emptyDay('2026-10-07', today, false, true), undefined);
-  assert.equal(emptyDay('2026-10-05', today, true, false), undefined);
-});
-
 test('weekLine and paceLine always say something', () => {
   assert.equal(weekLine(5, 4), 'Last 7: 5 logged · Next 7: 4 planned');
   assert.equal(weekLine(2, 0), 'Last 7: 2 logged');
@@ -60,6 +50,15 @@ test('weekLine and paceLine always say something', () => {
   assert.equal(paceLine(1, 0), '1 training day in the last 7 · goal met');
 });
 
-test("a day card's body opens its workout and its food line opens the day", () => {
-  assert.deepEqual(cardTargets({ id: 'w1', date: '2026-10-08' }), { body: '/workout/w1', food: '/day/2026-10-08' });
+test('a workout is named by its split, else by its muscles', () => {
+  assert.equal(workoutName(['chest', 'shoulders', 'triceps']), 'Push');
+  assert.equal(workoutName(['back', 'biceps', 'core']), 'Pull');
+  assert.equal(workoutName(['quads', 'glutes']), 'Legs');
+  assert.equal(workoutName(['chest', 'back']), 'Upper body');
+  assert.equal(workoutName(['chest', 'quads']), 'Full body');
+  assert.equal(workoutName(['chest']), 'Chest');
+  assert.equal(workoutName(['cardio']), 'Cardio');
+  assert.equal(workoutName(['cardio', 'quads']), 'Cardio and quads');
+  assert.equal(workoutName(['core']), 'Core');
+  assert.equal(workoutName([]), 'Workout');
 });

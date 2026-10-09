@@ -9,7 +9,8 @@ import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
-import GoalsCard, { LIST_AT_FONT_SCALE } from '../../components/GoalsCard';
+import { GoalsHeader, LIST_AT_FONT_SCALE, MuscleSetsCard, OtherGoalsCard, WeekGrid } from '../../components/GoalsCard';
+import FoodBreakdown from '../../components/FoodBreakdown';
 import { Toast } from '../../components/SelectableWorkoutList';
 import { dayLabel } from '../../components/WorkoutCard';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -18,7 +19,6 @@ import { useLogDraft } from '../../hooks/useLogDraft';
 import { digest, target, ExerciseSummary, LiftTrend, Target } from '../../services/insights';
 import { daysAgo, lastDoneLine, paceLine } from '../../services/format';
 import { foodWeek } from '../../services/progress';
-import { format, parseISO } from 'date-fns';
 import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName, progressSections } from '../../services/goals';
 import { missedChips } from '../../services/suggestions';
 import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
@@ -26,8 +26,9 @@ import type { MuscleGroup, Workout } from '../../types/workout';
 
 const SHOWN = 8; // exercises before "Show all"
 
-// How you're doing, from your own log: goals first (or a prompt to set them), then every exercise with
-// when it was last done and how often; PRs, trends and next targets only where there are numbers.
+// How you're doing, from your own log: the last 7 days as a grid against your goals (or a prompt to set
+// them), then a breakdown per kind (muscle sets, food, your own goals), then every exercise with when it
+// was last done and how often; PRs, trends and next targets only where there are numbers.
 // Missed a workout? Say so in the chat bar and it goes on the right day; a planned day you never logged is a chip.
 export default function ProgressScreen() {
   const { colors, sky } = useTheme();
@@ -50,6 +51,21 @@ export default function ProgressScreen() {
   const loggedDays = logged ? [...new Set(logged.map(w => w.date))] : [];
   const reviewing = !!log.sent || !!log.draft;
 
+  const g = show.goals;
+  const timesGoals = g?.muscles.filter(m => m.timesGoal !== undefined) ?? [];
+  const setsGoals = g?.muscles.filter(m => m.setsGoal !== undefined) ?? [];
+  const foodGoal = food.logged ? g?.food : undefined; // the grid's food row needs food to show
+  // Someone who only logs food hears about their food, in the goal's own number
+  const subtitle =
+    workouts.length > 0 || foodEntries.length === 0
+      ? paceLine(sky.done, sky.target)
+      : !food.logged
+        ? 'No food logged in the last 7'
+        : settings.goals?.food && settings.goals.food.kind !== 'protein'
+          ? `${food.kcal.toLocaleString('en-US')} kcal a day over the last 7`
+          : `Protein ${food.protein} g a day over the last 7`;
+  const lapsed = (workouts.length > 0 || foodEntries.length > 0) && !sky.done && !food.logged;
+
   return (
     <ChatScreen
       bar={logBar(log, "Forgot something? 'legs on Wed'", chips)}
@@ -66,7 +82,8 @@ export default function ProgressScreen() {
         )
       }
     >
-      <LargeTitle title="Progress" subtitle={workouts.length === 0 && food.logged ? `Food logged on ${food.logged} of the last 7 days` : paceLine(sky.done, sky.target)} />
+      {/* tt-progress-next: the Ask pill goes in the title's right slot */}
+      <LargeTitle title="Progress" subtitle={subtitle} />
 
       {/* Corrections: a missed workout in plain words goes to its own day */}
       {log.sent && <UserBubble text={log.sent} />}
@@ -85,7 +102,7 @@ export default function ProgressScreen() {
 
       {reviewing ? null : (
         <>
-          {workouts.length === 0 && !food.logged && (
+          {workouts.length === 0 && foodEntries.length === 0 && (
             <SkyCard style={styles.empty}>
               <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
@@ -95,20 +112,55 @@ export default function ProgressScreen() {
             </SkyCard>
           )}
 
+          {lapsed && (
+            <SkyCard style={styles.empty}>
+              <SymbolView name="calendar.badge.clock" size={30} tintColor={colors.sunrise} />
+              <Text variant="titleMedium" style={{ color: colors.text }}>Nothing in the last 7 days</Text>
+              <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
+                Log a workout or a meal and this week fills in again.
+              </Text>
+            </SkyCard>
+          )}
+
+          {/* tt-progress-next: the weekly check-in card goes here, above the grid */}
+
           {/* Goals lead the page; until there are some, a prompt to set them (it stays gone after Not now) */}
-          {show.goals ? (
-            <GoalsCard progress={show.goals} daysSince={d.daysSinceGroupTrained} />
-          ) : (
-            workouts.length > 0 && !settings.goalsPromptDismissed && (
+          {(timesGoals.length > 0 || foodGoal) && (
+            <>
+              <GoalsHeader label="Last 7 days" />
+              <WeekGrid muscles={timesGoals} workouts={workouts} food={foodGoal} days={food.days} />
+            </>
+          )}
+          {!g &&
+            workouts.length > 0 &&
+            !settings.goalsPromptDismissed && (
               <GoalsPrompt
                 onPreset={() => updateSettings({ goals: { ...(settings.goals ?? NO_GOALS), muscles: settings.goals?.muscles.length ? settings.goals.muscles : DEFAULT_MUSCLES, timesPerWeek: 2 } })}
                 onOwn={() => router.push('/goals')}
                 onNotNow={() => updateSettings({ goalsPromptDismissed: true })}
               />
-            )
+            )}
+
+          {setsGoals.length > 0 && (
+            <>
+              <GoalsHeader label="Muscles · sets, last 7 days" />
+              <MuscleSetsCard muscles={setsGoals} daysSince={d.daysSinceGroupTrained} />
+            </>
           )}
 
-          {show.food && <FoodWeekCard week={food} />}
+          {show.food && (
+            <>
+              <GoalsHeader label="Food · last 7 days" />
+              <FoodBreakdown week={food} goal={g?.food} />
+            </>
+          )}
+
+          {!!g?.custom.length && (
+            <>
+              <GoalsHeader label="Your other goals" />
+              <OtherGoalsCard custom={g.custom} />
+            </>
+          )}
 
           {workouts.length > 0 && (
             <>
@@ -193,40 +245,6 @@ const loggedOn = (date: string) => {
   const label = dayLabel(date);
   return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
 };
-
-// The last 7 days of food, only once there is some: protein a day on average and one plain bar a
-// day. Calories stay a plain number, no colour and no target.
-function FoodWeekCard({ week }: { week: ReturnType<typeof foodWeek> }) {
-  const { colors } = useTheme();
-  const top = Math.max(...week.days.map(d => d.total?.protein ?? 0), 1);
-  const detail = `Logged ${week.logged} of 7 days · ${week.kcal.toLocaleString('en-US')} kcal a day`;
-  return (
-    <>
-      <SectionLabel style={styles.label}>Food · last 7 days</SectionLabel>
-      <SkyCard accessible accessibilityLabel={`${week.protein} g protein a day on average. ${detail}`}>
-        <Text variant="titleMedium" style={{ color: colors.text }}>{week.protein} g protein a day on average</Text>
-        <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{detail}</Text>
-        <View style={styles.bars}>
-          {week.days.map(d => (
-            <View key={d.date} style={styles.barCol}>
-              <View style={styles.barSpace}>
-                <View
-                  style={[
-                    styles.foodBar,
-                    d.total ? { height: `${Math.max(4, (d.total.protein / top) * 100)}%`, backgroundColor: colors.sunrise } : { height: 3, backgroundColor: colors.dim },
-                  ]}
-                />
-              </View>
-              <Text variant="labelSmall" style={{ color: colors.textTertiary }}>
-                {format(parseISO(d.date), 'EEEEE')}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </SkyCard>
-    </>
-  );
-}
 
 // The first-use prompt for goals: the owner's own goal in one tap, your own on the Goals screen
 function GoalsPrompt({ onPreset, onOwn, onNotNow }: { onPreset: () => void; onOwn: () => void; onNotNow: () => void }) {
@@ -398,25 +416,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  bars: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: spacing.gap,
-  },
-  barCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  barSpace: {
-    alignSelf: 'stretch',
-    height: 40,
-    justifyContent: 'flex-end',
-  },
-  foodBar: {
-    borderTopLeftRadius: 3,
-    borderTopRightRadius: 3,
   },
   groupDays: {
     fontFamily: fonts.rounded,

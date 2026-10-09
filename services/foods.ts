@@ -9,6 +9,7 @@ import type { RawFoodItem } from '../server/src/food';
 import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
 import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume, own } from './foodUnits';
 import { englishFoodWords } from './foodWords';
+import { format, parseISO } from 'date-fns';
 
 const MAX_CANDIDATES = 50;
 
@@ -372,3 +373,22 @@ export function sumMacros(items: { macros: Macros }[]): Macros {
 
 // "42 g protein · 520 kcal": protein first, the number a lifter acts on
 export const macroLine = (m: Macros) => `${Math.round(m.protein)} g protein · ${Math.round(m.kcal).toLocaleString('en-US')} kcal`;
+
+// A day's food as meals for the day screen: one logged message is one meal, oldest first, named by
+// the time it was logged ("Morning", "8:10 am"), with its totals
+export interface Meal {
+  entry: FoodEntry;
+  name: string;
+  time: string;
+  macros: Macros;
+}
+export function mealsOf(entries: FoodEntry[]): Meal[] {
+  return [...entries]
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map(entry => {
+      const at = parseISO(entry.createdAt);
+      const h = at.getHours();
+      const name = h < 11 ? 'Morning' : h < 15 ? 'Midday' : h < 18 ? 'Afternoon' : 'Evening';
+      return { entry, name, time: format(at, 'h:mm a').toLowerCase(), macros: sumMacros(entry.items) };
+    });
+}

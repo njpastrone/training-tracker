@@ -1,8 +1,10 @@
 import { analyzeWeeklyVolume } from './coach';
 import { displayName } from './exerciseIdentity';
+import { daysAgo } from './format';
 import { trainingWindow } from './pace';
-import { entriesFor, foodWeek, inUnit, personalRecords } from './progress';
-import type { CustomGoal, ExerciseLibrary, Goals, MuscleGroup, Workout } from '../types/workout';
+import { format, subDays } from 'date-fns';
+import { entriesFor, foodWeek, inUnit, personalRecords, type Entry } from './progress';
+import type { CustomGoal, ExerciseLibrary, FoodGoal, Goals, MuscleGroup, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 
 // Goals checked against the log over the same rolling last 7 days as the sky and the tiles
@@ -32,14 +34,40 @@ export interface CustomProgress {
   now: number; // lift: best weight ever, in the goal's unit (0 if never logged); often: days in the last 7
   target: number;
   met: boolean;
+  weeks?: (number | undefined)[]; // lift: heaviest set in each of the last 4 rolling weeks, oldest first
+  change?: number; // lift: best now minus best before those 4 weeks; unknown with nothing logged before them
 }
 
-// Protein a day, checked only on the days with food logged in the last 7
-export interface ProteinProgress {
-  target: number; // g a day
-  hit: number; // logged days at or over the target
+// The food goal, checked only on the days with food logged in the last 7
+export interface FoodProgress {
+  goal: FoodGoal;
+  hit: number; // logged days that met it
   logged: number; // days with food logged
-  met: boolean; // every logged day hit it
+  met: boolean; // every logged day met it
+}
+
+type DayFood = { protein: number; kcal: number };
+// The number a food goal measures: protein grams, or kcal on a cut or bulk
+export const foodValue = (goal: FoodGoal, t: DayFood) => (goal.kind === 'protein' ? t.protein : t.kcal);
+// Met: at least the target for protein and a bulk, at or under it on a cut
+export const foodMet = (goal: FoodGoal, t: DayFood) => (goal.kind === 'cut' ? t.kcal <= goal.target : foodValue(goal, t) >= goal.target);
+export const foodGoalName = (goal: FoodGoal) => (goal.kind === 'protein' ? 'Protein' : 'Calories');
+// "160 g" or "2,000"
+export const foodTarget = (goal: FoodGoal) => (goal.kind === 'protein' ? `${goal.target} g` : goal.target.toLocaleString('en-US'));
+// Calories against a cut or bulk in plain words, never a grade: "876 left · cutting", "124 over · cutting", "876 to go · bulking", "reached · bulking"
+export function calorieLeft(goal: FoodGoal, kcal: number): string {
+  const diff = goal.target - kcal;
+  const n = (v: number) => Math.round(v).toLocaleString('en-US');
+  if (goal.kind === 'cut') return `${diff >= 0 ? `${n(diff)} left` : `${n(-diff)} over`} · cutting`;
+  return `${diff > 0 ? `${n(diff)} to go` : 'reached'} · bulking`;
+}
+
+// Persisted settings from before the one food goal: a protein target becomes a protein food goal
+export function withFoodGoal<T extends { settings?: { goals?: Goals & { protein?: number } } }>(state: T): T {
+  const goals = state.settings?.goals;
+  if (!goals || goals.protein === undefined) return state;
+  const { protein, ...rest } = goals;
+  return { ...state, settings: { ...state.settings, goals: { ...rest, food: rest.food ?? { kind: 'protein', target: protein } } } };
 }
 
 export const hasMuscleGoals = (g: Goals) => g.timesPerWeek !== undefined || g.minSets !== undefined;
@@ -63,37 +91,44 @@ export function goalProgress(goals: Goals, workouts: Workout[], library: Exercis
     const entries = entriesFor(workouts, goal.exerciseId, library);
     const name = displayName(goal.exerciseId, library) ?? goal.exerciseId;
     if (goal.kind === 'lift') {
-      const best = personalRecords(entries, 'weight-reps', goal.unit).heaviest?.exercise;
-      const top = best?.weight ? Math.round(inUnit(best.weight, best.unit, goal.unit) * 10) / 10 : 0;
-      return { goal, name, now: top, target: goal.weight, met: top >= goal.weight };
+      const heaviest = (list: Entry[]) => {
+        const best = personalRecords(list, 'weight-reps', goal.unit).heaviest?.exercise;
+        return best?.weight ? Math.round(inUnit(best.weight, best.unit, goal.unit) * 10) / 10 : undefined;
+      };
+      const ago = (days: number) => format(subDays(now, days), 'yyyy-MM-dd');
+      const top = heaviest(entries) ?? 0;
+      const weeks = [3, 2, 1, 0].map(i => heaviest(entries.filter(e => e.date > ago(7 * (i + 1)) && e.date <= ago(7 * i))));
+      const before = heaviest(entries.filter(e => e.date <= ago(28)));
+      const change = before === undefined ? undefined : Math.round((top - before) * 10) / 10;
+      return { goal, name, now: top, target: goal.weight, met: top >= goal.weight, weeks, change };
     }
     const days = new Set(entries.filter(e => e.date >= win.first && e.date <= win.last).map(e => e.date)).size;
     return { goal, name, now: days, target: goal.perWeek, met: days >= goal.perWeek };
   });
 
-  let protein: ProteinProgress | undefined;
-  if (goals.protein) {
-    const target = goals.protein;
+  let foodGoal: FoodProgress | undefined;
+  if (goals.food) {
+    const goal = goals.food;
     const week = foodWeek(food, now);
-    const hit = week.days.filter(d => d.total && d.total.protein >= target).length;
-    protein = { target, hit, logged: week.logged, met: week.logged > 0 && hit === week.logged };
+    const hit = week.days.filter(d => d.total && foodMet(goal, d.total)).length;
+    foodGoal = { goal, hit, logged: week.logged, met: week.logged > 0 && hit === week.logged };
   }
 
   return {
     muscles,
     custom,
-    protein,
+    food: foodGoal,
     timesMet: muscles.filter(m => m.timesGoal !== undefined && m.times >= m.timesGoal).length,
     setsMet: muscles.filter(m => m.setsGoal !== undefined && m.sets >= m.setsGoal).length,
   };
 }
 
-// What Progress shows: workout goals only once there are workouts; the protein goal and the food
+// What Progress shows: workout goals only once there are workouts; the food goal and the food
 // week whenever they apply, so someone who only logs food still sees them
 export function progressSections(hasWorkouts: boolean, goals: ReturnType<typeof goalProgress> | undefined, foodLogged: number) {
   const shown = goals && (hasWorkouts ? goals : { ...goals, muscles: [], custom: [], timesMet: 0, setsMet: 0 });
   return {
-    goals: shown && (shown.muscles.length > 0 || shown.custom.length > 0 || !!shown.protein) ? shown : undefined,
+    goals: shown && (shown.muscles.length > 0 || shown.custom.length > 0 || !!shown.food) ? shown : undefined,
     food: foodLogged > 0,
   };
 }
@@ -101,6 +136,14 @@ export function progressSections(hasWorkouts: boolean, goals: ReturnType<typeof 
 // "8", "5½", and "5½+" when some sets weren't written down
 export const formatSets = (sets: number, missing: boolean) =>
   `${Math.floor(sets)}${sets % 1 ? '½' : ''}${missing ? '+' : ''}`.replace(/^0½/, '½');
+
+// When a muscle was last trained, for its tile: "Trained today", "Trained Tuesday" within the last 7 days,
+// "Trained 9 days ago" before that
+export function trainedLine(days: number | undefined, now: Date = new Date()): string {
+  if (days === undefined) return 'Not trained yet';
+  if (days <= 1 || days > 6) return `Trained ${daysAgo(days)}`;
+  return `Trained ${format(subDays(now, days), 'EEEE')}`;
+}
 
 export const muscleName = (g: MuscleGroup) => (g === 'full_body' ? 'Full body' : g.charAt(0).toUpperCase() + g.slice(1));
 

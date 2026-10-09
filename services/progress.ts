@@ -99,17 +99,19 @@ export function personalRecords(entries: Entry[], metric: Metric, userUnit: Weig
   }
 }
 
-// Each day's food: protein and calories summed (rounded once, for the day), and how many foods
+// Each day's food: protein and calories summed (rounded once, for the day), how many foods and meals (logged messages)
 export interface FoodDayTotal {
   protein: number;
   kcal: number;
   foods: number;
+  meals: number;
 }
 
 export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   const raw = new Map<string, FoodDayTotal>();
   for (const e of entries) {
-    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0 };
+    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0, meals: 0 };
+    t.meals++;
     for (const i of e.items) {
       t.protein += i.macros.protein;
       t.kcal += i.macros.kcal;
@@ -124,8 +126,9 @@ export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   return raw;
 }
 
-// The last 7 days of food, oldest first, for Progress and the protein goal. Averages are over the
-// days with food logged: a day nothing was written down is unknown, not zero.
+// The last 7 days of food, oldest first, for Progress and the food goal. Averages are over the
+// days with food logged: a day nothing was written down is unknown, not zero. `top` is where most
+// of the protein came from: up to 3 short names ("chicken breast", "egg"), most first.
 export function foodWeek(entries: FoodEntry[], now: Date = new Date()) {
   const totals = foodByDay(entries);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -133,6 +136,22 @@ export function foodWeek(entries: FoodEntry[], now: Date = new Date()) {
     return { date, total: totals.get(date) };
   });
   const logged = days.flatMap(d => (d.total ? [d.total] : []));
-  const avg = (k: 'protein' | 'kcal') => (logged.length ? Math.round(logged.reduce((s, t) => s + t[k], 0) / logged.length) : 0);
-  return { days, logged: logged.length, protein: avg('protein'), kcal: avg('kcal') };
+  const avg = (sum: number) => (logged.length ? Math.round(sum / logged.length) : 0);
+  const items = entries.filter(e => e.date >= days[0].date && e.date <= days[6].date).flatMap(e => e.items);
+  const sum = (k: 'carbs' | 'fat') => items.reduce((s, i) => s + i.macros[k], 0);
+  const byName = new Map<string, number>();
+  for (const i of items) {
+    const name = i.name.split(',')[0].trim().toLowerCase(); // "Rice, white" → "rice"
+    byName.set(name, (byName.get(name) ?? 0) + i.macros.protein);
+  }
+  const top = [...byName].filter(([, p]) => p > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name);
+  return {
+    days,
+    logged: logged.length,
+    protein: avg(logged.reduce((s, t) => s + t.protein, 0)),
+    kcal: avg(logged.reduce((s, t) => s + t.kcal, 0)),
+    carbs: avg(sum('carbs')),
+    fat: avg(sum('fat')),
+    top,
+  };
 }

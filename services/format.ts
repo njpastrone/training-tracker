@@ -1,5 +1,4 @@
-import type { Exercise, Workout } from '../types/workout';
-import type { FoodDayTotal } from './progress';
+import type { Exercise, MuscleGroup } from '../types/workout';
 
 type ExerciseValues = Omit<Exercise, 'id'>;
 
@@ -59,31 +58,37 @@ export const daysAgo = (n: number) => (n <= 0 ? 'today' : n === 1 ? 'yesterday' 
 export const lastDoneLine = (e: { lastDoneDaysAgo: number; timesLast28Days: number }) =>
   `last done ${daysAgo(e.lastDoneDaysAgo)}${e.timesLast28Days ? ` · ${e.timesLast28Days}× in 4 wks` : ''}`;
 
-// What an empty day screen offers: today and future days can be planned, today and past days can be logged.
-// undefined when the day has a logged or planned workout to show instead.
-export function emptyDay(date: string, today: string, logged: boolean, planned: boolean) {
-  if (logged || planned) return undefined;
-  return date < today
-    ? { title: 'No workouts on this day', plan: false, log: true }
-    : { title: 'Nothing planned', plan: true, log: date === today };
-}
-
 // History's subtitle: logged days (workout or food) in the last 7 days and planned training days in the next 7
 export function weekLine(logged: number, planned: number): string {
   if (!logged && !planned) return 'Nothing logged in the last 7';
   return [logged && `Last 7: ${logged} logged`, planned && `Next 7: ${planned} planned`].filter(Boolean).join(' · ');
 }
 
-// A day's food in one line, for History's day cards: "90 g protein · 941 kcal · 4 foods"
-export const foodDayLine = (t: FoodDayTotal) =>
-  `${t.protein} g protein · ${t.kcal.toLocaleString('en-US')} kcal · ${t.foods} food${t.foods === 1 ? '' : 's'}`;
-
-// Where a History day card's taps go: the card opens its workout, the food line opens the day
-export const cardTargets = (w: Pick<Workout, 'id' | 'date'>) => ({ body: `/workout/${w.id}`, food: `/day/${w.date}` });
-
 // Progress's subtitle: the sky's training days in the last 7 against its target
 export function paceLine(done: number, target: number): string {
   if (!done) return 'No training days in the last 7';
   if (done >= target) return `${done} training day${done === 1 ? '' : 's'} in the last 7 · goal met`;
   return `${done} of ${target} training days in the last 7`;
+}
+
+// A workout's short name from its muscles, for the day rows and Log: "Push", "Pull", "Legs", "Upper body",
+// "Full body", else the muscles ("Chest and biceps"). Core never decides the name.
+const SPLITS: [string, MuscleGroup[]][] = [
+  ['Push', ['chest', 'shoulders', 'triceps']],
+  ['Pull', ['back', 'biceps', 'forearms']],
+  ['Legs', ['quads', 'hamstrings', 'glutes', 'calves']],
+  ['Upper body', ['chest', 'shoulders', 'triceps', 'back', 'biceps', 'forearms']],
+];
+export function workoutName(groups: MuscleGroup[]): string {
+  const main = groups.filter(g => g !== 'core');
+  if (!main.length) return groups.length ? 'Core' : 'Workout';
+  if (main.includes('full_body')) return 'Full body';
+  if (main.length > 1) {
+    const split = SPLITS.find(([, of]) => main.every(g => of.includes(g)));
+    if (split) return split[0];
+    if (main.some(g => SPLITS[2][1].includes(g)) && main.some(g => SPLITS[3][1].includes(g))) return 'Full body';
+  }
+  const names = main.map(g => g.charAt(0).toUpperCase() + g.slice(1));
+  const said = names.length > 2 ? [names[0], names[1].toLowerCase()] : names.map((n, i) => (i ? n.toLowerCase() : n));
+  return said.join(' and ');
 }

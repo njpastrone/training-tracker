@@ -5,7 +5,7 @@ import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
   buildFoodCandidates, candidateNames, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
-  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices, nextUnit,
+  resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices, nextUnit, mealsOf,
 } from './foods';
 
 const food = (id: string) => {
@@ -230,4 +230,16 @@ test('emoji and other languages find the right table foods', () => {
   assert.equal(mentionsFood('🍌 and ☕️ black'), true);
   assert.equal(mentionsFood('comí arroz con frijoles'), true);
   assert.equal(matchFood('huevos')?.id, 'egg');
+});
+
+test('a day\'s food reads as meals: one per logged message, oldest first, named by the time it was logged', () => {
+  const entry = (id: string, at: string, protein: number) => ({
+    id, date: '2026-10-09', rawInput: '', createdAt: at,
+    items: [{ id: 'i', name: 'Food', source: 'estimate' as const, macros: { kcal: protein * 10, protein, carbs: 1, fat: 1 } }],
+  });
+  const meals = mealsOf([entry('c', '2026-10-09T19:30:00', 40), entry('a', '2026-10-09T08:10:00', 26), entry('b', '2026-10-09T13:05:00', 62)]);
+  assert.deepEqual(meals.map(m => [m.entry.id, m.name, m.time, m.macros.protein]), [
+    ['a', 'Morning', '8:10 am', 26], ['b', 'Midday', '1:05 pm', 62], ['c', 'Evening', '7:30 pm', 40],
+  ]);
+  assert.equal(mealsOf([entry('d', '2026-10-09T16:00:00', 1)])[0].name, 'Afternoon');
 });

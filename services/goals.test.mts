@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, formatSets, goalLines, progressSections } from './goals';
+import { goalProgress, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal, trainedLine } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -67,6 +67,24 @@ test('your own goals: best lift ever in the goal unit, and days done in the last
   assert.equal(reached.met, true);
 });
 
+test('a lift goal: heaviest set in each of the last 4 weeks, and the change since before them', () => {
+  const [lift] = goalProgress(GOALS, WORKOUTS, lib, [], NOW).custom;
+  assert.deepEqual(lift.weeks, [undefined, undefined, 205, 220.5]); // Sep 28 is the week before the last 7
+  assert.equal(lift.change, undefined); // nothing logged before the 4 weeks
+  const [older] = goalProgress(GOALS, [...WORKOUTS, w('2026-09-01', ['bench-press', 5, 185])], lib, [], NOW).custom;
+  assert.equal(older.change, 35.5);
+  assert.equal(goalProgress(GOALS, WORKOUTS, lib, [], NOW).custom[1].weeks, undefined);
+});
+
+test('when a muscle was last trained reads as a day', () => {
+  assert.equal(trainedLine(undefined, NOW), 'Not trained yet');
+  assert.equal(trainedLine(0, NOW), 'Trained today');
+  assert.equal(trainedLine(1, NOW), 'Trained yesterday');
+  assert.equal(trainedLine(2, NOW), 'Trained Sunday');
+  assert.equal(trainedLine(6, NOW), 'Trained Wednesday');
+  assert.equal(trainedLine(9, NOW), 'Trained 9 days ago');
+});
+
 test('only the goals that are on are checked', () => {
   const timesOnly = goalProgress({ ...GOALS, minSets: undefined }, WORKOUTS, lib, [], NOW).muscles.find(m => m.group === 'back')!;
   assert.equal(timesOnly.setsGoal, undefined);
@@ -105,31 +123,65 @@ const FOOD = [
 test('food over the last 7 days: per day, averaged over the days with food only', () => {
   const week = foodWeek(FOOD, NOW);
   assert.deepEqual(week.days.map(d => d.date), ['2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06']);
-  assert.deepEqual(week.days[0].total, { protein: 141, kcal: 1406, foods: 3 });
+  assert.deepEqual(week.days[0].total, { protein: 141, kcal: 1406, foods: 3, meals: 2 });
   assert.equal(week.days[1].total, undefined);
   assert.equal(week.logged, 3);
   assert.equal(week.protein, Math.round((141 + 100 + 150) / 3));
-  assert.deepEqual(foodWeek([], NOW), { days: week.days.map(d => ({ date: d.date, total: undefined })), logged: 0, protein: 0, kcal: 0 });
+  assert.deepEqual(foodWeek([], NOW), { days: week.days.map(d => ({ date: d.date, total: undefined })), logged: 0, protein: 0, kcal: 0, carbs: 0, fat: 0, top: [] });
 });
 
-test('protein a day: days at the target out of the days food was logged; off until set', () => {
-  assert.equal(goalProgress(GOALS, WORKOUTS, lib, FOOD, NOW).protein, undefined);
-  assert.deepEqual(goalProgress({ ...GOALS, protein: 140 }, WORKOUTS, lib, FOOD, NOW).protein, { target: 140, hit: 2, logged: 3, met: false });
-  assert.deepEqual(goalProgress({ ...GOALS, protein: 100 }, WORKOUTS, lib, FOOD, NOW).protein, { target: 100, hit: 3, logged: 3, met: true });
+test('food week: carbs and fat a day, and the top 3 protein sources by short name', () => {
+  const item = (name: string, protein: number, carbs = 0, fat = 0) => ({ id: name, name, source: 'usda' as const, macros: { kcal: 0, protein, carbs, fat } });
+  const entry = (date: string, ...items: ReturnType<typeof item>[]): FoodEntry => ({ id: date + items.length, date, rawInput: '', createdAt: date, items });
+  const week = foodWeek([
+    entry('2026-09-29', item('Tuna', 500)), // before the window
+    entry('2026-10-01', item('Chicken breast', 50, 0, 6), item('Rice, white', 6, 90, 1)),
+    entry('2026-10-06', item('Chicken breast, raw', 40, 0, 4), item('Egg', 19, 2, 15), item('Whey protein powder', 24, 3, 1), item('Banana', 1, 27, 0)),
+  ], NOW);
+  assert.equal(week.carbs, Math.round((90 + 2 + 3 + 27) / 2));
+  assert.equal(week.fat, Math.round((6 + 1 + 4 + 15 + 1) / 2));
+  assert.deepEqual(week.top, ['chicken breast', 'whey protein powder', 'egg']);
+});
+
+const protein = (target: number) => ({ kind: 'protein' as const, target });
+
+test('food goal: days that met it out of the days food was logged; off until set', () => {
+  assert.equal(goalProgress(GOALS, WORKOUTS, lib, FOOD, NOW).food, undefined);
+  assert.deepEqual(goalProgress({ ...GOALS, food: protein(140) }, WORKOUTS, lib, FOOD, NOW).food, { goal: protein(140), hit: 2, logged: 3, met: false });
+  assert.deepEqual(goalProgress({ ...GOALS, food: protein(100) }, WORKOUTS, lib, FOOD, NOW).food, { goal: protein(100), hit: 3, logged: 3, met: true });
   // Nothing logged is never met
-  assert.deepEqual(goalProgress({ ...GOALS, protein: 100 }, WORKOUTS, lib, [], NOW).protein, { target: 100, hit: 0, logged: 0, met: false });
+  assert.deepEqual(goalProgress({ ...GOALS, food: protein(100) }, WORKOUTS, lib, [], NOW).food, { goal: protein(100), hit: 0, logged: 0, met: false });
+  // Calories: a cut is met at or under the target, a bulk at or over it (days of 1,406, 1,000 and 1,500 kcal)
+  assert.equal(goalProgress({ ...GOALS, food: { kind: 'cut', target: 1200 } }, WORKOUTS, lib, FOOD, NOW).food?.hit, 1);
+  assert.equal(goalProgress({ ...GOALS, food: { kind: 'cut', target: 1000 } }, WORKOUTS, lib, FOOD, NOW).food?.hit, 1);
+  assert.equal(goalProgress({ ...GOALS, food: { kind: 'bulk', target: 1406 } }, WORKOUTS, lib, FOOD, NOW).food?.hit, 2);
 });
 
-test('Progress shows the protein goal and the food week for someone with food but no workouts', () => {
-  const goals = { ...GOALS, protein: 140 };
+test('calories against a cut or bulk read as plain words', () => {
+  assert.equal(calorieLeft({ kind: 'cut', target: 2000 }, 1124), '876 left · cutting');
+  assert.equal(calorieLeft({ kind: 'cut', target: 2000 }, 2124), '124 over · cutting');
+  assert.equal(calorieLeft({ kind: 'bulk', target: 3000 }, 1124), '1,876 to go · bulking');
+  assert.equal(calorieLeft({ kind: 'bulk', target: 3000 }, 3000), 'reached · bulking');
+});
+
+test('a protein target from before the one food goal becomes a protein food goal', () => {
+  const old = { settings: { weightUnit: 'lbs' as const, goals: { ...GOALS, protein: 140 } } };
+  assert.deepEqual(withFoodGoal(old).settings.goals, { ...GOALS, food: protein(140) });
+  const none = { settings: { weightUnit: 'lbs' as const, goals: GOALS } };
+  assert.equal(withFoodGoal(none), none);
+  assert.deepEqual(withFoodGoal({}), {});
+});
+
+test('Progress shows the food goal and the food week for someone with food but no workouts', () => {
+  const goals = { ...GOALS, food: protein(140) };
   const foodOnly = progressSections(false, goalProgress(goals, [], lib, FOOD, NOW), foodWeek(FOOD, NOW).logged);
   assert.equal(foodOnly.food, true);
   assert.deepEqual(foodOnly.goals?.muscles, []);
   assert.deepEqual(foodOnly.goals?.custom, []);
-  assert.deepEqual(foodOnly.goals?.protein, { target: 140, hit: 2, logged: 3, met: false });
+  assert.deepEqual(foodOnly.goals?.food, { goal: protein(140), hit: 2, logged: 3, met: false });
 
   assert.equal(progressSections(false, goalProgress(GOALS, [], lib, FOOD, NOW), 0).goals, undefined);
   assert.equal(progressSections(false, undefined, 0).food, false);
   const both = progressSections(true, goalProgress(goals, WORKOUTS, lib, FOOD, NOW), 3);
-  assert.ok(both.goals!.muscles.length > 0 && both.goals!.protein);
+  assert.ok(both.goals!.muscles.length > 0 && both.goals!.food);
 });
