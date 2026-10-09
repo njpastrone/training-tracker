@@ -40,7 +40,6 @@ interface PillProps {
 }
 
 // 50 pt pill button: sunrise for the main action, glass for the rest.
-// To size one to its label, put it in a row: alignSelf on the pill makes Yoga stretch it down the screen.
 export function Pill({ label, onPress, icon, variant = 'filled', disabled, loading, size = 'regular', style }: PillProps) {
   const { colors } = useTheme();
   const filled = variant === 'filled';
@@ -199,7 +198,8 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   pillInner: {
-    flex: 1,
+    // flexGrow, not flex: 1 - flex: 1 has a zero basis, which Yoga stretches down the screen when a caller sets alignSelf on the pill
+    flexGrow: 1,
     minHeight: 50,
     borderRadius: radius.control,
     justifyContent: 'center',
