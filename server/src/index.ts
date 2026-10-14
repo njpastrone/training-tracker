@@ -2,6 +2,7 @@ import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
 import { buildCoachRequest, COACH_BETA, MAX_PACK_CHARS, validThread } from './coach.ts';
+import { checkChallenge, issueChallenge, verifyAssertion, verifyAttestation } from './attest.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -9,8 +10,16 @@ export interface Env {
   DAILY_REQUEST_CAP: string;
   DEVICE_DAILY_CAP: string;
   LEGACY_DAILY_CAP: string;
+  // App Attest: 'log-only' (the default) checks and logs but never refuses, 'enforce' refuses requests without a
+  // valid assertion. Skipped entirely unless both secrets below are set.
+  APP_ATTEST_MODE?: string;
+  APP_ATTEST_APP_ID?: string; // secret: "<Apple Team ID>.<bundle id>"
+  APP_ATTEST_CHALLENGE_SECRET?: string; // secret: signs the challenges the Worker hands out
   USAGE: KVNamespace;
 }
+
+// A key the app attested, stored in KV under attest:<key id>
+interface KeyRecord { pub: string; counter: number }
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1500;
@@ -55,6 +64,54 @@ export async function takeDailySlot(kv: KVNamespace, cap: number, now: Date, dev
   return null;
 }
 
+const attestConfigured = (env: Env): env is Env & { APP_ATTEST_APP_ID: string; APP_ATTEST_CHALLENGE_SECRET: string } => !!env.APP_ATTEST_APP_ID && !!env.APP_ATTEST_CHALLENGE_SECRET;
+
+// POST /attest/register: the app's new key with Apple's attestation of it, made over a challenge we issued
+async function registerKey(request: Request, env: Env): Promise<Response> {
+  if (!attestConfigured(env)) return json(503, { error: 'App Attest is not configured.' });
+  let body: { keyId?: unknown; challenge?: unknown; attestation?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: 'Invalid JSON.' });
+  }
+  const { keyId, challenge, attestation } = body ?? {};
+  if (typeof keyId !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(keyId) || typeof challenge !== 'string' || typeof attestation !== 'string' || attestation.length > 20_000) {
+    return json(400, { error: 'Invalid request.' });
+  }
+  try {
+    await checkChallenge(env.APP_ATTEST_CHALLENGE_SECRET, challenge);
+    const pub = await verifyAttestation(attestation, keyId, challenge, env.APP_ATTEST_APP_ID);
+    // A key registered again keeps its counter, so replaying its attestation cannot reopen old assertions
+    if (!(await env.USAGE.get(`attest:${keyId}`))) {
+      const record: KeyRecord = { pub, counter: 0 };
+      await env.USAGE.put(`attest:${keyId}`, JSON.stringify(record));
+    }
+    return json(200, { ok: true });
+  } catch (err) {
+    console.log('attest register failed', (err as Error).message);
+    return json(400, { error: 'Attestation failed.' });
+  }
+}
+
+// Checks the assertion headers on an AI request: the app signed "<challenge>\n<body>" with its attested key.
+// Returns the key id with its record and new counter (saved only once the request gets a slot), or why the request is not attested.
+async function checkAssertion(request: Request, body: string, env: Env & { APP_ATTEST_APP_ID: string; APP_ATTEST_CHALLENGE_SECRET: string }): Promise<{ keyId: string; record: KeyRecord } | { reason: string }> {
+  const keyId = request.headers.get('x-attest-key-id');
+  const challenge = request.headers.get('x-attest-challenge');
+  const assertion = request.headers.get('x-attest-assertion');
+  if (!keyId || !challenge || !assertion) return { reason: 'no assertion' };
+  try {
+    await checkChallenge(env.APP_ATTEST_CHALLENGE_SECRET, challenge);
+    const record = await env.USAGE.get<KeyRecord>(`attest:${keyId}`, 'json');
+    if (!record) return { reason: 'unknown key' };
+    const counter = await verifyAssertion(assertion, `${challenge}\n${body}`, record.pub, env.APP_ATTEST_APP_ID, record.counter);
+    return { keyId, record: { ...record, counter } };
+  } catch (err) {
+    return { reason: (err as Error).message };
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
@@ -63,9 +120,17 @@ export default {
       return json(401, { error: 'Invalid app password.' });
     }
 
+    const path = new URL(request.url).pathname;
+    if (path === '/attest/challenge') {
+      if (!attestConfigured(env)) return json(503, { error: 'App Attest is not configured.' });
+      return json(200, { challenge: await issueChallenge(env.APP_ATTEST_CHALLENGE_SECRET) });
+    }
+    if (path === '/attest/register') return registerKey(request, env);
+
+    const text = await request.text();
     let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown; food?: unknown; coach?: unknown };
     try {
-      body = await request.json();
+      body = JSON.parse(text);
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
@@ -137,10 +202,27 @@ export default {
     // Apps from before install ids send none and all share one small 'legacy' bucket (too short to clash with a real id)
     const installId = request.headers.get('x-install-id');
     if (installId !== null && !/^[A-Za-z0-9-]{8,64}$/.test(installId)) return json(400, { error: 'Invalid request.' });
-    const device = installId ? { id: installId, cap: Number(env.DEVICE_DAILY_CAP) } : { id: 'legacy', cap: Number(env.LEGACY_DAILY_CAP) };
+    let attestedKey: { keyId: string; record: KeyRecord } | undefined;
+    let device = installId ? { id: installId, cap: Number(env.DEVICE_DAILY_CAP) } : { id: 'legacy', cap: Number(env.LEGACY_DAILY_CAP) };
+
+    // App Attest: a genuine app signs each request with a key Apple attested. An attested request is
+    // capped by its key, which the app cannot make up, instead of by the install id, which it can.
+    if (attestConfigured(env)) {
+      const attested = await checkAssertion(request, text, env);
+      if ('keyId' in attested) {
+        attestedKey = attested;
+        device = { id: attested.keyId, cap: Number(env.DEVICE_DAILY_CAP) };
+      } else {
+        const enforce = env.APP_ATTEST_MODE === 'enforce';
+        console.log('attest', enforce ? 'enforce' : 'log-only', device.id, attested.reason);
+        if (enforce) return json(403, { error: "This copy of LiftText couldn't be verified. Install it from the App Store or TestFlight." });
+      }
+    }
+
     let hit: 'device' | 'global' | null;
     try {
       hit = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), device);
+      if (!hit && attestedKey) await env.USAGE.put(`attest:${attestedKey.keyId}`, JSON.stringify(attestedKey.record));
     } catch (err) {
       console.error('Usage counter error', err);
       return json(503, { error: 'Server busy, please try again in a moment.' });
