@@ -219,10 +219,18 @@ export interface CorrectionReply {
 // else the user's words), taken from the first of any sets merged into it, and a correction's reply
 export function finalizeWithNames(text: string, defaultUnit?: ParseOptions['unit'], identity?: IdentityContext): ({ parsed: ParsedWorkoutResponse; names: string[] } & CorrectionReply) | null {
   let raw: { exercises?: unknown; muscleGroups?: unknown; notes?: unknown; confidence?: unknown; unsure?: unknown; reply?: unknown; callIt?: { exercise?: unknown; words?: unknown } };
-  try {
-    raw = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
-  } catch {
-    return null;
+  const parse = (open: string, close: string) => {
+    try {
+      return JSON.parse(text.slice(text.indexOf(open), text.lastIndexOf(close) + 1));
+    } catch {
+      return undefined;
+    }
+  };
+  raw = parse('{', '}');
+  // The model sometimes replies with just the exercises array
+  if (!Array.isArray(raw?.exercises)) {
+    const list = parse('[', ']');
+    if (Array.isArray(list)) raw = { exercises: list };
   }
   if (!raw || !Array.isArray(raw.exercises)) return null;
 

@@ -16,6 +16,13 @@ test('finalizeParse falls back to the default unit when the model omits or missp
   assert.equal(finalizeParse(text)!.exercises[0].unit, undefined);
 });
 
+test('finalizeParse takes a bare array of exercises as the exercises', () => {
+  const one = '[{"name":"Hammer Curl","sets":1,"reps":12,"weight":35,"unit":"lbs"}]';
+  assert.deepEqual(finalizeParse(one)!.exercises.map((e) => [e.name, e.reps, e.weight]), [['Hammer Curl', 12, 35]]);
+  const two = 'Here you go:\n[{"name":"Hammer Curl","reps":12,"weight":35},{"name":"Hammer Curl","reps":10,"weight":35}]';
+  assert.deepEqual(finalizeParse(two)!.exercises.map((e) => e.reps), [12, 10]);
+});
+
 test('finalizeParse keeps a stated unit that differs from the default', () => {
   const text = JSON.stringify({
     exercises: [
