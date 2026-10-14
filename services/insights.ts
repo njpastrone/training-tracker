@@ -198,7 +198,8 @@ export function target(t: LiftTrend): Target {
 // a guard, not proof.
 
 // Remarks about how someone logs ("log your weights", "more detail") are never shown
-export const NAG = /\b(log(ging)? (more|your|the)|(?<!on )track(ing)?\b(?! (record|day))|record(ing)? (your|more)|more detail|weights? and reps|set counts?|numbers? (to|so)|missing)\b/i;
+// Mentioning a weight-and-reps fact or keeping track of progress is fine; asking the user to write them down is not
+export const NAG = /\b(log(ging)? (more|your|the)|(?<!on |keep |keeps |keeping |kept )track(ing)?\b(?! (record|day))|record(ing)? (your|more)|more detail|(add|log|track|record|write|note|include|put|enter)\w* (in |down )?(your |the )?(weights? and reps|set counts?)|numbers? (to|so)|missing)\b/i;
 
 // Exercises a reply names that the user has never logged
 export const unknownExercises = (names: string[], d: Digest) => {

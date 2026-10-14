@@ -72,5 +72,7 @@ export function scoreCoachCase(c: CoachCase, text: string, pack: unknown, run: T
   const all = `${prose}\n${cardText(reply)}`;
   for (const re of c.must ?? []) add(`says ${re}`, re.test(all));
   for (const re of c.mustNot ?? []) add(`never ${re}`, !re.test(all), all.match(re)?.[0]);
+  const card = cardText(reply);
+  for (const re of c.cardMustNot ?? []) add(`card never ${re}`, !re.test(card), card.match(re)?.[0]);
   return { reply, checks, score: checks.filter((k) => k.pass).length / checks.length, invented };
 }

@@ -25,7 +25,7 @@ export const cases: CoachCase[] = [
   { id: 'h-tool-sept-runs', category: 'tools', user: 'sam', question: 'how many times did I run in September?', mustCall: ['query_workouts|exercise_history'] },
   { id: 'h-tool-lunch-friday', category: 'tools', user: 'sam', question: 'what did I have for lunch on Friday?', mustCall: ['food_log'], must: [/\b(yogurt|oatmeal)\b/i] },
   { id: 'h-card-lower', category: 'cards', user: 'sam', question: 'write me a leg day for tomorrow, lighter than usual', card: 'workout', must: [/\b(squat|leg|deadlift|rdl|lunge)\b/i] },
-  { id: 'h-card-facts-dinner', category: 'cards', user: 'facts', question: 'dinner ideas from what I usually eat?', mustNot: [DAIRY] },
-  { id: 'h-memory-vegetarian', category: 'memory', user: 'sam', question: "I'm vegetarian now, no more chicken or beef. what should I eat for lunch?", remember: 'food', mustNot: [/\b(chicken|beef|salmon)\b/i] },
+  { id: 'h-card-facts-dinner', category: 'cards', user: 'facts', question: 'dinner ideas from what I usually eat?', cardMustNot: [DAIRY] },
+  { id: 'h-memory-vegetarian', category: 'memory', user: 'sam', question: "I'm vegetarian now, no more chicken or beef. what should I eat for lunch?", remember: 'food', cardMustNot: [/\b(chicken|beef|salmon)\b/i] },
   { id: 'h-memory-nothing', category: 'memory', user: 'sam', question: 'did I train chest in the last 7 days?', noRemember: true },
 ];

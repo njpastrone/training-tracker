@@ -105,6 +105,10 @@ test('code checks: nagging, unknown exercises, invented numbers', () => {
   assert.match('Add more detail next time', NAG);
   assert.doesNotMatch('Three solid weeks will keep you on track', NAG);
   assert.doesNotMatch('Legs have gone quiet: last leg day was 20 days ago', NAG);
+  assert.match('Write down your weights and reps next time', NAG);
+  assert.match('Add set counts so I can see volume', NAG);
+  assert.doesNotMatch("That's the same weight and reps as Sep 29", NAG);
+  assert.doesNotMatch('I can help you keep track of how it goes', NAG);
 
   const d = of('maya');
   assert.deepEqual(unknownExercises(['Goblet Squats', 'push-ups', 'Romanian Deadlift', 'Leg Press'], d), ['Romanian Deadlift', 'Leg Press']);

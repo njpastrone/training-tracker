@@ -120,7 +120,11 @@ async function runCase(c: CoachCase) {
       const body: Record<string, unknown> = buildCoachRequest(PACKS[c.user], messages, { date: DATE, unit: UNITS[c.user] });
       if (args.model) body.model = args.model;
       if (args.effort) body.output_config = { effort: args.effort };
-      if (args.cli) delete body.tools; // `claude -p` can't run our tools: the pack alone
+      if (args.cli) {
+        // `claude -p` can't run our tools: the pack alone, and no <tools> section to tempt a call in text
+        delete body.tools;
+        (body.system as { text: string }[])[0].text = (body.system as { text: string }[])[0].text.replace(/<tools>[\s\S]*?<\/tools>\n\n/, '');
+      }
       if (messages.some((m) => Array.isArray(m.content))) body.tool_choice = { type: 'none' };
       model = String(body.model);
       const data = (args.cli ? await callViaCli(body as never) : await callAnthropic(body, COACH_BETA)) as Reply;

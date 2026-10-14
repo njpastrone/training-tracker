@@ -16,6 +16,7 @@ export interface CoachCase {
   question: string;
   must?: RegExp[]; // headline + answer + card text must match each
   mustNot?: RegExp[]; // and none of these
+  cardMustNot?: RegExp[]; // none of these on the card (the text may name what it avoids)
   mustCall?: string[]; // tools it must have called ("a|b" for either)
   noTools?: boolean; // the pack holds the answer: no tool call
   card?: 'workout' | 'meals'; // the answer carries this card
@@ -68,10 +69,10 @@ export const cases: CoachCase[] = [
   { id: 'card-upper-tomorrow', category: 'cards', user: 'sam', question: 'plan me an upper day for tomorrow', card: 'workout', must: [/\b(bench|row|press|pulldown)\b/i] },
   { id: 'card-dinner', category: 'cards', user: 'sam', question: 'what should I have for dinner tonight? something high protein', card: 'meals', must: [/\b(salmon|beef|chicken|pasta|sweet potato)\b/i] },
   { id: 'card-home-gym', category: 'cards', user: 'facts', question: 'give me a push workout for today', card: 'workout', mustNot: [/\bbarbell\b/i, /\b(machine|cable|smith)\b/i] },
-  { id: 'card-no-dairy', category: 'cards', user: 'facts', question: 'suggest high protein meals for today from what I usually eat', card: 'meals', mustNot: [DAIRY] },
+  { id: 'card-no-dairy', category: 'cards', user: 'facts', question: 'suggest high protein meals for today from what I usually eat', card: 'meals', cardMustNot: [DAIRY] },
 
   // Memory: offer to remember what the user said, and only that
-  { id: 'memory-dairy', category: 'memory', user: 'sam', question: "I've gone dairy free. what are some breakfast ideas from stuff I eat?", remember: 'food', mustNot: [DAIRY] },
+  { id: 'memory-dairy', category: 'memory', user: 'sam', question: "I've gone dairy free. what are some breakfast ideas from stuff I eat?", remember: 'food', cardMustNot: [DAIRY] },
   { id: 'memory-knee', category: 'memory', user: 'sam', question: 'keep in mind my left knee gets iffy on deep squats. what should my leg day look like?', remember: 'injury' },
   { id: 'memory-home', category: 'memory', user: 'sam', question: 'fyi I only have dumbbells up to 50 lb at home on weekdays. can I still train upper?', remember: 'equipment' },
   { id: 'memory-nothing', category: 'memory', user: 'sam', question: 'was my leg day last Tuesday any good?', noRemember: true },
