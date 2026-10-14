@@ -65,7 +65,7 @@ globalThis.fetch = (async (url: string, init: RequestInit) => {
 const call = async (r: Request, env: Env) => {
   upstream = [];
   const res = await worker.fetch(r, env);
-  return { status: res.status, body: (await res.json()) as { text?: string; error?: string } };
+  return { status: res.status, body: (await res.json()) as { text?: string; error?: string; content?: unknown[]; stop_reason?: string } };
 };
 
 test('rejects missing and wrong passwords without spending the cap', async () => {
