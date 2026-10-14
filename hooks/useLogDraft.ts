@@ -5,7 +5,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { parseWorkout, parseLog, correctWorkout, correctFood, workoutsFromParse, ApiError } from '../services/claude';
 import { mentionsFood } from '../services/foods';
-import { looksLikeQuestion, readsAsQuestion } from '../services/ask';
+import { routeComposer } from '../services/ask';
 import { ParsedWorkoutResponse, Workout } from '../types/workout';
 import { FoodDraft, FoodEntry } from '../types/food';
 import { NOTHING_CHANGED, sameDraft } from '../services/draft';
@@ -68,29 +68,25 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
   const parse = async () => {
     const raw = text.trim();
     if (!raw || busy) return;
-    if (onQuestion && readsAsQuestion(raw)) {
-      setText('');
-      onQuestion(raw);
-      return;
-    }
-    setSent(raw);
     setText('');
-    setWorkoutDraft(null);
-    setFoodDraft(null);
-    setTemplateId(undefined);
-    setError(null);
-    setReply(null);
-    setBusy('parse');
     try {
-      const parsed = withFood ? await parseLog(raw, options) : { workout: await parseWorkout(raw, options), food: null };
-      if (!parsed.workout?.exercises.length && !parsed.food?.items.length) {
+      const parsed = await routeComposer(raw, async () => {
+        setSent(raw);
+        setWorkoutDraft(null);
+        setFoodDraft(null);
+        setTemplateId(undefined);
+        setError(null);
+        setReply(null);
+        setBusy('parse');
+        const read = withFood ? await parseLog(raw, options) : { workout: await parseWorkout(raw, options), food: null };
+        return read.workout?.exercises.length || read.food?.items.length ? read : null;
+      }, onQuestion);
+      if (parsed === 'asked') {
         setSent(null);
-        // Not a log: a question readsAsQuestion couldn't place goes to the coach, the only path that
-        // costs two cap slots (the parser's and the coach's)
-        if (onQuestion && looksLikeQuestion(raw)) {
-          onQuestion(raw);
-          return;
-        }
+        return;
+      }
+      if (!parsed) {
+        setSent(null);
         setError(withFood ? 'Could not understand that. Try naming what you did or ate.' : 'Could not understand the workout. Try being more specific.');
         setText(raw);
         return;

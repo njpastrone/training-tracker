@@ -48,9 +48,9 @@ export async function askCoach(question: string, thread: CoachMessage[] = [], no
 
 // A log: sets x reps, a weight or rep count, a time or distance
 const LOG_SHAPE = /\b\d+\s*[x×]\s*\d+\b|\b\d+(?:\.\d+)?\s*(?:lbs?|kg|kgs|kilos?|pounds?|reps?|sets?|mi|miles?|km|k|min|mins|minutes?)\b|@\s*\d/i;
-// Question words that don't start logs ("did legs" is a log; "did I train legs?" ends with ?), and
-// asks no log makes
-const OPENERS = /^(?:what|what's|whats|should|how|how's|hows|can|could|would|why|which|when|where|suggest|recommend)\b|\b(?:suggest|recommend|advice)\b/i;
+// Question words that don't start logs ("did legs" is a log; "did I train legs?" ends with ?;
+// "can of tuna" is a log, "can you" is not)
+const OPENERS = /^(?:what|what's|whats|should|how|how's|hows|why|which|when|where|suggest|recommend)\b|\b(?:can|could|would) (?:i|you|we)\b/i;
 const QUESTION_WORDS = /\?|\b(?:what|should|how|can|could|would|why|which|is|are|am|do|does|did|suggest|recommend|help|coach|advice|ideas?|tips?)\b/i;
 
 // Sure enough to skip the parser: a question mark at the end, or a question word, and nothing log-shaped
@@ -61,3 +61,17 @@ export const readsAsQuestion = (text: string) => {
 
 // After the parser found no workout and no food: a question word anywhere is enough to try the coach
 export const looksLikeQuestion = (text: string) => QUESTION_WORDS.test(text);
+
+// The composer's order: a question readsAsQuestion places goes to the coach and the parser is never
+// called; anything else goes to the parser, and when that finds nothing, a looksLikeQuestion message
+// goes to the coach too: the one residual path that costs two cap slots. 'asked' when the coach took it.
+export async function routeComposer<P>(text: string, parse: () => Promise<P | null>, ask?: (question: string) => void): Promise<P | null | 'asked'> {
+  if (ask && readsAsQuestion(text)) {
+    ask(text);
+    return 'asked';
+  }
+  const parsed = await parse();
+  if (parsed || !ask || !looksLikeQuestion(text)) return parsed;
+  ask(text);
+  return 'asked';
+}

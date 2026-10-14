@@ -13,7 +13,7 @@ mock.module('@react-native-async-storage/async-storage', {
 });
 
 const { useWorkoutStore } = await import('../stores/workoutStore');
-const { askCoach, CANT_HELP, looksLikeQuestion, readsAsQuestion } = await import('./ask');
+const { askCoach, CANT_HELP, looksLikeQuestion, readsAsQuestion, routeComposer } = await import('./ask');
 const { SAM, SAM_NOW, SAM_SETTINGS } = await import('./coachPack.fixtures');
 const { COACH_MODEL } = await import('../server/src/coach');
 
@@ -108,7 +108,25 @@ test('questions read as questions; logs do not', () => {
     'any cardio counts: ran on the treadmill',
     "I haven't logged Monday: legs and abs",
     'steak tips and rice',
+    'protein shake my coach recommended',
+    'leg day my trainer suggested: squats, lunges',
+    'can of tuna and rice for lunch',
+    'Can of soup',
   ]) assert.equal(readsAsQuestion(log), false, log);
   assert.equal(looksLikeQuestion('is my bench stalling'), true);
   assert.equal(looksLikeQuestion('ate a lot today'), false);
+});
+
+test('the composer: a question goes to the coach only, a log to the parser only, an unplaced question to the parser then the coach', async () => {
+  const route = async (text: string, found: string | null) => {
+    const calls: string[] = [];
+    const out = await routeComposer(text, async () => (calls.push('parser'), found), () => void calls.push('coach'));
+    return { out, calls };
+  };
+  assert.deepEqual(await route('what should I squat today', null), { out: 'asked', calls: ['coach'] });
+  assert.deepEqual(await route('bench 3x8 at 135', 'workout'), { out: 'workout', calls: ['parser'] });
+  assert.deepEqual(await route('ate a lot today, what should I have for dinner', null), { out: 'asked', calls: ['parser', 'coach'] });
+  assert.deepEqual(await route('asdf', null), { out: null, calls: ['parser'] });
+  // Without a coach (no onQuestion) everything goes to the parser
+  assert.equal(await routeComposer('what should I squat today', async () => null), null);
 });
