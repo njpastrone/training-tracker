@@ -95,8 +95,8 @@ async function registerKey(request: Request, env: Env): Promise<Response> {
 }
 
 // Checks the assertion headers on an AI request: the app signed "<challenge>\n<body>" with its attested key.
-// Returns the key id, or why the request is not attested.
-async function checkAssertion(request: Request, body: string, env: Env & { APP_ATTEST_APP_ID: string; APP_ATTEST_CHALLENGE_SECRET: string }): Promise<{ keyId: string } | { reason: string }> {
+// Returns the key id with its record and new counter (saved only once the request gets a slot), or why the request is not attested.
+async function checkAssertion(request: Request, body: string, env: Env & { APP_ATTEST_APP_ID: string; APP_ATTEST_CHALLENGE_SECRET: string }): Promise<{ keyId: string; record: KeyRecord } | { reason: string }> {
   const keyId = request.headers.get('x-attest-key-id');
   const challenge = request.headers.get('x-attest-challenge');
   const assertion = request.headers.get('x-attest-assertion');
@@ -106,8 +106,7 @@ async function checkAssertion(request: Request, body: string, env: Env & { APP_A
     const record = await env.USAGE.get<KeyRecord>(`attest:${keyId}`, 'json');
     if (!record) return { reason: 'unknown key' };
     const counter = await verifyAssertion(assertion, `${challenge}\n${body}`, record.pub, env.APP_ATTEST_APP_ID, record.counter);
-    await env.USAGE.put(`attest:${keyId}`, JSON.stringify({ ...record, counter }));
-    return { keyId };
+    return { keyId, record: { ...record, counter } };
   } catch (err) {
     return { reason: (err as Error).message };
   }
@@ -203,6 +202,7 @@ export default {
     // Apps from before install ids send none and all share one small 'legacy' bucket (too short to clash with a real id)
     const installId = request.headers.get('x-install-id');
     if (installId !== null && !/^[A-Za-z0-9-]{8,64}$/.test(installId)) return json(400, { error: 'Invalid request.' });
+    let attestedKey: { keyId: string; record: KeyRecord } | undefined;
     let device = installId ? { id: installId, cap: Number(env.DEVICE_DAILY_CAP) } : { id: 'legacy', cap: Number(env.LEGACY_DAILY_CAP) };
 
     // App Attest: a genuine app signs each request with a key Apple attested. An attested request is
@@ -210,6 +210,7 @@ export default {
     if (attestConfigured(env)) {
       const attested = await checkAssertion(request, text, env);
       if ('keyId' in attested) {
+        attestedKey = attested;
         device = { id: attested.keyId, cap: Number(env.DEVICE_DAILY_CAP) };
       } else {
         const enforce = env.APP_ATTEST_MODE === 'enforce';
@@ -221,6 +222,7 @@ export default {
     let hit: 'device' | 'global' | null;
     try {
       hit = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), device);
+      if (!hit && attestedKey) await env.USAGE.put(`attest:${attestedKey.keyId}`, JSON.stringify(attestedKey.record));
     } catch (err) {
       console.error('Usage counter error', err);
       return json(503, { error: 'Server busy, please try again in a moment.' });

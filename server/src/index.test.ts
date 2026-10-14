@@ -448,7 +448,7 @@ test('enforce refuses unsigned, unknown, replayed, tampered and stale requests b
   const capped = await call(req('pw', body, 'device-bbbb', await key.sign(body, 2)), env); // a new install id, same key
   assert.equal(capped.status, 429);
   assert.match(capped.body.error!, /on this phone/);
-  assert.equal(JSON.parse(store.get(`attest:${key.keyId}`)!).counter, 2);
+  assert.equal(JSON.parse(store.get(`attest:${key.keyId}`)!).counter, 1); // a capped request writes nothing
 });
 
 test('without both App Attest secrets, even enforce serves every request and touches no keys', async () => {
