@@ -1,6 +1,7 @@
 import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
+import { buildCoachRequest, COACH_BETA, MAX_PACK_CHARS, validThread } from './coach.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -62,19 +63,29 @@ export default {
       return json(401, { error: 'Invalid app password.' });
     }
 
-    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown; food?: unknown };
+    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown; food?: unknown; coach?: unknown };
     try {
       body = await request.json();
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
-    const { system, messages, max_tokens, parse, food } = body ?? {};
+    const { system, messages, max_tokens, parse, food, coach } = body ?? {};
     const validDate = (date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date);
     // Food mode: like parse mode, for what the user ate. `foods` are the table entries the log
     // mentions (the app matches them); with draft and fix it applies a typed fix to the food draft.
     let upstream: Record<string, unknown>;
     let escalateFoods: number | undefined; // a food log's candidate count: Haiku's reply may go to Sonnet
-    if (food !== undefined) {
+    let betas: string | undefined; // beta features the upstream request opts into
+    if (coach !== undefined) {
+      // Coach mode: a question (or a short thread) about the user's own training and food, answered from
+      // the context pack the phone built (services/coachPack.ts). One call per question, so one cap slot.
+      const { date, unit, pack, messages: thread } = (coach ?? {}) as Record<string, unknown>;
+      if (!validDate(date) || (unit !== 'lbs' && unit !== 'kg') || !pack || typeof pack !== 'object' || JSON.stringify(pack).length > MAX_PACK_CHARS || !validThread(thread)) {
+        return json(400, { error: 'Invalid request.' });
+      }
+      upstream = buildCoachRequest(pack, thread, { date, unit });
+      betas = COACH_BETA;
+    } else if (food !== undefined) {
       const { input, date, foods = [], draft, fix } = (food ?? {}) as Record<string, unknown>;
       if (!validDate(date) || !Array.isArray(foods) || foods.length > MAX_FOOD_CANDIDATES || !foods.every(shortText)) {
         return json(400, { error: 'Invalid request.' });
@@ -144,6 +155,7 @@ export default {
           'content-type': 'application/json',
           'x-api-key': env.ANTHROPIC_API_KEY,
           'anthropic-version': '2023-06-01',
+          ...(betas ? { 'anthropic-beta': betas } : {}),
         },
         body: JSON.stringify(body),
       });

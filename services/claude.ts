@@ -50,13 +50,13 @@ const aiUnavailable = (error: unknown) =>
   error instanceof AiOffError || (error instanceof ApiError && (error.status === 429 || error.status === 503));
 
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model.
-// `mode` asks the Worker to build the prompt itself (parse or food); Workers deployed before a mode
+// `mode` asks the Worker to build the prompt itself (parse, food or coach); Workers deployed before a mode
 // existed ignore it and send system/messages, so a new mode works before the Worker is redeployed.
 export async function callClaude(
   system: string,
   content: string,
   maxTokens: number,
-  mode?: { parse: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string } } | { food: Record<string, unknown> }
+  mode?: { parse: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string } } | { food: Record<string, unknown> } | { coach: Record<string, unknown> }
 ): Promise<string> {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import worker, { type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest } from './food.ts';
+import { buildCoachRequest, COACH_BETA, COACH_MODEL, type CoachMessage } from './coach.ts';
 
 function makeEnv(cap = '2', count?: number, deviceCap = '50', legacyCap = '50') {
   const store = new Map<string, string>();
@@ -285,6 +286,50 @@ test('rejects malformed food requests before counting', async () => {
     { ...base, fix: 'more', draft: { items: Array(81).fill({ name: 'Egg' }) } },
   ]) {
     assert.equal((await call(req('pw', { food }), env)).status, 400, JSON.stringify(food).slice(0, 60));
+  }
+  assert.equal(store.size, 0);
+  assert.equal(upstream.length, 0);
+});
+
+test('coach mode sends the coach prompt with the pack, the fallback beta, and one cap slot per question', async () => {
+  const { env, store } = makeEnv('1');
+  const coach = { date: '2026-10-08', unit: 'lbs', pack: { training: { daysSinceLastWorkout: 6 } }, messages: [{ role: 'user', content: 'what should I start with?' }] };
+  replies = [{ text: '{"headline":"Start lower","answer":"Six days off.","fromLog":"","chips":["a","b","c"]}', stop_reason: 'end_turn' }];
+  const res = await call(req('pw', { coach, system: 'client prompt', messages: [{ role: 'user', content: 'x' }] }), env);
+  assert.equal(res.status, 200);
+  assert.match(res.body.text!, /Start lower/);
+  const sent = JSON.parse(upstream[0].init.body as string);
+  assert.deepEqual(sent, buildCoachRequest(coach.pack, coach.messages as CoachMessage[], { date: coach.date, unit: 'lbs' }));
+  assert.equal(sent.model, COACH_MODEL);
+  assert.equal((upstream[0].init.headers as Record<string, string>)['anthropic-beta'], COACH_BETA);
+  assert.equal(store.get(`count:${new Date().toISOString().slice(0, 10)}`), '1');
+  assert.equal((await call(req('pw', { coach }), env)).status, 429); // one cap for logs, food and questions
+  replies = [];
+});
+
+test('other modes send no beta header', async () => {
+  const { env } = makeEnv();
+  await call(req('pw', { parse: { input: 'bench 3x5', date: '2026-10-03', unit: 'lbs' } }), env);
+  assert.equal('anthropic-beta' in (upstream[0].init.headers as Record<string, string>), false);
+});
+
+test('rejects malformed coach requests before counting', async () => {
+  const { env, store } = makeEnv();
+  const base = { date: '2026-10-08', unit: 'lbs', pack: { a: 1 }, messages: [{ role: 'user', content: 'hi' }] };
+  for (const coach of [
+    {},
+    { ...base, date: 'today' },
+    { ...base, unit: 'stone' },
+    { ...base, pack: 'summary' },
+    { ...base, pack: null },
+    { ...base, pack: { big: 'x'.repeat(12_000) } },
+    { ...base, messages: [] },
+    { ...base, messages: [{ role: 'user', content: ' ' }] },
+    { ...base, messages: [{ role: 'user', content: 'x'.repeat(2001) }] },
+    { ...base, messages: [{ role: 'assistant', content: 'hi' }] },
+    { ...base, messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'ok' }] },
+  ]) {
+    assert.equal((await call(req('pw', { coach }), env)).status, 400, JSON.stringify(coach).slice(0, 60));
   }
   assert.equal(store.size, 0);
   assert.equal(upstream.length, 0);
