@@ -325,7 +325,8 @@ Common notations to recognize:
 - "4 sets of 10" = 4 sets of 10 reps
 - "@225" or "225lbs" or "100kg" = weight specification
 - "3x10@135" = 3 sets of 10 reps at 135 lbs
-- A number with a trailing s after the sets and reps is the dumbbell weight, never seconds or rest: "incline db press 3x10 60s" = 3 sets of 10 with 60 lb dumbbells (weight 60)
+- On a dumbbell, db or kettlebell lift, a number with a trailing s after the sets and reps is the weight: "incline db press 3x10 60s" = 3 sets of 10 with 60 lb dumbbells (weight 60)
+- Anywhere else, or when rest or a timed hold is meant, it is seconds, not weight: "plank 3x1 60s" = a 60-second hold, "bench 3x8 90s rest" = 90 seconds rest (put it in notes); leave weight out
 - Exercise names can be abbreviated (bench = bench press, OHP = overhead press)
 </parsing_patterns>
 

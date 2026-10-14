@@ -8,7 +8,7 @@ planner (`services/planner.ts`, not yet on a screen) and the Templates screen's 
 parse eval.
 
 ```bash
-npm run eval:planner -- --cli                        # 22 cases, ~1 min; the Worker's model and effort
+npm run eval:planner -- --cli                        # 24 cases, ~1 min; the Worker's model and effort
 npm run eval:planner -- --cli --verbose              # also print every failed check
 npm run eval:planner -- --cli --only tweak,kg-strength
 npm run eval:planner -- --cli --repeat 3             # average out run-to-run noise
@@ -64,7 +64,11 @@ set, so the cheaper and faster one is used.
 
 The one field Haiku 5.5 read differently in a template: "incline db press 3x10 60s" became 60 seconds
 of rest, not 60 lb dumbbells (Haiku 4.5 read the weight). One line in the template prompt's
-`parsing_patterns` fixes it (12/12 at low and at medium effort).
+`parsing_patterns` fixes it (12/12 at low and at medium effort). The line is limited to dumbbell, db
+and kettlebell lifts, with a second line saying a trailing s means seconds anywhere else or when rest
+or a hold is meant; two cases check that ("plank 3x1 60s" and "bench 3x8 90s rest" get no weight).
+With both lines, Haiku 5.5 low scores 1.000 on all six template cases over 3 runs (Haiku 4.5: 1.000
+on the original four).
 
 Confirmation run of the shipped configuration (Haiku 5.5 low, final prompts and reader, 3 runs,
 `--against` the Haiku 4.5 run): overall 0.899 → 0.969, 16/22 perfect, 1 unusable reply in 66 (the
@@ -76,7 +80,8 @@ the categories that moved are fresh (0.61 → 0.86), comeback (0.93 → 1.00) an
 ### Pre-parse-mode apps (`legacy.ts`)
 
 The parse eval's 114 main cases through the old app prompt, one run each: Haiku 4.5 0.779, Haiku 5.5
-(medium) 0.771. Twenty cases lower, eleven higher; the drops are nearly all chattier workout notes
-("Unit not specified; assumed lbs."), not wrong numbers. Those builds existed for a few hours on
+(medium) 0.771, Haiku 5.5 (low, what the Worker sends) 0.782, so low is not below Haiku 4.5 and
+these requests stay on `PASSTHROUGH`. At medium, twenty cases were lower and eleven higher; the drops
+are nearly all chattier workout notes ("Unit not specified; assumed lbs."), not wrong numbers. Those builds existed for a few hours on
 TestFlight on 2026-10-04, and every build gets the current JS over the air on launch when its native
 fingerprint still matches, so they aren't routed through the parse prompt.

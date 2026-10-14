@@ -26,7 +26,7 @@ export interface TemplateCase {
   id: string;
   category: 'template';
   input: string;
-  expect: { name: RegExp; sets?: number; reps?: number | string; weight?: number; weightUnit?: 'lbs' | 'kg' }[];
+  expect: { name: RegExp; sets?: number; reps?: number | string; weight?: number | null; weightUnit?: 'lbs' | 'kg' }[];
 }
 
 export type Case = PlanCase | TemplateCase;
@@ -262,5 +262,12 @@ export const cases: Case[] = [
     { name: /pull.?up/i, sets: 3 },
     { name: /row/i, sets: 4, reps: 10 },
     { name: /face pull/i, sets: 3, reps: 15 },
+  ] },
+  // A trailing-s number is seconds, not weight, off a dumbbell lift (null = no weight)
+  { kind: 'template', id: 'template-plank-hold', category: 'template', input: 'plank 3x1 60s', expect: [
+    { name: /plank/i, sets: 3, weight: null },
+  ] },
+  { kind: 'template', id: 'template-rest', category: 'template', input: 'bench 3x8 90s rest', expect: [
+    { name: /bench/i, sets: 3, reps: 8, weight: null },
   ] },
 ];
