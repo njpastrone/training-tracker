@@ -135,3 +135,16 @@ test('buildParseRequest spells out the 13 days before the logging date, so a lat
   assert.match(content, /Monday 2026-09-28 = -10;/);
   assert.match(content, /Friday 2026-09-25 = -13\. A bare weekday/);
 });
+
+test('finalizeParse drops a weight that is really the machine stack or pin number in the notes', () => {
+  const text = JSON.stringify({
+    exercises: [
+      { name: 'Leg Extension', sets: 4, reps: 15, weight: 9, unit: 'lbs', notes: 'stack 9' },
+      { name: 'Pec Deck', sets: 3, reps: 12, weight: 8, unit: 'lbs', notes: 'pin #8' },
+      { name: 'Leg Press', sets: 3, reps: 10, weight: 270, unit: 'lbs', notes: '3 plates a side' },
+      { name: 'Lat Pulldown', sets: 3, reps: 10, weight: 120, unit: 'lbs', notes: 'stack 12' },
+    ],
+  });
+  const got = finalizeParse(text, 'lbs')!.exercises.map((e) => [e.weight, e.unit, e.notes]);
+  assert.deepEqual(got, [[undefined, undefined, 'stack 9'], [undefined, undefined, 'pin #8'], [270, 'lbs', '3 plates a side'], [120, 'lbs', 'stack 12']]);
+});

@@ -119,13 +119,16 @@ test('fails closed with 503 when the usage counter write fails', async () => {
   assert.equal(upstream.length, 0);
 });
 
+// The Worker sends the parse and food prompts with a cache marker on the system prompt
+const cached = <T extends { system: string }>(r: T) => ({ ...r, system: [{ type: 'text', text: r.system, cache_control: { type: 'ephemeral' } }] });
+
 test('parse mode sends the server-side parse prompt and ignores the client prompt', async () => {
   const { env } = makeEnv();
   const parse = { input: 'bench 3x5 225', date: '2026-10-03', unit: 'lbs' };
   const res = await call(req('pw', { parse, system: 'client prompt', messages: [{ role: 'user', content: 'x' }] }), env);
   assert.equal(res.status, 200);
   const sent = JSON.parse(upstream[0].init.body as string);
-  assert.deepEqual(sent, buildParseRequest(parse.input, { date: parse.date, unit: 'lbs' }));
+  assert.deepEqual(sent, cached(buildParseRequest(parse.input, { date: parse.date, unit: 'lbs' })));
   assert.match(sent.messages[0].content, /Saturday 2026-10-03[\s\S]*<log>bench 3x5 225<\/log>/);
 });
 
@@ -144,8 +147,8 @@ test('correction mode sends the draft and fix with the correction rules', async 
   const res = await call(req('pw', { parse }), env);
   assert.equal(res.status, 200);
   const sent = JSON.parse(upstream[0].init.body as string);
-  assert.deepEqual(sent, buildCorrectionRequest(draft, 'actually 3x10', { date: '2026-10-03', unit: 'lbs' }));
-  assert.match(sent.system, /<correction>/);
+  assert.deepEqual(sent, cached(buildCorrectionRequest(draft, 'actually 3x10', { date: '2026-10-03', unit: 'lbs' })));
+  assert.match(sent.system[0].text, /<correction>/);
   assert.match(sent.messages[0].content, /<draft>\{"exercises":\[\{"name":"Bench Press"[\s\S]*<fix>actually 3x10<\/fix>/);
 });
 
@@ -164,7 +167,7 @@ test('parse mode puts the app\'s exercise list in the prompt and rejects malform
   const exercises = [{ name: 'Seated Cable Row', muscleGroup: 'back' as const, yours: true }, { name: 'Barbell Row', muscleGroup: 'back' as const }];
   assert.equal((await call(req('pw', { parse: { ...parse, exercises } }), env)).status, 200);
   const sent = JSON.parse(String(upstream[0].init.body));
-  assert.deepEqual(sent, buildParseRequest(parse.input, { date: parse.date, unit: 'lbs', exercises }));
+  assert.deepEqual(sent, cached(buildParseRequest(parse.input, { date: parse.date, unit: 'lbs', exercises })));
   assert.match(sent.messages[0].content, /Yours \(most recent first\):\ne1 Seated Cable Row \(back\)\nCatalog:\ne2 Barbell Row \(back\)/);
 
   for (const bad of [
