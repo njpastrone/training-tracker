@@ -37,12 +37,12 @@ const beforeList = (answer: string) => {
   return (first === -1 ? lines : lines.slice(0, first)).join('\n');
 };
 
-// The card's text, for must / mustNot: exercise names and notes, meal foods, the fact to remember
-const cardText = (r: CoachReply) =>
+// The cards' text, for must / mustNot: exercise names and notes, meal foods; with the fact to remember when asked
+const cardText = (r: CoachReply, withRemember = true) =>
   [
     ...(r.workout ? [r.workout.name, r.workout.why, ...r.workout.exercises.flatMap((e) => [e.name, e.note ?? ''])] : []),
     ...(r.meals ?? []).flatMap((m) => [m.label, m.note ?? '', ...m.items]),
-    ...(r.remember ? [r.remember.text, r.remember.quote] : []),
+    ...(withRemember && r.remember ? [r.remember.text, r.remember.quote] : []),
   ].join('\n');
 
 export function scoreCoachCase(c: CoachCase, text: string, pack: unknown, run: ToolRun = { calls: [], results: [] }): CaseScore {
@@ -72,7 +72,8 @@ export function scoreCoachCase(c: CoachCase, text: string, pack: unknown, run: T
   const all = `${prose}\n${cardText(reply)}`;
   for (const re of c.must ?? []) add(`says ${re}`, re.test(all));
   for (const re of c.mustNot ?? []) add(`never ${re}`, !re.test(all), all.match(re)?.[0]);
-  const card = cardText(reply);
+  // What it avoids may be named in the fact it offers to remember ("no dairy"); the meals and workout may not hold it
+  const card = cardText(reply, false);
   for (const re of c.cardMustNot ?? []) add(`card never ${re}`, !re.test(card), card.match(re)?.[0]);
   return { reply, checks, score: checks.filter((k) => k.pass).length / checks.length, invented };
 }

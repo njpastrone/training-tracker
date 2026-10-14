@@ -42,7 +42,8 @@ test('tool, card and memory checks read the run and the reply', () => {
   assert.equal(scoreCoachCase(dairy, rem('food'), PACKS.sam).score, 1);
   assert.deepEqual(scoreCoachCase(dairy, rem('preference'), PACKS.sam).checks.filter((k) => !k.pass).map((k) => k.name), ['remembers (food)']);
   assert.deepEqual(scoreCoachCase(dairy, rem('food', '[{"label":"Breakfast","items":["1 cup greek yogurt"]}]'), PACKS.sam).checks.filter((k) => !k.pass).map((k) => k.name), [`card never ${dairy.cardMustNot![0]}`]);
-  // The text may say what it avoids; only the card is held to it
+  // The text and the fact to remember may say what it avoids; only the meals are held to it
+  assert.equal(scoreCoachCase(dairy, rem('food').replace('"text":"no dairy"', '"text":"no dairy: no milk or yogurt"'), PACKS.sam).score, 1);
   assert.equal(scoreCoachCase(dairy, rem('food').replace('Eggs and toast, then a banana.', 'No yogurt or milk: eggs and toast, then a banana.'), PACKS.sam).score, 1);
   const nothing = cases.find((c) => c.id === 'memory-nothing')!;
   assert.deepEqual(scoreCoachCase(nothing, rem('food'), PACKS.sam).checks.filter((k) => !k.pass).map((k) => k.name), ['remembers nothing']);
