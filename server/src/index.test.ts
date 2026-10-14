@@ -4,23 +4,54 @@ import worker, { type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest } from './food.ts';
 import { buildCoachRequest, COACH_BETA, COACH_MODEL, type CoachMessage } from './coach.ts';
+import { checkChallenge, issueChallenge, toB64 } from './attest.ts';
+import { SAMPLE } from './attest.fixtures.ts';
 
-function makeEnv(cap = '2', count?: number, deviceCap = '50', legacyCap = '50') {
+const APP_ID = 'TEAM.com.test.app';
+const today = () => new Date().toISOString().slice(0, 10);
+
+function makeEnv(cap = '2', count?: number, deviceCap = '50', legacyCap = '50', attest: Partial<Env> = {}) {
   const store = new Map<string, string>();
-  if (count !== undefined) store.set(`count:${new Date().toISOString().slice(0, 10)}`, String(count));
+  if (count !== undefined) store.set(`count:${today()}`, String(count));
   const USAGE = {
-    get: async (k: string) => store.get(k) ?? null,
+    get: async (k: string, type?: string) => { const v = store.get(k) ?? null; return type === 'json' && v !== null ? JSON.parse(v) : v; },
     put: async (k: string, v: string) => void store.set(k, v),
   } as unknown as KVNamespace;
-  return { env: { ANTHROPIC_API_KEY: 'sk-test', APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: cap, DEVICE_DAILY_CAP: deviceCap, LEGACY_DAILY_CAP: legacyCap, USAGE } as Env, store };
+  const env: Env = { ANTHROPIC_API_KEY: 'sk-test', APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: cap, DEVICE_DAILY_CAP: deviceCap, LEGACY_DAILY_CAP: legacyCap, APP_ATTEST_APP_ID: APP_ID, APP_ATTEST_CHALLENGE_SECRET: 'cs', USAGE, ...attest };
+  return { env, store };
 }
 
-function req(password?: string, body: unknown = { system: 's', messages: [{ role: 'user', content: 'hi' }], max_tokens: 99999 }, installId?: string) {
-  return new Request('https://worker.test/', {
+const DEFAULT_BODY = { system: 's', messages: [{ role: 'user', content: 'hi' }], max_tokens: 99999 };
+function req(password?: string, body: unknown = DEFAULT_BODY, installId?: string, headers: Record<string, string> = {}, path = '/') {
+  return new Request(`https://worker.test${path}`, {
     method: 'POST',
-    headers: { ...(password === undefined ? {} : { 'x-app-password': password }), ...(installId === undefined ? {} : { 'x-install-id': installId }) },
-    body: JSON.stringify(body),
+    headers: { ...(password === undefined ? {} : { 'x-app-password': password }), ...(installId === undefined ? {} : { 'x-install-id': installId }), ...headers },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
   });
+}
+
+// --- App Attest: a key we hold, and assertions in Apple's shape (CBOR map of a DER signature and authenticator data)
+const te = new TextEncoder();
+const sha = async (b: Uint8Array) => new Uint8Array(await crypto.subtle.digest('SHA-256', b));
+const cat = (...p: Uint8Array[]) => { const o = new Uint8Array(p.reduce((n, x) => n + x.length, 0)); let a = 0; for (const x of p) { o.set(x, a); a += x.length; } return o; };
+const bstr = (b: Uint8Array) => cat(new Uint8Array([0x58, b.length]), b);
+const tstr = (s: string) => cat(new Uint8Array([0x60 | s.length]), te.encode(s));
+const derInt = (v: Uint8Array) => { let i = 0; while (i < v.length - 1 && v[i] === 0) i++; v = v.subarray(i); if (v[0] & 0x80) v = cat(new Uint8Array([0]), v); return cat(new Uint8Array([0x02, v.length]), v); };
+const derSig = (raw: Uint8Array) => { const body = cat(derInt(raw.subarray(0, 32)), derInt(raw.subarray(32))); return cat(new Uint8Array([0x30, body.length]), body); };
+async function attestedKey(appId = APP_ID) {
+  const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
+  const keyId = toB64(await sha(new Uint8Array((await crypto.subtle.exportKey('raw', pair.publicKey)) as ArrayBuffer)));
+  const record = { pub: toB64(new Uint8Array((await crypto.subtle.exportKey('spki', pair.publicKey)) as ArrayBuffer)), counter: 0, env: 'production' };
+  // Headers for a request with this body, as the app makes them
+  const sign = async (body: string, counter: number, challenge?: string) => {
+    challenge ??= await issueChallenge('cs');
+    const auth = cat(await sha(te.encode(appId)), new Uint8Array([0, 0, 0, 0, counter]));
+    const nonce = await sha(cat(auth, await sha(te.encode(`${challenge}\n${body}`))));
+    const sig = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, pair.privateKey, nonce));
+    const assertion = cat(new Uint8Array([0xa2]), tstr('signature'), bstr(derSig(sig)), tstr('authenticatorData'), bstr(auth));
+    return { 'x-attest-key-id': keyId, 'x-attest-challenge': challenge, 'x-attest-assertion': toB64(assertion) };
+  };
+  return { keyId, record, sign };
 }
 
 let upstream: { url: string; init: RequestInit }[] = [];
@@ -349,4 +380,83 @@ test('rejects malformed coach requests before counting', async () => {
   }
   assert.equal(store.size, 0);
   assert.equal(upstream.length, 0);
+});
+test('challenge endpoint needs the password and the secret, and hands out a challenge the Worker recognises', async () => {
+  const { env } = makeEnv();
+  assert.equal((await call(req(undefined, '', undefined, {}, '/attest/challenge'), env)).status, 401);
+  assert.equal((await call(req('pw', '', undefined, {}, '/attest/challenge'), makeEnv('2', undefined, '50', '50', { APP_ATTEST_CHALLENGE_SECRET: undefined }).env)).status, 503);
+  const res = await worker.fetch(req('pw', '', undefined, {}, '/attest/challenge'), env);
+  assert.equal(res.status, 200);
+  const { challenge } = (await res.json()) as { challenge: string };
+  await checkChallenge('cs', challenge);
+});
+
+test('register refuses bad bodies, stale challenges and attestations that do not verify, storing nothing', async () => {
+  const { env, store } = makeEnv();
+  const register = (body: unknown, e = env) => call(req('pw', body, undefined, {}, '/attest/register'), e);
+  const good = { keyId: SAMPLE.keyId, challenge: await issueChallenge('cs'), attestation: SAMPLE.attestation };
+  assert.equal((await register({})).status, 400);
+  assert.equal((await register({ ...good, keyId: 'short' })).status, 400);
+  assert.equal((await register({ ...good, challenge: await issueChallenge('cs', new Date(Date.now() - 10 * 60_000)) })).body.error, 'Attestation failed.');
+  assert.equal((await register(good)).body.error, 'Attestation failed.'); // the recorded sample's certificate expired in 2021
+  assert.equal((await register(good, makeEnv('2', undefined, '50', '50', { APP_ATTEST_APP_ID: undefined }).env)).status, 503);
+  assert.equal(store.size, 0);
+  assert.equal(upstream.length, 0);
+});
+
+test('log-only serves every request, counts a valid assertion on its key and logs the rest', async () => {
+  const { env, store } = makeEnv('5', undefined, '5');
+  const key = await attestedKey();
+  store.set(`attest:${key.keyId}`, JSON.stringify(key.record));
+  const body = JSON.stringify(DEFAULT_BODY);
+  assert.equal((await call(req('pw', body, 'device-aaaa'), env)).status, 200); // unsigned: older build
+  assert.equal(store.get(`device:device-aaaa:${today()}`), '1');
+  const signed = await key.sign(body, 1);
+  assert.equal((await call(req('pw', body, 'device-aaaa', signed), env)).status, 200);
+  assert.equal(store.get(`device:${key.keyId}:${today()}`), '1'); // capped by key, not install id
+  assert.equal(JSON.parse(store.get(`attest:${key.keyId}`)!).counter, 1);
+  assert.equal((await call(req('pw', body, 'device-aaaa', signed), env)).status, 200); // a replay is served but not trusted
+  assert.equal(store.get(`device:device-aaaa:${today()}`), '2');
+  assert.equal(store.get(`device:${key.keyId}:${today()}`), '1');
+});
+
+test('enforce refuses unsigned, unknown, replayed, tampered and stale requests before counting, and caps by key', async () => {
+  const { env, store } = makeEnv('9', undefined, '1', '50', { APP_ATTEST_MODE: 'enforce' });
+  const key = await attestedKey();
+  store.set(`attest:${key.keyId}`, JSON.stringify(key.record));
+  const body = JSON.stringify(DEFAULT_BODY);
+  const refused = async (headers: Record<string, string>, code: string, b = body) => {
+    const res = await call(req('pw', b, 'device-aaaa', headers), env);
+    assert.equal(res.status, 403);
+    assert.equal((res.body as { code?: string }).code, code);
+  };
+  await refused({}, 'not-attested');
+  const stranger = await attestedKey();
+  await refused(await stranger.sign(body, 1), 'unknown-key');
+  await refused({ ...(await key.sign(body, 1)), 'x-attest-key-id': stranger.keyId }, 'unknown-key');
+  await refused(await key.sign(body, 1, await issueChallenge('cs', new Date(Date.now() - 10 * 60_000))), 'not-attested'); // stale challenge
+  await refused(await key.sign(body, 1, await issueChallenge('other')), 'not-attested'); // forged challenge
+  await refused(await key.sign(body, 1), 'not-attested', JSON.stringify({ ...DEFAULT_BODY, max_tokens: 5 })); // body changed after signing
+  await refused(await (await attestedKey('TEAM.com.other.app')).sign(body, 1), 'unknown-key');
+  assert.equal(store.size, 1);
+  assert.equal(upstream.length, 0);
+
+  const signed = await key.sign(body, 1);
+  assert.equal((await call(req('pw', body, 'device-aaaa', signed), env)).status, 200);
+  await refused(signed, 'not-attested'); // replay
+  await refused(await key.sign(body, 1), 'not-attested'); // counter did not move
+  const capped = await call(req('pw', body, 'device-bbbb', await key.sign(body, 2)), env); // a new install id, same key
+  assert.equal(capped.status, 429);
+  assert.match(capped.body.error!, /on this phone/);
+  assert.equal(JSON.parse(store.get(`attest:${key.keyId}`)!).counter, 2);
+});
+
+test('off ignores assertion headers and reads no keys', async () => {
+  const { env, store } = makeEnv('5', undefined, '5', '50', { APP_ATTEST_MODE: 'off' });
+  const key = await attestedKey();
+  const body = JSON.stringify(DEFAULT_BODY);
+  assert.equal((await call(req('pw', body, 'device-aaaa'), env)).status, 200);
+  assert.equal((await call(req('pw', body, 'device-aaaa', await key.sign(body, 1)), env)).status, 200);
+  assert.equal(store.get(`device:device-aaaa:${today()}`), '2');
+  assert.equal(store.has(`attest:${key.keyId}`), false);
 });

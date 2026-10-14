@@ -70,7 +70,15 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 
 The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (Haiku 5.5 for workout and food logs; see `server/src/parse.ts` and `food.ts`; requests with no mode, like the planner's, still use Haiku 4.5 and must move before it is retired), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 20, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 450). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
 
-The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks. The install id is made up by the app too, so someone with the password can rotate ids to get past the per-install cap; the global cap still bounds the bill, but they can use it up for everyone (App Attest is the planned fix before a public launch).
+The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks. The install id is made up by the app too, so someone with the password can rotate ids to get past the per-install cap; the global cap still bounds the bill, but they can use it up for everyone. App Attest (below) is the lock: with it enforced, only a genuine copy of the app on a real iPhone gets served, and the per-device cap is keyed on a key Apple attested instead of the install id.
+
+### App Attest
+
+Apple's [App Attest](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity) proves a request comes from a genuine copy of LiftText. Once per install the app makes a key in the Secure Enclave (`@expo/app-integrity`), has Apple attest it over a challenge from the Worker, and registers it (`POST /attest/register`). Every AI request then carries `x-attest-key-id`, `x-attest-challenge` (a fresh one from `POST /attest/challenge`) and `x-attest-assertion`: the request body signed with that key. The Worker (`server/src/attest.ts`) checks the attestation against Apple's root certificate, the challenge, the key id, the App ID and the counter, keeps the key in KV (`attest:<key id>`), and on each request checks the signature and that the counter went up. Challenges are signed timestamps (5 minutes), so they need no storage.
+
+`APP_ATTEST_MODE` in `server/wrangler.jsonc` rolls it out: `log-only` (the default) checks and logs every request but refuses none, so installs from before App Attest keep working; `enforce` refuses requests without a valid assertion (403, shown in the app); `off` skips the checks. Watch the Worker logs (`npx wrangler tail`, lines starting `attest`) until no current build is logged unsigned, then switch to `enforce` and deploy.
+
+App Attest needs native code, so it ships in an EAS build (TestFlight or App Store), not an OTA update, and does not run in Expo Go or the simulator: there the app sends requests unsigned, which `enforce` refuses. The `com.apple.developer.devicecheck.appattest-environment` entitlement in `app.json` turns on the App Attest capability (EAS Build syncs it to the App ID; check it under Identifiers in the Apple Developer account if attestation fails).
 
 ### Deploy (one time)
 
@@ -81,8 +89,11 @@ npx wrangler login                        # opens the browser to your Cloudflare
 npx wrangler kv namespace create USAGE    # copy the printed id into wrangler.jsonc (kv_namespaces[0].id)
 npx wrangler secret put ANTHROPIC_API_KEY # paste your Anthropic API key
 npx wrangler secret put APP_PASSWORD      # choose a password to share with the app
+npx wrangler secret put APP_ATTEST_CHALLENGE_SECRET  # any long random string, e.g. `openssl rand -base64 32`
 npx wrangler deploy                       # prints the Worker URL
 ```
+
+Before deploying, set `APP_ATTEST_APP_ID` in `wrangler.jsonc` to `<Team ID>.com.njpastrone.trainingtracker` (Team ID: Apple Developer account, Membership details). Leave `APP_ATTEST_MODE` on `log-only` until the app build with App Attest is what everyone runs (see App Attest below).
 
 Then put the printed URL and the same password in `.env.local` at the repo root:
 
@@ -91,7 +102,7 @@ EXPO_PUBLIC_API_URL=https://training-tracker-api.<your-subdomain>.workers.dev
 EXPO_PUBLIC_APP_PASSWORD=<the password you chose>
 ```
 
-Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 500: each request is two KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
+Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 330: each request is three KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
 
 Server tests (Node 22.18+): `cd server && npm test`
 

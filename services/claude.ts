@@ -15,8 +15,9 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
 import { hasAiConsent } from './aiConsent';
+import { attestHeaders, forgetKey } from './appAttest';
 
-// Server refusals the user should see (wrong app password, daily cap reached, server busy)
+// Server refusals the user should see (wrong app password, unverified app copy, daily cap reached, server busy)
 export class ApiError extends Error {
   constructor(message: string, readonly status?: number) {
     super(message);
@@ -63,17 +64,22 @@ export async function callClaude(
     throw new Error('EXPO_PUBLIC_API_URL is not set');
   }
   if (!(await hasAiConsent())) throw new AiOffError();
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-app-password': process.env.EXPO_PUBLIC_APP_PASSWORD ?? '',
-      'x-install-id': await getInstallId(),
-    },
-    body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, ...mode }),
-  });
+  const password = process.env.EXPO_PUBLIC_APP_PASSWORD ?? '';
+  const body = JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, ...mode });
+  const send = async () =>
+    fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-app-password': password, 'x-install-id': await getInstallId(), ...(await attestHeaders(url, password, body)) },
+      body,
+    });
+  let res = await send();
+  if (res.status === 403) {
+    // The Worker refused this copy's App Attest key (lost, or none): attest a new one and try once more
+    await forgetKey();
+    res = await send();
+  }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 || res.status === 429 || res.status === 503) {
+  if (res.status === 401 || res.status === 403 || res.status === 429 || res.status === 503) {
     throw new ApiError(data.error ?? 'AI request refused by the server.', res.status);
   }
   if (!res.ok || typeof data.text !== 'string') {
