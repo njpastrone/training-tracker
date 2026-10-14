@@ -10,8 +10,9 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Progress** - When you last did each exercise and how often, PRs where you logged numbers, days since each muscle group, and a box to add a workout you forgot ("did legs six days ago")
 - **Goals** - Set goals on Progress (each muscle 1-3× a week, minimum sets per muscle, days a week, a weight to lift or an exercise to do often) and see them against your last 7 days; the planner aims at them
+- **Ask the coach** - Tap **Ask** on Progress (or type a question into the Log or Progress box) to ask about your own training and food ("I've taken a few days off, what should I start with?"); it answers from a summary of your last 4 weeks
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
-- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days).
+- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, never the whole log. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days).
 
 ## Screenshots
 
@@ -98,6 +99,8 @@ Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends 
 
 Nothing is saved until you review the parsed workout. A typed fix in the chat bar while the review card is open ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, exercises, draft, fix } }`: correction mode returns the whole draft with the fix applied, plus a short `reply` when the fix is a question ("is pec deck machine flys?"), which the app shows on the card; a fix that changes nothing and asks nothing says so instead of doing nothing. When the question shows you call an exercise something else, the reply offers "Call it 'Machine flys' from now on", which saves your words as its name and alias, and cards then show "Machine flys · Pec Deck". A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
 
+Questions to the coach use the prompt in `server/src/coach.ts` (Claude Sonnet 5.5). The app sends `{ coach: { date, unit, pack, messages } }`, where `pack` is the summary of the last 4 weeks built on the phone by `services/coachPack.ts`; each question is one call and one slot of the daily cap. Before changing the prompt, run the coach eval (`npm run eval:coach`, see `evals/coach/README.md`).
+
 ## Project Structure
 
 ```
@@ -109,6 +112,7 @@ training-tracker/
 │   │   ├── history.tsx     # History & calendar
 │   │   ├── progress.tsx    # Progress: goals, exercises, days since, corrections
 │   │   └── settings.tsx    # App settings
+│   ├── ask.tsx             # Ask the coach (opened from Progress)
 │   ├── goals.tsx           # Set your goals
 │   └── _layout.tsx         # Root layout
 ├── components/             # Reusable UI components
