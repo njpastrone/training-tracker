@@ -22,12 +22,12 @@ test('exclamation marks go, nagging sentences go, a calorie target under the flo
   const { reply: r } = checkReply(reply('Nice work! Log your weights next time so I can see more. Aim for 1,100 kcal a day. Keep the reps.', 'Great week!'), 'how am I doing', given);
   assert.equal(r.headline, 'Great week');
   assert.equal(r.answer, 'Nice work. A calorie target that low needs a professional to set it. Keep the reps.');
-  for (const a of ['A goal of 1,100 calories is too low.', 'You could cut to 1,100 calories for a few weeks.', 'Drop down to 1,000 kcal.', 'Stick to 1,200 calories.', 'Aim for 1,100 calories.'])
+  for (const a of ['A goal of 1,100 calories is too low.', 'You could cut to 1,100 calories for a few weeks.', 'Drop down to 1,000 kcal.', 'Stick to 1,200 calories.', 'Aim for 1,100 calories.', 'Stick to 1,200 calories and spread protein across your meals.', 'Cut to 1,100 calories, with eggs at breakfast.'])
     assert.equal(checkReply(reply(a), 'q', given).reply.answer, 'A calorie target that low needs a professional to set it.', a);
 });
 
 test('per-meal and per-food kcal are not a daily target', () => {
-  for (const a of ['Chicken and rice, about 330 kcal.', 'Eat about 300 calories above maintenance.', 'Chicken breast 200 g: 62 g protein, 330 kcal.', 'Aim for 2,400 kcal a day.', 'Aim for about 400 kcal at breakfast.'])
+  for (const a of ['Chicken and rice, about 330 kcal.', 'Eat about 300 calories above maintenance.', 'Chicken breast 200 g: 62 g protein, 330 kcal.', 'Aim for 2,400 kcal a day.', 'Aim for about 400 kcal at breakfast.', 'Aim for about 300 calories above maintenance.', 'Drop to 500 calories below maintenance', 'Eat 300 calories a day above maintenance.'])
     assert.equal(checkReply(reply(a), 'suggest some high protein meals for me today', given).reply.answer, a);
 });
 

@@ -11,11 +11,12 @@ export const SEE_SOMEONE = /\b(doctor|physio|physical therapist|physiotherapist|
 export const RED_FLAG_LINE = "I can't tell what's going on from here. Sharp pain, swelling, numbness, chest pain or dizziness means stop and have a doctor or physio look at it. This is general training information, not medical advice.";
 
 // A calorie target under the floor (1,200 kcal for women, 1,500 for men) is never suggested
-// A daily number only: per-meal and per-food kcal from the pack ("about 330 kcal", "aim for 400 kcal
-// at breakfast") are left alone
+// A daily number only, read from what sits next to it: per-meal and per-food kcal ("about 330 kcal",
+// "aim for 400 kcal at breakfast") and a surplus or deficit ("300 calories above maintenance") are left alone
 const KCAL = String.raw`(\d{1,3}(?:,\d{3})?|\d{3,4})\s*(?:kcal|calories|cals?)\b`;
+const NOT_DAILY = String.raw`(?!\s*(?:at|for|per|with|each)\s+(?:\w+\s+)?(?:breakfast|lunch|dinner|meals?|snacks?)\b|\s*(?:(?:a|per|each)\s+day\s+|daily\s+)?(?:(?:above|below|over|under)\s+maintenance|surplus|deficit)\b)`;
 const CALORIE_TARGET = new RegExp(
-  String.raw`(?<=\b(?:target|goal|aim for|cut to|down to|drop to|stick to)(?:\s+(?:of|is|at|to|around|about|under|below))*\s+)${KCAL}(?![^.\n]*\b(?:breakfast|lunch|dinner|meals?|snacks?)\b)|\b${KCAL}\s*(?:(?:a|per|each)\s+day|daily|\/\s*day)\b`,
+  String.raw`(?<=\b(?:target|goal|aim for|cut to|down to|drop to|stick to|eat)(?:\s+(?:of|is|at|to|around|about|under|below))*\s+)${KCAL}${NOT_DAILY}|\b${KCAL}${NOT_DAILY}\s*(?:(?:a|per|each)\s+day|daily|\/\s*day)\b`,
   'gi',
 );
 const CALORIE_FLOOR = 1500;
