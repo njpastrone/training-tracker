@@ -186,3 +186,37 @@ A Worker deployed before parse mode, which drops `temperature: 0`, scores 0.995 
 Cost: a full 100-case run is about $0.20 with the eval's prompt caching, or $0.57 uncached. A live
 parse costs about $0.0058 (4.9k input tokens), against $0.0032 for the old, shorter prompt. At the
 Worker's global cap of 450 requests a day, that's at most about $2.60 a day.
+
+## Haiku 5.5 and Sonnet 5.5 with a cached prompt (2026-10-13, 3 runs averaged, `--cli`)
+
+Tried to cut the cost per parse by moving to a 5.x model with the system prompt cached (Haiku 4.5
+can't cache it: the parse prompt is about 3,360 tokens and the correction prompt about 3,850, under
+its 4,096-token minimum). Gate: every set equal or better, 0 silent mismatches. Both lost, so the
+parser stays on Haiku 4.5.
+
+| set | Haiku 4.5 (kept) | Haiku 5.5, effort low | Sonnet 5.5, effort low |
+|---|---|---|---|
+| main (114) | 0.990 (105 perfect) | 0.993 (106) | 0.997 (109) |
+| identity (54) | 1.000 (54) | **0.979** (47) | **0.998** (53) |
+| corrections (19) | 0.998 (18) | 0.998 (17) | 0.999 (18) |
+| holdout (20) | 0.993 (18) | 0.995 (18) | **0.975** (19) |
+| silent mismatches | 0 | 0 | 0 |
+| $ per live parse, uncached | $0.0052 | $0.0008 | $0.0124 |
+| $ per live parse, cache hit | n/a | $0.0004 | $0.0044 (cache write $0.0146) |
+
+What got worse, and held across all 3 runs:
+- Haiku 5.5 drops the weight when it is written as "60s" ("incline DB bench 3x10 60s" became 60s
+  rest, and the same with "30s", "40s" and "60s" in four more cases), counts "benched 2 plates for 5" as 2 sets,
+  puts food into the workout notes in 3 of 5 mixed logs, and marks a known exercise "unsure".
+  Effort medium didn't fix it (identity 0.983).
+- Sonnet 5.5 reads "skipped rope 3x2min" as not having done it, losing the exercise, and marks
+  the same known exercise "unsure". On a cache miss it also costs about 3 times what Haiku 4.5 does.
+
+Hand-reading 30 cases side by side (slang, supersets, units, per-set weights, new and look-alike
+exercises, corrections and questions): Haiku 5.5 was worse on 2 (the "60s" weight and "2 plates
+for 5"). Sonnet 5.5 was worse on 1 (it added "Skipped tricep pushdowns" to the notes when told to
+drop them).
+
+These runs went through `claude -p` (no API key was available), which can't pin Haiku 4.5's
+`temperature: 0` and adds its own context; costs are from the measured token counts at list prices.
+Haiku 5.5 may well pass with a prompt tuned for it, as the food prompt did; that's the next step.

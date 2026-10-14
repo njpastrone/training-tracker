@@ -42,6 +42,7 @@ const { cases } = (await import(`./${args.set}.ts`)) as typeof import('./cases.t
 // $ per million tokens [input, output]
 const PRICES: Record<string, [number, number]> = {
   'claude-haiku-4-5': [1, 5],
+  'claude-haiku-5-5': [0.1, 0.5],
   'claude-sonnet-5-5': [2, 10],
   'claude-opus-5-5': [4, 20],
 };
@@ -80,7 +81,7 @@ async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name
     const { system, messages, max_tokens } = body;
     body = { model: 'claude-haiku-4-5-20251001', system, messages, max_tokens: Math.min(max_tokens, 1500) };
   }
-  if (!String(body.model).startsWith('claude-haiku')) delete body.temperature; // newer models reject sampling params
+  if (!String(body.model).startsWith('claude-haiku-4')) delete body.temperature; // newer models reject sampling params
   // Eval-only: cache the shared system prompt across the run. Doesn't change outputs, only cost.
   if (typeof body.system === 'string') body.system = [{ type: 'text', text: body.system, cache_control: { type: 'ephemeral' } }];
   const started = Date.now();
