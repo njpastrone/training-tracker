@@ -306,7 +306,7 @@ function fallbackParse(input: string): ParsedWorkoutResponse | null {
   };
 }
 
-const TEMPLATE_PARSING_PROMPT = `<role>
+export const TEMPLATE_PARSING_PROMPT = `<role>
 You are a fitness template parser that converts natural language workout descriptions into structured exercise templates. Your expertise includes understanding various workout notations and exercise variations.
 </role>
 
@@ -325,6 +325,8 @@ Common notations to recognize:
 - "4 sets of 10" = 4 sets of 10 reps
 - "@225" or "225lbs" or "100kg" = weight specification
 - "3x10@135" = 3 sets of 10 reps at 135 lbs
+- On a dumbbell, db or kettlebell lift, a number with a trailing s after the sets and reps is the weight: "incline db press 3x10 60s" = 3 sets of 10 with 60 lb dumbbells (weight 60)
+- Anywhere else, or when rest or a timed hold is meant, it is seconds, not weight: "plank 3x1 60s" = a 60-second hold, "bench 3x8 90s rest" = 90 seconds rest (put it in notes); leave weight out
 - Exercise names can be abbreviated (bench = bench press, OHP = overhead press)
 </parsing_patterns>
 
@@ -343,9 +345,8 @@ Return ONLY a valid JSON array of exercise objects:
 ]
 </output_format>`;
 
-export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
-  try {
-    const text = await callClaude(TEMPLATE_PARSING_PROMPT, `<template_description>
+// The user message of one template parse (evals/planner sends the same)
+export const templateMessage = (input: string) => `<template_description>
 ${input}
 </template_description>
 
@@ -355,7 +356,11 @@ Parse this workout template into structured exercises. Focus on extracting:
 3. Weights if specified
 4. Proper muscle group classification
 
-Return ONLY the JSON array of exercises.`, 1024);
+Return ONLY the JSON array of exercises.`;
+
+export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
+  try {
+    const text = await callClaude(TEMPLATE_PARSING_PROMPT, templateMessage(input), 1024);
 
     // Clean response and extract JSON
     let jsonText = text.trim();

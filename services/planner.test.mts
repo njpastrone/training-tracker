@@ -76,7 +76,9 @@ test('validatePlanResponse rejects unusable plans', () => {
   }
 });
 
-test('parsePlannerText ignores surrounding prose and rejects bad JSON', () => {
+test('parsePlannerText ignores surrounding prose and a stray closing brace, and rejects bad JSON', () => {
+  assert.ok(parsePlannerText(JSON.stringify(validResponse()) + '}', TODAY, WINDOW_END), 'one brace too many, as Haiku 5.5 sometimes writes');
+  assert.ok(parsePlannerText(JSON.stringify({ ...validResponse(), reply: 'Braces { in } "strings" \\" stay' }), TODAY, WINDOW_END));
   const text = 'Here you go:\n```json\n' + JSON.stringify(validResponse()) + '\n```';
   assert.ok(parsePlannerText(text, TODAY, WINDOW_END));
   assert.equal(parsePlannerText('{"plan": {', TODAY, WINDOW_END), null);
