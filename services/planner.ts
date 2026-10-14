@@ -180,16 +180,32 @@ export function validatePlanResponse(raw: unknown, today: string, windowEnd: str
   };
 }
 
+// The first JSON object in the text: prose, code fences and a stray brace after it are ignored
+function firstObject(text: string): unknown {
+  const start = text.indexOf('{');
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i >= 0 && i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (ch === '\\') i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) return JSON.parse(text.slice(start, i + 1));
+  }
+  throw new Error('no JSON object');
+}
+
 export function parsePlannerText(text: string, today: string, windowEnd: string): PlannerResponse | null {
   try {
-    // Ignore any prose or code fences around the object
-    return validatePlanResponse(JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)), today, windowEnd);
+    return validatePlanResponse(firstObject(text), today, windowEnd);
   } catch {
     return null;
   }
 }
 
-const PLANNER_PROMPT = `<role>Strength coach planning workouts for a LiftText user.</role>
+export const PLANNER_PROMPT = `<role>Strength coach planning workouts for a LiftText user.</role>
 <rules>
 - Use <history> to fit the plan: after >14 days off start at ~70-80% of recent working weights and fewer sets;
   prefer the user's usual days; avoid training the same muscle group on consecutive days.
@@ -232,12 +248,17 @@ export async function planWorkouts(
 ): Promise<PlannerResponse | null> {
   const today = format(now, 'yyyy-MM-dd');
   const windowEnd = format(addDays(now, WINDOW_DAYS - 1), 'yyyy-MM-dd');
-  const text = await callClaude(PLANNER_PROMPT, `<history>${JSON.stringify(history)}</history>
+  const text = await callClaude(PLANNER_PROMPT, plannerMessage(message, draft, history, recentMessages, today, windowEnd), 1500);
+  return parsePlannerText(text, today, windowEnd);
+}
+
+// The user message of one planner call: the whole picture, since every call is stateless (evals/planner sends the same)
+export function plannerMessage(message: string, draft: PlanDraft | null, history: PlannerHistory, recentMessages: string[], today: string, windowEnd: string) {
+  return `<history>${JSON.stringify(history)}</history>
 <window>${today} to ${windowEnd}</window>
 <current_plan>${draft ? JSON.stringify(draft) : 'none'}</current_plan>
 <recent_messages>${JSON.stringify(recentMessages.slice(-4))}</recent_messages>
-<request>${message}</request>`, 1500);
-  return parsePlannerText(text, today, windowEnd);
+<request>${message}</request>`;
 }
 
 // Repeats the first week's sessions for repeatWeeks weeks (first one wins if weeks overlap)

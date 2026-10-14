@@ -49,3 +49,4 @@ yarn-error.*
 evals/parse/results/
 evals/food/results/
 evals/coach/results/
+evals/planner/results/

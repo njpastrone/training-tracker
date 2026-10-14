@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { type Env } from './index.ts';
+import worker, { PASSTHROUGH, type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest } from './food.ts';
 import { buildCoachRequest, COACH_BETA, COACH_MODEL, type CoachMessage } from './coach.ts';
@@ -76,15 +76,26 @@ test('rejects missing and wrong passwords without spending the cap', async () =>
   assert.equal(store.size, 0);
 });
 
-test('forwards with server-chosen model and capped max_tokens', async () => {
+test('forwards with the server-chosen model, effort and max_tokens, whatever the app asked for', async () => {
   const { env } = makeEnv();
   const { status, body } = await call(req('pw'), env);
   assert.equal(status, 200);
   assert.equal(body.text, '{"ok":true}');
   const sent = JSON.parse(upstream[0].init.body as string);
-  assert.equal(sent.model, 'claude-haiku-4-5-20251001');
-  assert.equal(sent.max_tokens, 1500);
+  assert.equal(sent.model, PASSTHROUGH.model);
+  assert.equal(sent.max_tokens, PASSTHROUGH.max_tokens);
+  assert.deepEqual(sent.output_config, { effort: PASSTHROUGH.effort });
+  assert.equal(sent.temperature, undefined);
   assert.equal((upstream[0].init.headers as Record<string, string>)['x-api-key'], 'sk-test');
+});
+
+test('a pass-through reply cut off at max_tokens is an error, never truncated text', async () => {
+  const { env } = makeEnv();
+  replies = [{ text: '{"plan": {"name": "cut', stop_reason: 'max_tokens' }];
+  const { status, body } = await call(req('pw'), env);
+  assert.equal(status, 502);
+  assert.match(body.error!, /max_tokens/);
+  assert.equal(body.text, undefined);
 });
 
 test('enforces the daily cap', async () => {

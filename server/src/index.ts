@@ -21,8 +21,11 @@ export interface Env {
 // A key the app attested, stored in KV under attest:<key id>
 interface KeyRecord { pub: string; counter: number }
 
-const MODEL = 'claude-haiku-4-5-20251001';
-const MAX_TOKENS = 1500;
+// The pass-through path: the app sends its own prompt (the planner, the template parser, and app builds from before
+// parse mode parsing logs). Chosen on evals/planner (README there): Haiku 5.5 at low effort scores 0.98 against
+// Haiku 4.5's 0.90 and ties medium at a fifth of 4.5's cost. 5.x models think and the thinking counts toward
+// max_tokens, so the Worker sets the cap itself; only tokens used are billed.
+export const PASSTHROUGH = { model: 'claude-haiku-5-5', effort: 'low', max_tokens: 8192 } as const;
 const MAX_PROMPT_CHARS = 80_000;
 const MAX_INPUT_CHARS = 4000;
 const MAX_CANDIDATES = 120;
@@ -128,19 +131,20 @@ export default {
     if (path === '/attest/register') return registerKey(request, env);
 
     const text = await request.text();
-    let body: { system?: unknown; messages?: unknown; max_tokens?: unknown; parse?: unknown; food?: unknown; coach?: unknown };
+    let body: { system?: unknown; messages?: unknown; parse?: unknown; food?: unknown; coach?: unknown };
     try {
       body = JSON.parse(text);
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
-    const { system, messages, max_tokens, parse, food, coach } = body ?? {};
+    const { system, messages, parse, food, coach } = body ?? {};
     const validDate = (date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date);
     // Food mode: like parse mode, for what the user ate. `foods` are the table entries the log
     // mentions (the app matches them); with draft and fix it applies a typed fix to the food draft.
     let upstream: Record<string, unknown>;
     let escalateFoods: number | undefined; // a food log's candidate count: Haiku's reply may go to Sonnet
     let betas: string | undefined; // beta features the upstream request opts into
+    let passThrough = false; // the app's own prompt: the reply is used as-is, so a cut-off one is an error
     if (coach !== undefined) {
       // Coach mode: a question (or a short thread) about the user's own training and food, answered from
       // the context pack the phone built (services/coachPack.ts). One call per question, so one cap slot.
@@ -190,12 +194,9 @@ export default {
       if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
         return json(400, { error: 'Invalid request.' });
       }
-      upstream = {
-        model: MODEL,
-        max_tokens: Number.isInteger(max_tokens) && (max_tokens as number) > 0 ? Math.min(max_tokens as number, MAX_TOKENS) : MAX_TOKENS,
-        system,
-        messages,
-      };
+      // The app's own max_tokens is ignored: it was set for a model that did not think
+      upstream = { model: PASSTHROUGH.model, max_tokens: PASSTHROUGH.max_tokens, output_config: { effort: PASSTHROUGH.effort }, system, messages };
+      passThrough = true;
     }
     if (JSON.stringify({ system: upstream.system, messages: upstream.messages }).length > MAX_PROMPT_CHARS) return json(413, { error: 'Request too large.' });
 
@@ -259,6 +260,7 @@ export default {
     }
     if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
     if (parse !== undefined && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
+    if (passThrough && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
     return json(200, { text: reply.text });
   },
 } satisfies ExportedHandler<Env>;

@@ -306,7 +306,7 @@ function fallbackParse(input: string): ParsedWorkoutResponse | null {
   };
 }
 
-const TEMPLATE_PARSING_PROMPT = `<role>
+export const TEMPLATE_PARSING_PROMPT = `<role>
 You are a fitness template parser that converts natural language workout descriptions into structured exercise templates. Your expertise includes understanding various workout notations and exercise variations.
 </role>
 
@@ -325,6 +325,7 @@ Common notations to recognize:
 - "4 sets of 10" = 4 sets of 10 reps
 - "@225" or "225lbs" or "100kg" = weight specification
 - "3x10@135" = 3 sets of 10 reps at 135 lbs
+- A number with a trailing s after the sets and reps is the dumbbell weight, never seconds or rest: "incline db press 3x10 60s" = 3 sets of 10 with 60 lb dumbbells (weight 60)
 - Exercise names can be abbreviated (bench = bench press, OHP = overhead press)
 </parsing_patterns>
 
@@ -343,9 +344,8 @@ Return ONLY a valid JSON array of exercise objects:
 ]
 </output_format>`;
 
-export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
-  try {
-    const text = await callClaude(TEMPLATE_PARSING_PROMPT, `<template_description>
+// The user message of one template parse (evals/planner sends the same)
+export const templateMessage = (input: string) => `<template_description>
 ${input}
 </template_description>
 
@@ -355,7 +355,11 @@ Parse this workout template into structured exercises. Focus on extracting:
 3. Weights if specified
 4. Proper muscle group classification
 
-Return ONLY the JSON array of exercises.`, 1024);
+Return ONLY the JSON array of exercises.`;
+
+export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
+  try {
+    const text = await callClaude(TEMPLATE_PARSING_PROMPT, templateMessage(input), 1024);
 
     // Clean response and extract JSON
     let jsonText = text.trim();
