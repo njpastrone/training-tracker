@@ -21,7 +21,7 @@ mock.module('@expo/app-integrity', {
     generateKeyAsync: async () => `key${++keys}`,
     attestKeyAsync: async (id: string, challenge: string) => `attest(${id},${challenge})`,
     generateAssertionAsync: async (id: string, clientData: string) => {
-      if (id === brokenKey) throw new Error('invalid key');
+      if (id === brokenKey) throw Object.assign(new Error('invalid key'), { code: 'ERR_APP_INTEGRITY_INVALID_KEY' });
       return `assert(${id},${clientData})`;
     },
   },
@@ -98,13 +98,14 @@ test('a second 403 drops the key, and the next request attests a new one', async
   assert.equal(mem.get('@training-tracker/app-attest-key-id'), 'key2');
 });
 
-test('a key the phone no longer accepts is replaced after the Worker refuses the unsigned request twice', async () => {
+test('a key the phone no longer has goes out unsigned once, then the next request attests a new one', async () => {
   brokenKey = 'key2';
-  refuse = 2;
-  await assert.rejects(callClaude('sys', 'curls', 100), { status: 403 });
-  assert.deepEqual(ai().map((c) => c.headers['x-attest-key-id']), [undefined, undefined]);
   assert.equal(await callClaude('sys', 'curls', 100), 'ok');
-  assert.equal(ai()[2].headers['x-attest-key-id'], 'key3');
+  assert.equal(ai()[0].headers['x-attest-key-id'], undefined);
+  assert.equal(mem.get('@training-tracker/app-attest-key-id'), undefined);
+  assert.equal(await callClaude('sys', 'curls', 100), 'ok');
+  assert.equal(ai()[1].headers['x-attest-key-id'], 'key3');
+  assert.equal(ai().length, 2);
 });
 
 test('when the Worker has no App Attest set up the request still goes out, unsigned, and the key is kept', async () => {

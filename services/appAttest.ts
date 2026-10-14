@@ -49,12 +49,15 @@ export async function attestHeaders(url: string, password: string, body: string)
     return { 'x-attest-key-id': id, 'x-attest-challenge': c, 'x-attest-assertion': await mod.generateAssertionAsync(id, `${c}\n${body}`) };
   } catch (err) {
     console.warn('App Attest skipped', err);
-    keyId = undefined; // next request reads the saved id again, or registers afresh if none was saved
+    // A key the Secure Enclave no longer has (restored backup, new phone) is dropped so the next request attests a new one;
+    // on any other error the next request reads the saved id again, or registers afresh if none was saved
+    if ((err as { code?: string }).code === 'ERR_APP_INTEGRITY_INVALID_KEY') await forgetKey();
+    else keyId = undefined;
     return {};
   }
 }
 
-// The Worker refused this key twice in a row (403): drop it, so the next request attests a new one
+// The Worker refused this key twice in a row (403), or the phone lost it: drop it, so the next request attests a new one
 export async function forgetKey(): Promise<void> {
   keyId = undefined;
   await AsyncStorage.removeItem(KEY_ID_STORAGE_KEY).catch(() => {});
