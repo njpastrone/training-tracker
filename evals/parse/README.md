@@ -229,7 +229,7 @@ What changed for Haiku 5.5, each rule aimed at a failure it had with the old pro
 - In code, whatever the model writes: a weight equal to a "stack N" or "pin N" in the exercise
   notes is dropped (Haiku 5.5 at low effort put the pin number in both).
 
-The request also changed: no `temperature` (5.x models take only their default), `max_tokens` 4096
+The request also changed: no `temperature` (5.x models take only their default), `max_tokens` 8192
 because thinking counts toward it (median 280 thinking tokens on identity, up to about 1,700 on long
 logs; only tokens used are billed), `output_config.effort: medium`, and the Worker caches the system
 prompt like the food one. Effort low skipped thinking altogether (median 0) and was worse on every
@@ -254,8 +254,9 @@ rules above ("curls 21s" as 21 lbs, an unnamed "chest day: 225x5..." list droppe
 folded into notes); equal on the rest.
 
 These runs went through `claude -p` (no eval API key was available; costs are from measured token
-counts at list prices, $0 of the eval budget spent). Confirm with an API-key run before relying on
-the exact numbers.
+counts at list prices, $0 of the eval budget spent). The API-key run `npm run eval:parse -- --repeat 3`
+on all four sets must pass the gate above before the Worker is deployed. The Worker returns a 502
+for a parse or correction reply cut off at `max_tokens` rather than passing on truncated JSON.
 
 ## Haiku 5.5 and Sonnet 5.5 with the old prompt (2026-10-13, 3 runs averaged, `--cli`)
 

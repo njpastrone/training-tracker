@@ -166,7 +166,7 @@ function userMessage(input: string, options: ParseOptions) {
 export function buildParseRequest(input: string, options: ParseOptions) {
   return {
     model: PARSE_MODEL,
-    max_tokens: 4096,
+    max_tokens: 8192,
     output_config: { effort: PARSE_EFFORT },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user' as const, content: userMessage(input, options) }],
@@ -240,7 +240,7 @@ export function finalizeWithNames(text: string, defaultUnit?: ParseOptions['unit
       // Assistance is never a weight, or the easiest set would be the PR
       const assist = isAssisted(id?.exerciseId) ? num(e.weight) : undefined;
       // Nor is a machine's stack or pin number that the model also wrote into the notes ("stack 9")
-      const stack = num(e.weight) && new RegExp(`\\b(stack|pin|plate|level|setting) ?#? ?${num(e.weight)}\\b`, 'i').test(String(e.notes ?? ''));
+      const stack = num(e.weight) && new RegExp(`\\b(stack|pin) ?#? ?${num(e.weight)}\\b`, 'i').test(String(e.notes ?? ''));
       const weight = assist || stack ? undefined : num(e.weight);
       const notes = assist && !String(e.notes ?? '').includes(String(assist))
         ? [str(e.notes), `${assist} ${weightUnit(e.unit) ?? defaultUnit ?? ''} assistance`.replace(/ +/g, ' ')].filter(Boolean).join('; ')

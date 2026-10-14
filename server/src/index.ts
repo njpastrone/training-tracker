@@ -176,6 +176,7 @@ export default {
       reply = await send({ ...upstream, model: FOOD_ESCALATION_MODEL });
     }
     if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
+    if (parse !== undefined && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
     return json(200, { text: reply.text });
   },
 } satisfies ExportedHandler<Env>;

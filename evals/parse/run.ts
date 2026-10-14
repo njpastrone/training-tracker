@@ -76,6 +76,10 @@ async function runCase(c: (typeof cases)[number] & { draft?: { exercises: { name
   let body = c.fix ? parser.buildCorrectionRequest(c.draft, c.fix, options) : parser.buildParseRequest(c.input, options);
   if (args.model) body.model = args.model;
   if (args.effort) body.output_config = { ...body.output_config, effort: args.effort };
+  if (String(body.model).startsWith('claude-haiku-4')) {
+    delete body.output_config;
+    body.temperature = 0;
+  }
   if (args.compat) {
     // The Worker deployed before the parse mode forwards only these fields, with its own model and cap.
     const { system, messages, max_tokens } = body;

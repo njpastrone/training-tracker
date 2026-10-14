@@ -132,6 +132,19 @@ test('parse mode sends the server-side parse prompt and ignores the client promp
   assert.match(sent.messages[0].content, /Saturday 2026-10-03[\s\S]*<log>bench 3x5 225<\/log>/);
 });
 
+test('a parse or correction reply cut off at max_tokens is an error, not truncated text', async () => {
+  const { env } = makeEnv('10');
+  const draft = { exercises: [{ name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const }], muscleGroups: ['chest' as const], confidence: 0.9 };
+  const base = { input: 'bench 3x5 225', date: '2026-10-03', unit: 'lbs' };
+  for (const parse of [base, { ...base, draft, fix: 'actually 3x10' }]) {
+    replies = [{ text: '{"exercises":[{"name":"Bench', stop_reason: 'max_tokens' }];
+    const res = await call(req('pw', { parse }), env);
+    assert.equal(res.status, 502);
+    assert.equal(res.body.text, undefined);
+    assert.match(res.body.error!, /AI service error/);
+  }
+});
+
 test('rejects a malformed parse request before counting', async () => {
   const { env, store } = makeEnv();
   for (const parse of [{}, { input: 'x', date: 'today', unit: 'lbs' }, { input: 'x', date: '2026-10-03', unit: 'stone' }, { input: ' ', date: '2026-10-03', unit: 'kg' }]) {
