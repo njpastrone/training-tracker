@@ -16,6 +16,13 @@ test('finalizeParse falls back to the default unit when the model omits or missp
   assert.equal(finalizeParse(text)!.exercises[0].unit, undefined);
 });
 
+test('finalizeParse takes a bare array of exercises as the exercises', () => {
+  const one = '[{"name":"Hammer Curl","sets":1,"reps":12,"weight":35,"unit":"lbs"}]';
+  assert.deepEqual(finalizeParse(one)!.exercises.map((e) => [e.name, e.reps, e.weight]), [['Hammer Curl', 12, 35]]);
+  const two = 'Here you go:\n[{"name":"Hammer Curl","reps":12,"weight":35},{"name":"Hammer Curl","reps":10,"weight":35}]';
+  assert.deepEqual(finalizeParse(two)!.exercises.map((e) => e.reps), [12, 10]);
+});
+
 test('finalizeParse keeps a stated unit that differs from the default', () => {
   const text = JSON.stringify({
     exercises: [
@@ -134,4 +141,17 @@ test('buildParseRequest spells out the 13 days before the logging date, so a lat
   assert.match(content, /^Logging date: Thursday 2026-10-08\. Earlier days: Wednesday 2026-10-07 = -1; Tuesday 2026-10-06 = -2;/);
   assert.match(content, /Monday 2026-09-28 = -10;/);
   assert.match(content, /Friday 2026-09-25 = -13\. A bare weekday/);
+});
+
+test('finalizeParse drops a weight that is really the machine stack or pin number in the notes', () => {
+  const text = JSON.stringify({
+    exercises: [
+      { name: 'Leg Extension', sets: 4, reps: 15, weight: 9, unit: 'lbs', notes: 'stack 9' },
+      { name: 'Pec Deck', sets: 3, reps: 12, weight: 8, unit: 'lbs', notes: 'pin #8' },
+      { name: 'Leg Press', sets: 3, reps: 10, weight: 270, unit: 'lbs', notes: '3 plates a side' },
+      { name: 'Lat Pulldown', sets: 3, reps: 10, weight: 120, unit: 'lbs', notes: 'stack 12' },
+    ],
+  });
+  const got = finalizeParse(text, 'lbs')!.exercises.map((e) => [e.weight, e.unit, e.notes]);
+  assert.deepEqual(got, [[undefined, undefined, 'stack 9'], [undefined, undefined, 'pin #8'], [270, 'lbs', '3 plates a side'], [120, 'lbs', 'stack 12']]);
 });

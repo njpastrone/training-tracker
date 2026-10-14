@@ -168,14 +168,15 @@ export default {
       return { status: 200, stop: data.stop_reason, text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') };
     };
 
-    // The food prompt is long and the same on every log: cache it
-    if (escalateFoods !== undefined) upstream.system = [{ type: 'text', text: upstream.system, cache_control: { type: 'ephemeral' } }];
+    // The food and parse prompts are long and the same on every log: cache them
+    if (escalateFoods !== undefined || parse !== undefined) upstream.system = [{ type: 'text', text: upstream.system, cache_control: { type: 'ephemeral' } }];
     let reply = await send(upstream);
     // A food reply Haiku failed, didn't finish or isn't sure of goes to Sonnet, on the same cap slot
     if (escalateFoods !== undefined && (reply.text === undefined || needsEscalation(reply.stop, reply.text, escalateFoods))) {
       reply = await send({ ...upstream, model: FOOD_ESCALATION_MODEL });
     }
     if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
+    if (parse !== undefined && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
     return json(200, { text: reply.text });
   },
 } satisfies ExportedHandler<Env>;
