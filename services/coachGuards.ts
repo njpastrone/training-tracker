@@ -14,7 +14,7 @@ export const RED_FLAG_LINE = "I can't tell what's going on from here. Sharp pain
 // A daily number only, read from what sits next to it: per-meal and per-food kcal ("about 330 kcal",
 // "aim for 400 kcal at breakfast") and a surplus or deficit ("300 calories above maintenance") are left alone
 const KCAL = String.raw`(\d{1,3}(?:,\d{3})?|\d{3,4})\s*(?:kcal|calories|cals?)\b`;
-const NOT_DAILY = String.raw`(?!\s*(?:at|for|per|with|each)\s+(?:\w+\s+)?(?:breakfast|lunch|dinner|meals?|snacks?)\b|\s*(?:(?:a|per|each)\s+day\s+|daily\s+)?(?:(?:above|below|over|under)\s+maintenance|surplus|deficit)\b)`;
+const NOT_DAILY = String.raw`(?!\s*(?:at|for|per|with|each)\s+(?:(?:a|an|each|every|your|the|one)\s+)?(?:breakfast|lunch|dinner|meals?|snacks?)\b|\s*(?:(?:a|per|each)\s+day\s+|daily\s+)?(?:(?:above|below|over|under)\s+maintenance|surplus|deficit)\b)`;
 const CALORIE_TARGET = new RegExp(
   String.raw`(?<=\b(?:target|goal|aim for|cut to|down to|drop to|stick to|eat)(?:\s+(?:of|is|at|to|around|about|under|below))*\s+)${KCAL}${NOT_DAILY}|\b${KCAL}${NOT_DAILY}\s*(?:(?:a|per|each)\s+day|daily|\/\s*day)\b`,
   'gi',

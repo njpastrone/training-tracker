@@ -22,7 +22,7 @@ test('exclamation marks go, nagging sentences go, a calorie target under the flo
   const { reply: r } = checkReply(reply('Nice work! Log your weights next time so I can see more. Aim for 1,100 kcal a day. Keep the reps.', 'Great week!'), 'how am I doing', given);
   assert.equal(r.headline, 'Great week');
   assert.equal(r.answer, 'Nice work. A calorie target that low needs a professional to set it. Keep the reps.');
-  for (const a of ['A goal of 1,100 calories is too low.', 'You could cut to 1,100 calories for a few weeks.', 'Drop down to 1,000 kcal.', 'Stick to 1,200 calories.', 'Aim for 1,100 calories.', 'Stick to 1,200 calories and spread protein across your meals.', 'Cut to 1,100 calories, with eggs at breakfast.'])
+  for (const a of ['A goal of 1,100 calories is too low.', 'You could cut to 1,100 calories for a few weeks.', 'Drop down to 1,000 kcal.', 'Stick to 1,200 calories.', 'Aim for 1,100 calories.', 'Stick to 1,200 calories and spread protein across your meals.', 'Cut to 1,100 calories, with eggs at breakfast.', 'Stick to 1,200 calories with three meals.', 'Aim for 1,200 calories with 3 meals a day.', 'Stick to 1,200 calories for most meals.'])
     assert.equal(checkReply(reply(a), 'q', given).reply.answer, 'A calorie target that low needs a professional to set it.', a);
 });
 
