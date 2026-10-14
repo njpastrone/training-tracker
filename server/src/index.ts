@@ -10,16 +10,16 @@ export interface Env {
   DAILY_REQUEST_CAP: string;
   DEVICE_DAILY_CAP: string;
   LEGACY_DAILY_CAP: string;
-  // App Attest: 'off' skips it, 'log-only' (the default) checks and logs but never refuses, 'enforce' refuses
-  // requests without a valid assertion
+  // App Attest: 'log-only' (the default) checks and logs but never refuses, 'enforce' refuses requests without a
+  // valid assertion. Skipped entirely unless both secrets below are set.
   APP_ATTEST_MODE?: string;
-  APP_ATTEST_APP_ID?: string; // "<Apple Team ID>.<bundle id>"
+  APP_ATTEST_APP_ID?: string; // secret: "<Apple Team ID>.<bundle id>"
   APP_ATTEST_CHALLENGE_SECRET?: string; // secret: signs the challenges the Worker hands out
   USAGE: KVNamespace;
 }
 
 // A key the app attested, stored in KV under attest:<key id>
-interface KeyRecord { pub: string; counter: number; env: 'production' | 'development' }
+interface KeyRecord { pub: string; counter: number }
 
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_TOKENS = 1500;
@@ -64,7 +64,6 @@ export async function takeDailySlot(kv: KVNamespace, cap: number, now: Date, dev
   return null;
 }
 
-const attestMode = (env: Env) => (env.APP_ATTEST_MODE === 'off' || env.APP_ATTEST_MODE === 'enforce' ? env.APP_ATTEST_MODE : 'log-only');
 const attestConfigured = (env: Env): env is Env & { APP_ATTEST_APP_ID: string; APP_ATTEST_CHALLENGE_SECRET: string } => !!env.APP_ATTEST_APP_ID && !!env.APP_ATTEST_CHALLENGE_SECRET;
 
 // POST /attest/register: the app's new key with Apple's attestation of it, made over a challenge we issued
@@ -82,10 +81,10 @@ async function registerKey(request: Request, env: Env): Promise<Response> {
   }
   try {
     await checkChallenge(env.APP_ATTEST_CHALLENGE_SECRET, challenge);
-    const key = await verifyAttestation(attestation, keyId, challenge, env.APP_ATTEST_APP_ID);
+    const pub = await verifyAttestation(attestation, keyId, challenge, env.APP_ATTEST_APP_ID);
     // A key registered again keeps its counter, so replaying its attestation cannot reopen old assertions
     if (!(await env.USAGE.get(`attest:${keyId}`))) {
-      const record: KeyRecord = { pub: key.publicKey, counter: 0, env: key.environment };
+      const record: KeyRecord = { pub, counter: 0 };
       await env.USAGE.put(`attest:${keyId}`, JSON.stringify(record));
     }
     return json(200, { ok: true });
@@ -97,12 +96,11 @@ async function registerKey(request: Request, env: Env): Promise<Response> {
 
 // Checks the assertion headers on an AI request: the app signed "<challenge>\n<body>" with its attested key.
 // Returns the key id, or why the request is not attested.
-async function checkAssertion(request: Request, body: string, env: Env): Promise<{ keyId: string } | { reason: string }> {
+async function checkAssertion(request: Request, body: string, env: Env & { APP_ATTEST_APP_ID: string; APP_ATTEST_CHALLENGE_SECRET: string }): Promise<{ keyId: string } | { reason: string }> {
   const keyId = request.headers.get('x-attest-key-id');
   const challenge = request.headers.get('x-attest-challenge');
   const assertion = request.headers.get('x-attest-assertion');
   if (!keyId || !challenge || !assertion) return { reason: 'no assertion' };
-  if (!attestConfigured(env)) return { reason: 'not configured' };
   try {
     await checkChallenge(env.APP_ATTEST_CHALLENGE_SECRET, challenge);
     const record = await env.USAGE.get<KeyRecord>(`attest:${keyId}`, 'json');
@@ -125,7 +123,7 @@ export default {
 
     const path = new URL(request.url).pathname;
     if (path === '/attest/challenge') {
-      if (!env.APP_ATTEST_CHALLENGE_SECRET) return json(503, { error: 'App Attest is not configured.' });
+      if (!attestConfigured(env)) return json(503, { error: 'App Attest is not configured.' });
       return json(200, { challenge: await issueChallenge(env.APP_ATTEST_CHALLENGE_SECRET) });
     }
     if (path === '/attest/register') return registerKey(request, env);
@@ -209,16 +207,14 @@ export default {
 
     // App Attest: a genuine app signs each request with a key Apple attested. An attested request is
     // capped by its key, which the app cannot make up, instead of by the install id, which it can.
-    const mode = attestMode(env);
-    if (mode !== 'off') {
+    if (attestConfigured(env)) {
       const attested = await checkAssertion(request, text, env);
       if ('keyId' in attested) {
         device = { id: attested.keyId, cap: Number(env.DEVICE_DAILY_CAP) };
       } else {
-        console.log('attest', mode, device.id, attested.reason);
-        if (mode === 'enforce') {
-          return json(403, { error: "This copy of LiftText couldn't be verified. Install it from the App Store or TestFlight.", code: attested.reason === 'unknown key' ? 'unknown-key' : 'not-attested' });
-        }
+        const enforce = env.APP_ATTEST_MODE === 'enforce';
+        console.log('attest', enforce ? 'enforce' : 'log-only', device.id, attested.reason);
+        if (enforce) return json(403, { error: "This copy of LiftText couldn't be verified. Install it from the App Store or TestFlight." });
       }
     }
 

@@ -74,9 +74,11 @@ export async function callClaude(
     });
   let res = await send();
   if (res.status === 403) {
-    // The Worker refused this copy's App Attest key (lost, or none): attest a new one and try once more
-    await forgetKey();
+    // The Worker refused the App Attest assertion: try once more with a fresh one from the same key (two
+    // requests signed at once can race on the key's counter). Refused again, the key is likely lost: the
+    // next request attests a new one.
     res = await send();
+    if (res.status === 403) await forgetKey();
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 || res.status === 403 || res.status === 429 || res.status === 503) {

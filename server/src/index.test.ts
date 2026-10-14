@@ -41,7 +41,7 @@ const derSig = (raw: Uint8Array) => { const body = cat(derInt(raw.subarray(0, 32
 async function attestedKey(appId = APP_ID) {
   const pair = (await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify'])) as CryptoKeyPair;
   const keyId = toB64(await sha(new Uint8Array((await crypto.subtle.exportKey('raw', pair.publicKey)) as ArrayBuffer)));
-  const record = { pub: toB64(new Uint8Array((await crypto.subtle.exportKey('spki', pair.publicKey)) as ArrayBuffer)), counter: 0, env: 'production' };
+  const record = { pub: toB64(new Uint8Array((await crypto.subtle.exportKey('spki', pair.publicKey)) as ArrayBuffer)), counter: 0 };
   // Headers for a request with this body, as the app makes them
   const sign = async (body: string, counter: number, challenge?: string) => {
     challenge ??= await issueChallenge('cs');
@@ -425,38 +425,44 @@ test('enforce refuses unsigned, unknown, replayed, tampered and stale requests b
   const key = await attestedKey();
   store.set(`attest:${key.keyId}`, JSON.stringify(key.record));
   const body = JSON.stringify(DEFAULT_BODY);
-  const refused = async (headers: Record<string, string>, code: string, b = body) => {
+  const refused = async (headers: Record<string, string>, b = body) => {
     const res = await call(req('pw', b, 'device-aaaa', headers), env);
     assert.equal(res.status, 403);
-    assert.equal((res.body as { code?: string }).code, code);
+    assert.match(res.body.error!, /couldn't be verified/);
   };
-  await refused({}, 'not-attested');
+  await refused({});
   const stranger = await attestedKey();
-  await refused(await stranger.sign(body, 1), 'unknown-key');
-  await refused({ ...(await key.sign(body, 1)), 'x-attest-key-id': stranger.keyId }, 'unknown-key');
-  await refused(await key.sign(body, 1, await issueChallenge('cs', new Date(Date.now() - 10 * 60_000))), 'not-attested'); // stale challenge
-  await refused(await key.sign(body, 1, await issueChallenge('other')), 'not-attested'); // forged challenge
-  await refused(await key.sign(body, 1), 'not-attested', JSON.stringify({ ...DEFAULT_BODY, max_tokens: 5 })); // body changed after signing
-  await refused(await (await attestedKey('TEAM.com.other.app')).sign(body, 1), 'unknown-key');
+  await refused(await stranger.sign(body, 1));
+  await refused({ ...(await key.sign(body, 1)), 'x-attest-key-id': stranger.keyId });
+  await refused(await key.sign(body, 1, await issueChallenge('cs', new Date(Date.now() - 10 * 60_000)))); // stale challenge
+  await refused(await key.sign(body, 1, await issueChallenge('other'))); // forged challenge
+  await refused(await key.sign(body, 1), JSON.stringify({ ...DEFAULT_BODY, max_tokens: 5 })); // body changed after signing
+  await refused(await (await attestedKey('TEAM.com.other.app')).sign(body, 1));
   assert.equal(store.size, 1);
   assert.equal(upstream.length, 0);
 
   const signed = await key.sign(body, 1);
   assert.equal((await call(req('pw', body, 'device-aaaa', signed), env)).status, 200);
-  await refused(signed, 'not-attested'); // replay
-  await refused(await key.sign(body, 1), 'not-attested'); // counter did not move
+  await refused(signed); // replay
+  await refused(await key.sign(body, 1)); // counter did not move
   const capped = await call(req('pw', body, 'device-bbbb', await key.sign(body, 2)), env); // a new install id, same key
   assert.equal(capped.status, 429);
   assert.match(capped.body.error!, /on this phone/);
   assert.equal(JSON.parse(store.get(`attest:${key.keyId}`)!).counter, 2);
 });
 
-test('off ignores assertion headers and reads no keys', async () => {
-  const { env, store } = makeEnv('5', undefined, '5', '50', { APP_ATTEST_MODE: 'off' });
-  const key = await attestedKey();
-  const body = JSON.stringify(DEFAULT_BODY);
-  assert.equal((await call(req('pw', body, 'device-aaaa'), env)).status, 200);
-  assert.equal((await call(req('pw', body, 'device-aaaa', await key.sign(body, 1)), env)).status, 200);
-  assert.equal(store.get(`device:device-aaaa:${today()}`), '2');
-  assert.equal(store.has(`attest:${key.keyId}`), false);
+test('without both App Attest secrets, even enforce serves every request and touches no keys', async () => {
+  for (const missing of ['APP_ATTEST_APP_ID', 'APP_ATTEST_CHALLENGE_SECRET'] as const) {
+    const { env, store } = makeEnv('5', undefined, '5', '50', { APP_ATTEST_MODE: 'enforce', [missing]: undefined });
+    const read: string[] = [];
+    const { get } = env.USAGE;
+    env.USAGE = { ...env.USAGE, get: (k: string, type?: string) => (read.push(k), (get as (k: string, t?: string) => Promise<unknown>)(k, type)) } as unknown as KVNamespace;
+    const key = await attestedKey();
+    const body = JSON.stringify(DEFAULT_BODY);
+    assert.equal((await call(req('pw', body, 'device-aaaa'), env)).status, 200);
+    assert.equal((await call(req('pw', body, 'device-aaaa', await key.sign(body, 1)), env)).status, 200);
+    assert.equal(store.get(`device:device-aaaa:${today()}`), '2');
+    assert.deepEqual([...store.keys(), ...read].filter((k) => k.startsWith('attest:')), []);
+    assert.equal((await call(req('pw', '', undefined, {}, '/attest/challenge'), env)).status, 503);
+  }
 });

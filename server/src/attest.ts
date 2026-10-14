@@ -151,11 +151,9 @@ function authData(b: Uint8Array) {
   return { rpIdHash: b.subarray(0, 32), counter, aaguid, credentialId };
 }
 
-export interface AttestedKey { publicKey: string; environment: 'production' | 'development' }
-
 // Checks the attestation the app got for a new key. appId is "<Team ID>.<bundle id>"; challenge is the
-// string we issued and the app hashed into the attestation. Returns the key to store.
-export async function verifyAttestation(attestationB64: string, keyIdB64: string, challenge: string, appId: string, now = new Date(), rootPem = APPLE_ROOT_PEM): Promise<AttestedKey> {
+// string we issued and the app hashed into the attestation. Returns the key's public key (SPKI, base64) to store.
+export async function verifyAttestation(attestationB64: string, keyIdB64: string, challenge: string, appId: string, now = new Date(), rootPem = APPLE_ROOT_PEM): Promise<string> {
   const obj = cbor(fromB64(attestationB64)) as { fmt?: unknown; attStmt?: { x5c?: unknown }; authData?: unknown };
   if (obj?.fmt !== 'apple-appattest' || !Array.isArray(obj.attStmt?.x5c) || obj.attStmt.x5c.length < 2 || !(obj.authData instanceof Uint8Array)) fail('attestation: malformed');
   const [leaf, intermediate] = (obj.attStmt.x5c as Uint8Array[]).map(parseCert);
@@ -175,7 +173,7 @@ export async function verifyAttestation(attestationB64: string, keyIdB64: string
   if (counter !== 0) fail('attestation: counter not zero');
   if (aaguid !== 'appattest' && aaguid !== 'appattestdevelop') fail('attestation: unknown environment');
   if (!credentialId || !equal(credentialId, keyId)) fail('attestation: credential id mismatch');
-  return { publicKey: toB64(leaf.spki), environment: aaguid === 'appattest' ? 'production' : 'development' };
+  return toB64(leaf.spki);
 }
 
 // Checks an assertion over clientData (what the app signed) with a stored key; returns the new counter.

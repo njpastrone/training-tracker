@@ -36,13 +36,13 @@ process.env.EXPO_PUBLIC_APP_PASSWORD = 'pw';
 let calls: { path: string; headers: Record<string, string>; body?: string }[] = [];
 let challenges = 0;
 let challengeStatus = 200;
-let refuse: { status: number; code: string } | null = null; // the next AI request is refused with this
+let refuse = 0; // how many of the next AI requests the Worker refuses (403)
 globalThis.fetch = (async (url: string, init: RequestInit) => {
   const path = new URL(url).pathname;
   calls.push({ path, headers: init.headers as Record<string, string>, body: init.body as string | undefined });
   if (path === '/attest/challenge') return new Response(JSON.stringify(challengeStatus === 200 ? { challenge: `c${++challenges}` } : { error: 'App Attest is not configured.' }), { status: challengeStatus });
   if (path === '/attest/register') return new Response(JSON.stringify({ ok: true }), { status: 200 });
-  if (refuse) { const r = refuse; refuse = null; return new Response(JSON.stringify({ error: 'Unverified.', code: r.code }), { status: r.status }); }
+  if (refuse) { refuse--; return new Response(JSON.stringify({ error: 'Unverified.' }), { status: 403 }); }
   return new Response(JSON.stringify({ text: 'ok' }), { status: 200 });
 }) as typeof fetch;
 
@@ -78,23 +78,33 @@ test('later requests reuse the key with a fresh challenge each', async () => {
   assert.equal(req.headers['x-attest-challenge'], 'c3');
 });
 
-test('a 403 from the Worker drops the key, attests a new one and retries once', async () => {
-  refuse = { status: 403, code: 'unknown-key' };
+test('a 403 from the Worker retries once with the same key and a fresh challenge', async () => {
+  refuse = 1;
   assert.equal(await callClaude('sys', 'rows', 100), 'ok');
   const [first, second] = ai();
   assert.equal(first.headers['x-attest-key-id'], 'key1');
-  assert.equal(second.headers['x-attest-key-id'], 'key2');
+  assert.equal(second.headers['x-attest-key-id'], 'key1');
+  assert.notEqual(second.headers['x-attest-challenge'], first.headers['x-attest-challenge']);
   assert.equal(second.body, first.body);
+  assert.equal(mem.get('@training-tracker/app-attest-key-id'), 'key1');
+});
+
+test('a second 403 drops the key, and the next request attests a new one', async () => {
+  refuse = 2;
+  await assert.rejects(callClaude('sys', 'rows', 100), { status: 403, message: 'Unverified.' });
+  assert.deepEqual(ai().map((c) => c.headers['x-attest-key-id']), ['key1', 'key1']);
+  assert.equal(await callClaude('sys', 'rows', 100), 'ok');
+  assert.equal(ai()[2].headers['x-attest-key-id'], 'key2');
   assert.equal(mem.get('@training-tracker/app-attest-key-id'), 'key2');
 });
 
-test('a key the phone no longer accepts is replaced after the Worker refuses the unsigned request', async () => {
+test('a key the phone no longer accepts is replaced after the Worker refuses the unsigned request twice', async () => {
   brokenKey = 'key2';
-  refuse = { status: 403, code: 'not-attested' };
+  refuse = 2;
+  await assert.rejects(callClaude('sys', 'curls', 100), { status: 403 });
+  assert.deepEqual(ai().map((c) => c.headers['x-attest-key-id']), [undefined, undefined]);
   assert.equal(await callClaude('sys', 'curls', 100), 'ok');
-  const [first, second] = ai();
-  assert.equal(first.headers['x-attest-key-id'], undefined);
-  assert.equal(second.headers['x-attest-key-id'], 'key3');
+  assert.equal(ai()[2].headers['x-attest-key-id'], 'key3');
 });
 
 test('when the Worker has no App Attest set up the request still goes out, unsigned, and the key is kept', async () => {

@@ -76,7 +76,7 @@ The app password ships inside the app, so treat it as a speed bump, not a lock; 
 
 Apple's [App Attest](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity) proves a request comes from a genuine copy of LiftText. Once per install the app makes a key in the Secure Enclave (`@expo/app-integrity`), has Apple attest it over a challenge from the Worker, and registers it (`POST /attest/register`). Every AI request then carries `x-attest-key-id`, `x-attest-challenge` (a fresh one from `POST /attest/challenge`) and `x-attest-assertion`: the request body signed with that key. The Worker (`server/src/attest.ts`) checks the attestation against Apple's root certificate, the challenge, the key id, the App ID and the counter, keeps the key in KV (`attest:<key id>`), and on each request checks the signature and that the counter went up. Challenges are signed timestamps (5 minutes), so they need no storage.
 
-`APP_ATTEST_MODE` in `server/wrangler.jsonc` rolls it out: `log-only` (the default) checks and logs every request but refuses none, so installs from before App Attest keep working; `enforce` refuses requests without a valid assertion (403, shown in the app); `off` skips the checks. Watch the Worker logs (`npx wrangler tail`, lines starting `attest`) until no current build is logged unsigned, then switch to `enforce` and deploy.
+App Attest is on once the `APP_ATTEST_APP_ID` and `APP_ATTEST_CHALLENGE_SECRET` secrets are both set; until then the Worker skips it (no checks, no KV reads or writes for it), answers `/attest/*` with 503, and the app sends requests unsigned without making a key. `APP_ATTEST_MODE` in `server/wrangler.jsonc` rolls it out: `log-only` (the default) checks and logs every request but refuses none, so installs from before App Attest keep working; `enforce` refuses requests without a valid assertion (403, shown in the app). On a 403 the app retries once with a fresh assertion, and if that is refused too it attests a new key on the next request. Watch the Worker logs (`npx wrangler tail`, lines starting `attest`) until no current build is logged unsigned, then switch to `enforce` and deploy.
 
 App Attest needs native code, so it ships in an EAS build (TestFlight or App Store), not an OTA update, and does not run in Expo Go or the simulator: there the app sends requests unsigned, which `enforce` refuses. The `com.apple.developer.devicecheck.appattest-environment` entitlement in `app.json` turns on the App Attest capability (EAS Build syncs it to the App ID; check it under Identifiers in the Apple Developer account if attestation fails).
 
@@ -89,11 +89,12 @@ npx wrangler login                        # opens the browser to your Cloudflare
 npx wrangler kv namespace create USAGE    # copy the printed id into wrangler.jsonc (kv_namespaces[0].id)
 npx wrangler secret put ANTHROPIC_API_KEY # paste your Anthropic API key
 npx wrangler secret put APP_PASSWORD      # choose a password to share with the app
+npx wrangler secret put APP_ATTEST_APP_ID           # <Team ID>.com.njpastrone.trainingtracker (Team ID: Apple Developer account, Membership details)
 npx wrangler secret put APP_ATTEST_CHALLENGE_SECRET  # any long random string, e.g. `openssl rand -base64 32`
 npx wrangler deploy                       # prints the Worker URL
 ```
 
-Before deploying, set `APP_ATTEST_APP_ID` in `wrangler.jsonc` to `<Team ID>.com.njpastrone.trainingtracker` (Team ID: Apple Developer account, Membership details). Leave `APP_ATTEST_MODE` on `log-only` until the app build with App Attest is what everyone runs (see App Attest below).
+Leave `APP_ATTEST_MODE` on `log-only` until the app build with App Attest is what everyone runs (see App Attest above).
 
 Then put the printed URL and the same password in `.env.local` at the repo root:
 

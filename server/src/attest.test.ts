@@ -7,7 +7,7 @@ const { appId, keyId, clientData, now, publicKey, attestation, assertion } = SAM
 const rejects = (p: Promise<unknown>, why: RegExp) => assert.rejects(p, { message: why });
 
 test('accepts a recorded attestation and returns its key', async () => {
-  assert.deepEqual(await verifyAttestation(attestation, keyId, clientData, appId, now), { publicKey, environment: 'development' });
+  assert.deepEqual(await verifyAttestation(attestation, keyId, clientData, appId, now), publicKey);
 });
 
 test('rejects an attestation for another challenge, app or key id', async () => {

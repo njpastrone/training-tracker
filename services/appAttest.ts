@@ -54,7 +54,7 @@ export async function attestHeaders(url: string, password: string, body: string)
   }
 }
 
-// The Worker refused this key (403): drop it, so the next request attests a new one
+// The Worker refused this key twice in a row (403): drop it, so the next request attests a new one
 export async function forgetKey(): Promise<void> {
   keyId = undefined;
   await AsyncStorage.removeItem(KEY_ID_STORAGE_KEY).catch(() => {});
