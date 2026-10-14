@@ -79,9 +79,11 @@ the categories that moved are fresh (0.61 → 0.86), comeback (0.93 → 1.00) an
 
 ### Pre-parse-mode apps (`legacy.ts`)
 
-The parse eval's 114 main cases through the old app prompt, one run each: Haiku 4.5 0.779, Haiku 5.5
-(medium) 0.771, Haiku 5.5 (low, what the Worker sends) 0.782, so low is not below Haiku 4.5 and
-these requests stay on `PASSTHROUGH`. At medium, twenty cases were lower and eleven higher; the drops
+The parse eval's 114 main cases through the old app prompt: Haiku 5.5 at low effort (what the Worker
+sends) scored 0.782, 0.755 and 0.783 over three runs, a mean of about 0.769, against Haiku 4.5 at
+0.779 and 0.780 in the same sessions. That gap is within run-to-run noise, not a clear win or loss.
+These requests stay on `PASSTHROUGH` because medium effort measured no better (0.771, one run) and
+those builds get the current JS over the air. At medium, twenty cases were lower and eleven higher; the drops
 are nearly all chattier workout notes ("Unit not specified; assumed lbs."), not wrong numbers. Those builds existed for a few hours on
 TestFlight on 2026-10-04, and every build gets the current JS over the air on launch when its native
 fingerprint still matches, so they aren't routed through the parse prompt.
