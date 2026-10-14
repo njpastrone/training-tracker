@@ -11,7 +11,8 @@ export const SEE_SOMEONE = /\b(doctor|physio|physical therapist|physiotherapist|
 export const RED_FLAG_LINE = "I can't tell what's going on from here. Sharp pain, swelling, numbness, chest pain or dizziness means stop and have a doctor or physio look at it. This is general training information, not medical advice.";
 
 // A calorie target under the floor (1,200 kcal for women, 1,500 for men) is never suggested
-const CALORIE_TARGET = /\b(?:aim for|target|eat|stick to|cut to|down to|around|about|under|below|at)\s+(\d{1,3}(?:,\d{3})?|\d{3,4})\s*(?:kcal|calories|cals?)\b/gi;
+// A daily number only: per-meal and per-food kcal from the pack ("about 330 kcal") are left alone
+const CALORIE_TARGET = /(?<=\b(?:target|goal)(?:\s+(?:of|is|at|to|around|about|under|below))*\s+)(\d{1,3}(?:,\d{3})?|\d{3,4})\s*(?:kcal|calories|cals?)\b|\b(\d{1,3}(?:,\d{3})?|\d{3,4})\s*(?:kcal|calories|cals?)\s*(?:(?:a|per|each)\s+day|daily|\/\s*day)\b/gi;
 const CALORIE_FLOOR = 1500;
 const FLOOR_LINE = 'A calorie target that low needs a professional to set it.';
 
@@ -20,7 +21,7 @@ const rejoin = (lines: string[][]) => lines.map(s => s.join(' ')).join('\n');
 // Applies f to each sentence of each line; a sentence f returns '' for is dropped
 const mapSentences = (text: string, f: (s: string) => string) => rejoin(text.split('\n').map(line => sentences(line).map(f).filter(Boolean)));
 
-const lowCalorie = (s: string) => [...s.matchAll(CALORIE_TARGET)].some(m => Number(m[1].replace(',', '')) < CALORIE_FLOOR);
+const lowCalorie = (s: string) => [...s.matchAll(CALORIE_TARGET)].some(m => Number((m[1] ?? m[2]).replace(',', '')) < CALORIE_FLOOR);
 
 // The answer with the fixed rules applied, and the numbers it says that appear nowhere in what the
 // model was given (the pack, the knowledge, the question): the caller decides what to do with those

@@ -19,11 +19,9 @@ export const CANT_HELP: CoachReply = {
   chips: [],
 };
 
-const fixNumbers = (invented: string[]) => `Your answer used numbers that are not in my log or the rules: ${invented.join(', ')}. Say it again without them.`;
-
-// Asks the coach. `thread` is the earlier questions and the model's replies (as it wrote them), newest
-// last. One Worker call per question; an answer with a number from nowhere is asked once to drop it
-// (a second cap slot, rare), then the sentence goes. Throws ApiError on a server refusal.
+// Asks the coach. `thread` is the earlier questions and the coach's checked replies, newest last. One
+// Worker call per question (one cap slot); a sentence with a number from nowhere is dropped. Returns
+// the checked reply as the assistant turn to send back. Throws ApiError on a server refusal.
 export async function askCoach(question: string, thread: CoachMessage[] = [], now: Date = new Date()): Promise<{ reply: CoachReply; raw: string }> {
   const { workouts, foodEntries, settings, exerciseLibrary, schedule, templates } = useWorkoutStore.getState();
   const pack = buildCoachPack({ workouts, foodEntries, settings, library: exerciseLibrary, schedule, templates }, now);
@@ -31,37 +29,31 @@ export async function askCoach(question: string, thread: CoachMessage[] = [], no
   const req = buildCoachRequest(pack, [], options);
   // Workers deployed before coach mode read system/messages: they get the prompt, the pack and the question
   const system = req.system.map(b => b.text).join('\n\n');
-  const send = (messages: CoachMessage[]) => callClaude(system, messages[messages.length - 1].content, req.max_tokens, { coach: { ...options, pack, messages } });
-  const given = { pack, question, thread, knowledge: KNOWLEDGE };
-
   const messages: CoachMessage[] = [...thread, { role: 'user', content: question }];
-  let raw = await send(messages);
-  const read = readCoachReply(raw);
-  if (!read) return { reply: CANT_HELP, raw };
-  let checked = checkReply(read, question, given);
-  if (checked.invented.length) {
-    const retry = await send([...messages, { role: 'assistant', content: raw }, { role: 'user', content: fixNumbers(checked.invented) }]);
-    const again = readCoachReply(retry);
-    if (again) {
-      raw = retry;
-      checked = checkReply(again, question, given);
-    }
-  }
-  const reply = stripInvented(checked.reply, checked.invented);
-  return { reply: reply.answer.trim() ? reply : CANT_HELP, raw };
+  const text = await callClaude(system, question, req.max_tokens, { coach: { ...options, pack, messages } });
+  const read = readCoachReply(text);
+  if (!read) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP) };
+  // Only what the user said counts as given: the coach's own earlier words don't vouch for a number
+  const given = { pack, question, asked: thread.filter(m => m.role === 'user'), knowledge: KNOWLEDGE };
+  const checked = checkReply(read, question, given);
+  const stripped = stripInvented(checked.reply, checked.invented);
+  const reply = stripped.answer.trim() ? stripped : CANT_HELP;
+  return { reply, raw: JSON.stringify(reply) };
 }
 
 // ---------------------------------------------------------------- routing
 // A message typed into the Log or Progress composer that reads as a question goes to the coach
-// instead of the parser (which would say "Could not understand that").
+// before the parser is called (one coach slot). Text it can't place goes to the parser, and only when
+// that finds nothing and it looksLikeQuestion does it go to the coach: the one two-slot path.
 
 // A log: sets x reps, a weight or rep count, a time or distance
 const LOG_SHAPE = /\b\d+\s*[x×]\s*\d+\b|\b\d+(?:\.\d+)?\s*(?:lbs?|kg|kgs|kilos?|pounds?|reps?|sets?|mi|miles?|km|k|min|mins|minutes?)\b|@\s*\d/i;
-// Question openers that don't start logs ("did legs" is a log; "did I train legs?" ends with ?)
-const OPENERS = /^(?:what|what's|whats|should|how|how's|hows|can|could|would|why|which|when|where|who|any|suggest|recommend|give me|help|based on|i've taken|ive taken|i took|took a|been (?:off|out|away)|i haven't|i havent|haven't|havent)\b/i;
+// Question words that don't start logs ("did legs" is a log; "did I train legs?" ends with ?), and
+// asks no log makes
+const OPENERS = /^(?:what|what's|whats|should|how|how's|hows|can|could|would|why|which|when|where|suggest|recommend)\b|\b(?:suggest|recommend|advice)\b/i;
 const QUESTION_WORDS = /\?|\b(?:what|should|how|can|could|would|why|which|is|are|am|do|does|did|suggest|recommend|help|coach|advice|ideas?|tips?)\b/i;
 
-// Sure enough to skip the parser: a question mark at the end, or a question opener, and nothing log-shaped
+// Sure enough to skip the parser: a question mark at the end, or a question word, and nothing log-shaped
 export const readsAsQuestion = (text: string) => {
   const t = text.trim();
   return !LOG_SHAPE.test(t) && (/\?\s*$/.test(t) || OPENERS.test(t));

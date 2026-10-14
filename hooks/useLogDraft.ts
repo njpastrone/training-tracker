@@ -85,7 +85,8 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
       const parsed = withFood ? await parseLog(raw, options) : { workout: await parseWorkout(raw, options), food: null };
       if (!parsed.workout?.exercises.length && !parsed.food?.items.length) {
         setSent(null);
-        // Not a log: a question the parser didn't catch goes to the coach
+        // Not a log: a question readsAsQuestion couldn't place goes to the coach, the only path that
+        // costs two cap slots (the parser's and the coach's)
         if (onQuestion && looksLikeQuestion(raw)) {
           onQuestion(raw);
           return;

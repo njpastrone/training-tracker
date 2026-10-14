@@ -9,7 +9,7 @@ const RETRY_MESSAGE = "Couldn't answer that, try again.";
 export interface CoachTurn {
   question: string;
   reply?: CoachReply; // unset while the coach thinks
-  raw?: string; // the model's reply as written, sent back with the next question
+  raw?: string; // the checked reply, sent back with the next question
 }
 
 // Ask → the answer card → follow-ups by typing or a chip. One thread per visit of the Ask sheet.

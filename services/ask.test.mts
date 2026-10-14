@@ -59,22 +59,30 @@ test('a follow-up sends the thread with the model\'s own earlier reply', async (
   assert.equal(sent[0].coach.messages[1].content, first);
 });
 
-test('an invented number is asked to be dropped once, then its sentence goes', async () => {
-  replies = [answer('Try 170x5 today. Keep the reps.'), answer('Try 172x5 today. Keep the reps.')];
-  const { reply } = await askCoach('what should I squat?', [], SAM_NOW);
-  assert.equal(sent.length, 2);
-  assert.match(sent[1].coach.messages[2].content, /170/);
+test('an invented number costs no second call: its sentence goes', async () => {
+  replies = [answer('Try 170x5 today. Keep the reps.')];
+  const { reply, raw } = await askCoach('what should I squat?', [], SAM_NOW);
+  assert.equal(sent.length, 1);
   assert.equal(reply.answer, 'Keep the reps.');
-  // A fix that holds is kept as it is
-  replies = [answer('Try 170x5 today.'), answer('Try 165x5 today, 10% off 185x5.')];
-  assert.equal((await askCoach('what should I squat?', [], SAM_NOW)).reply.answer, 'Try 165x5 today, 10% off 185x5.');
+  // The checked reply is what goes back in the thread, not the model's words
+  assert.doesNotMatch(raw, /170/);
+});
+
+test("the coach's own earlier words don't vouch for a number; the user's do", async () => {
+  replies = [answer('Because 170x5 fits. Keep the reps.')];
+  const said = await askCoach('why that weight?', [{ role: 'user', content: 'what first?' }, { role: 'assistant', content: answer('Try 170x5.') }], SAM_NOW);
+  assert.equal(said.reply.answer, 'Keep the reps.');
+  replies = [answer('Then 170x5 is fine. Keep the reps.')];
+  const mine = await askCoach('ok', [{ role: 'user', content: 'can I do 170?' }, { role: 'assistant', content: answer('Start lower.') }], SAM_NOW);
+  assert.equal(mine.reply.answer, 'Then 170x5 is fine. Keep the reps.');
 });
 
 test('an empty or unreadable reply, or one with nothing left, becomes the fixed message', async () => {
   replies = [''];
   assert.deepEqual((await askCoach('hello', [], SAM_NOW)).reply, CANT_HELP);
-  replies = [answer('Go 170x5.'), answer('Go 172x5.')];
+  replies = [answer('Go 170x5.')];
   assert.deepEqual((await askCoach('what should I squat?', [], SAM_NOW)).reply, CANT_HELP);
+  assert.equal(sent.length, 2);
 });
 
 test('questions read as questions; logs do not', () => {
@@ -93,6 +101,13 @@ test('questions read as questions; logs do not', () => {
     'how about 3x5 at 225', // looks like a question but carries a set scheme
     '2 eggs and toast',
     'chest and back: bench, rows, pull-ups',
+    'took a long walk after dinner',
+    'i took creatine this morning',
+    'help me log: squats and bench',
+    'been away a week, back today with squats and bench',
+    'any cardio counts: ran on the treadmill',
+    "I haven't logged Monday: legs and abs",
+    'steak tips and rice',
   ]) assert.equal(readsAsQuestion(log), false, log);
   assert.equal(looksLikeQuestion('is my bench stalling'), true);
   assert.equal(looksLikeQuestion('ate a lot today'), false);
