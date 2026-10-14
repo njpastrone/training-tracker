@@ -259,8 +259,8 @@ on all four sets must pass the gate above before the Worker is deployed. The Wor
 for a parse or correction reply cut off at `max_tokens` rather than passing on truncated JSON.
 
 The Worker's pass-through path (a request with no parse, food or coach mode, used by the planner in
-`services/planner.ts` and by app builds from before parse mode) still uses Haiku 4.5 (`MODEL` in
-`server/src/index.ts`). It must move to a current model before Haiku 4.5 is retired.
+`services/planner.ts` and by app builds from before parse mode) is `PASSTHROUGH` in
+`server/src/index.ts`; see `evals/planner/README.md` for how it was chosen.
 
 ## Haiku 5.5 and Sonnet 5.5 with the old prompt (2026-10-13, 3 runs averaged, `--cli`)
 
