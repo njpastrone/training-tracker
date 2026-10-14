@@ -258,6 +258,10 @@ counts at list prices, $0 of the eval budget spent). The API-key run `npm run ev
 on all four sets must pass the gate above before the Worker is deployed. The Worker returns a 502
 for a parse or correction reply cut off at `max_tokens` rather than passing on truncated JSON.
 
+The Worker's pass-through path (a request with no parse, food or coach mode, used by the planner in
+`services/planner.ts` and by app builds from before parse mode) still uses Haiku 4.5 (`MODEL` in
+`server/src/index.ts`). It must move to a current model before Haiku 4.5 is retired.
+
 ## Haiku 5.5 and Sonnet 5.5 with the old prompt (2026-10-13, 3 runs averaged, `--cli`)
 
 Tried to cut the cost per parse by moving to a 5.x model with the system prompt cached (Haiku 4.5
