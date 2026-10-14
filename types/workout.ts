@@ -87,6 +87,17 @@ export interface UserSettings {
   goals?: Goals; // checked against the log on Progress; "days a week" is weeklyTarget
   aiConsent?: 'granted' | 'declined'; // asked before the first AI call (services/aiConsent.ts); unset = not asked yet
   goalsPromptDismissed?: boolean; // "Not now" on Progress's set-a-goal prompt: it doesn't come back
+  profile?: { facts: Fact[] }; // things you told the coach to remember (services/ask.ts); shown and deletable in Settings
+}
+
+// One thing you told the coach ("no dairy", "home gym, dumbbells to 50 lb", "left knee"), kept in your
+// words with the day you said it. The coach offers to remember; it is stored only when you tap yes.
+export interface Fact {
+  id: string;
+  kind: 'constraint' | 'preference' | 'equipment' | 'food' | 'injury';
+  text: string; // the fact in a few words
+  quote: string; // what you actually said
+  saidOn: string; // yyyy-MM-dd
 }
 
 export type TrainingGoal = 'strength' | 'muscle' | 'fitness' | 'comeback';

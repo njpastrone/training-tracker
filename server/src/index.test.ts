@@ -477,3 +477,52 @@ test('without both App Attest secrets, even enforce serves every request and tou
     assert.equal((await call(req('pw', '', undefined, {}, '/attest/challenge'), env)).status, 503);
   }
 });
+
+test('a coach question with a turn id takes one slot for up to three calls, tools go off after the tool round, and the blocks come back', async () => {
+  const { env, store } = makeEnv('5', undefined, '5');
+  const day = new Date().toISOString().slice(0, 10);
+  const turnId = 'turn-0001-aaaa';
+  const base = { date: '2026-10-08', unit: 'lbs', pack: { a: 1 }, turnId };
+  const use = { type: 'tool_use', id: 't1', name: 'exercise_history', input: { exercise: 'squat' } };
+  replies = [{ text: '', stop_reason: 'tool_use' }];
+  // The mocked upstream returns only text; stand in a tool_use reply by patching content on the way back
+  const fetchBefore = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    upstream.push({ url, init });
+    const { text, stop_reason } = replies.shift() ?? { text: '{"ok":true}' };
+    return Response.json({ content: stop_reason === 'tool_use' ? [{ type: 'thinking', thinking: '', signature: 's' }, use] : [{ type: 'text', text }], stop_reason });
+  }) as typeof fetch;
+  try {
+    const first = await call(req('pw', { coach: { ...base, messages: [{ role: 'user', content: 'how is my squat?' }] } }, 'device-aaaa'), env);
+    assert.equal(first.status, 200);
+    assert.equal(first.body.stop_reason, 'tool_use');
+    assert.deepEqual(first.body.content, [{ type: 'thinking', thinking: '', signature: 's' }, use]);
+    assert.equal('tool_choice' in JSON.parse(upstream[0].init.body as string), false);
+    assert.equal(store.get(`count:${day}`), '1');
+    assert.equal(store.get(`device:device-aaaa:${day}`), '1');
+    assert.equal(store.get(`turn:device-aaaa:${turnId}`), '1');
+
+    const thread = [{ role: 'user', content: 'how is my squat?' }, { role: 'assistant', content: first.body.content }, { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{"exercise":"Squat"}' }] }];
+    replies = [{ text: '{"headline":"Up","answer":"Fine.","fromLog":"","chips":["a","b","c"]}', stop_reason: 'end_turn' }];
+    const second = await call(req('pw', { coach: { ...base, messages: thread } }, 'device-aaaa'), env);
+    assert.equal(second.status, 200);
+    assert.match(second.body.text!, /Fine/);
+    assert.deepEqual(JSON.parse(upstream[0].init.body as string).tool_choice, { type: 'none' });
+    assert.equal(store.get(`count:${day}`), '1'); // still one slot
+    assert.equal(store.get(`turn:device-aaaa:${turnId}`), '2');
+
+    assert.equal((await call(req('pw', { coach: { ...base, messages: thread } }, 'device-aaaa'), env)).status, 200);
+    const fourth = await call(req('pw', { coach: { ...base, messages: thread } }, 'device-aaaa'), env);
+    assert.equal(fourth.status, 429);
+    assert.match(fourth.body.error!, /too many steps/);
+    assert.equal(store.get(`count:${day}`), '1');
+    // Another question is another slot; a bad turn id is refused before counting
+    assert.equal((await call(req('pw', { coach: { ...base, turnId: 'turn-0002-bbbb', messages: thread } }, 'device-aaaa'), env)).status, 200);
+    assert.equal(store.get(`count:${day}`), '2');
+    assert.equal((await call(req('pw', { coach: { ...base, turnId: 'bad id!', messages: thread } }, 'device-aaaa'), env)).status, 400);
+    assert.equal(store.get(`count:${day}`), '2');
+  } finally {
+    globalThis.fetch = fetchBefore;
+    replies = [];
+  }
+});

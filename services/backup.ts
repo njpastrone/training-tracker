@@ -67,6 +67,9 @@ const goalsOk = (g: any) =>
   (g.protein === undefined || isCount(g.protein)) && // before the one food goal; the store migration turns it into food
   (g.food === undefined || (['protein', 'cut', 'bulk'].includes(g.food?.kind) && isCount(g.food.target))) &&
   listOf(g.custom, customGoalOk);
+const FACT_KINDS = ['constraint', 'preference', 'equipment', 'food', 'injury'];
+// Things told to the coach (services/coachCards.ts): each with its kind, words and day
+const profileOk = (p: any) => isObject(p) && listOf(p.facts, (f) => hasStrings(f, 'id', 'text', 'quote', 'saidOn') && FACT_KINDS.includes(f.kind));
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
   '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises) && Array.isArray(t.muscleGroups),
@@ -102,6 +105,7 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   if (!listOf(store.state.foodEntries, foodEntryOk)) fail(DAMAGED);
   const goals = store.state.settings.goals;
   if (goals !== undefined && !goalsOk(goals)) fail(DAMAGED);
+  if (store.state.settings.profile !== undefined && !profileOk(store.state.settings.profile)) fail(DAMAGED);
   for (const key of BACKUP_KEYS.slice(1)) {
     if (b.data[key] != null && !listOf(b.data[key], ITEM_CHECKS[key])) fail(DAMAGED);
   }

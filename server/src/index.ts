@@ -1,7 +1,7 @@
 import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
-import { buildCoachRequest, COACH_BETA, MAX_PACK_CHARS, validThread } from './coach.ts';
+import { buildCoachRequest, COACH_BETA, MAX_CALLS_PER_QUESTION, MAX_PACK_CHARS, validThread } from './coach.ts';
 import { checkChallenge, issueChallenge, verifyAssertion, verifyAttestation } from './attest.ts';
 
 export interface Env {
@@ -115,6 +115,23 @@ async function checkAssertion(request: Request, body: string, env: Env & { APP_A
   }
 }
 
+// One coach question is one device slot however many model calls it takes (the app sends the same
+// turn id for each). The first call under a turn id takes a daily slot; the next ones, up to
+// MAX_CALLS_PER_QUESTION, only count against the turn. Returns 'turn' when the question has used them up.
+const TURN_TTL = 15 * 60;
+export async function takeCoachSlot(kv: KVNamespace, cap: number, now: Date, device: { id: string; cap: number }, turnId: string): Promise<'device' | 'global' | 'turn' | null> {
+  const key = `turn:${device.id}:${turnId}`;
+  const calls = Number(await kv.get(key)) || 0;
+  if (calls === 0) {
+    const hit = await takeDailySlot(kv, cap, now, device);
+    if (hit) return hit;
+  } else if (calls >= MAX_CALLS_PER_QUESTION) {
+    return 'turn';
+  }
+  await kv.put(key, String(calls + 1), { expirationTtl: TURN_TTL });
+  return null;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
@@ -145,14 +162,21 @@ export default {
     let escalateFoods: number | undefined; // a food log's candidate count: Haiku's reply may go to Sonnet
     let betas: string | undefined; // beta features the upstream request opts into
     let passThrough = false; // the app's own prompt: the reply is used as-is, so a cut-off one is an error
+    let turnId: string | undefined; // a coach question's id: its model calls share one cap slot
     if (coach !== undefined) {
       // Coach mode: a question (or a short thread) about the user's own training and food, answered from
-      // the context pack the phone built (services/coachPack.ts). One call per question, so one cap slot.
-      const { date, unit, pack, messages: thread } = (coach ?? {}) as Record<string, unknown>;
+      // the context pack the phone built (services/coachPack.ts) and the read tools the phone runs
+      // (services/coachTools.ts). The phone drives the loop: a reply with tool calls comes back as content
+      // blocks, the phone answers them, and the next call (tools off) answers the question.
+      const { date, unit, pack, messages: thread, turnId: turn } = (coach ?? {}) as Record<string, unknown>;
       if (!validDate(date) || (unit !== 'lbs' && unit !== 'kg') || !pack || typeof pack !== 'object' || JSON.stringify(pack).length > MAX_PACK_CHARS || !validThread(thread)) {
         return json(400, { error: 'Invalid request.' });
       }
+      if (turn !== undefined && !(typeof turn === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(turn))) return json(400, { error: 'Invalid request.' });
+      turnId = turn as string | undefined;
       upstream = buildCoachRequest(pack, thread, { date, unit });
+      // One round of tools: once the thread holds tool results, the model answers
+      if (thread.some((m) => Array.isArray(m.content))) upstream.tool_choice = { type: 'none' };
       betas = COACH_BETA;
     } else if (food !== undefined) {
       const { input, date, foods = [], draft, fix } = (food ?? {}) as Record<string, unknown>;
@@ -220,18 +244,20 @@ export default {
       }
     }
 
-    let hit: 'device' | 'global' | null;
+    let hit: 'device' | 'global' | 'turn' | null;
     try {
-      hit = await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), device);
+      hit = turnId ? await takeCoachSlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), device, turnId) : await takeDailySlot(env.USAGE, Number(env.DAILY_REQUEST_CAP), new Date(), device);
       if (!hit && attestedKey) await env.USAGE.put(`attest:${attestedKey.keyId}`, JSON.stringify(attestedKey.record));
     } catch (err) {
       console.error('Usage counter error', err);
       return json(503, { error: 'Server busy, please try again in a moment.' });
     }
     if (hit === 'device') return json(429, { error: "You've used today's AI requests on this phone. They reset at midnight UTC." });
+    if (hit === 'turn') return json(429, { error: 'That question took too many steps. Ask it again.' });
     if (hit) return json(429, { error: 'Daily AI limit reached. Try again tomorrow.' });
 
-    const send = async (body: Record<string, unknown>): Promise<{ status: number; stop?: string; text?: string }> => {
+    type Block = { type: string; text?: string };
+    const send = async (body: Record<string, unknown>): Promise<{ status: number; stop?: string; text?: string; content?: Block[] }> => {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -246,9 +272,9 @@ export default {
         console.error('Anthropic error', body.model, res.status, await res.text());
         return { status: res.status };
       }
-      const data = await res.json<{ content: { type: string; text?: string }[]; stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } }>();
+      const data = await res.json<{ content: Block[]; stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number } }>();
       console.log('usage', device.id, body.model, data.usage?.input_tokens, data.usage?.output_tokens, data.usage?.cache_read_input_tokens);
-      return { status: 200, stop: data.stop_reason, text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join('') };
+      return { status: 200, stop: data.stop_reason, text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join(''), content: data.content };
     };
 
     // The food and parse prompts are long and the same on every log: cache them
@@ -261,6 +287,8 @@ export default {
     if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
     if (parse !== undefined && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
     if (passThrough && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
+    // The coach gets the blocks too: tool calls to run on the phone and thinking to send back with the results
+    if (coach !== undefined) return json(200, { text: reply.text, content: reply.content, stop_reason: reply.stop });
     return json(200, { text: reply.text });
   },
 } satisfies ExportedHandler<Env>;
