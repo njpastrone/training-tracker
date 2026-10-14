@@ -5,6 +5,7 @@ import { addDays, format, parseISO } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { parseWorkout, parseLog, correctWorkout, correctFood, workoutsFromParse, ApiError } from '../services/claude';
 import { mentionsFood } from '../services/foods';
+import { looksLikeQuestion, readsAsQuestion } from '../services/ask';
 import { ParsedWorkoutResponse, Workout } from '../types/workout';
 import { FoodDraft, FoodEntry } from '../types/food';
 import { NOTHING_CHANGED, sameDraft } from '../services/draft';
@@ -42,8 +43,9 @@ const foodShown = (food: FoodDraft) =>
 
 // Type it → review the parsed card → fix by typing or tapping a number → Save.
 // Nothing is stored until save(); date is the day being logged. With withFood, what the user ate is
-// read too (services/claude.ts parseLog) and reviewed and saved with the workout.
-export function useLogDraft({ date, onLogged, withFood }: { date: string; onLogged?: (workoutId: string | undefined, templateId?: string, saved?: Workout[]) => void; withFood?: boolean }) {
+// read too (services/claude.ts parseLog) and reviewed and saved with the workout. With onQuestion, a
+// message that reads as a question goes to the coach instead of the parser (services/ask.ts).
+export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: string; onLogged?: (workoutId: string | undefined, templateId?: string, saved?: Workout[]) => void; withFood?: boolean; onQuestion?: (question: string) => void }) {
   const { addWorkout, addFoodEntry, markTemplateUsed, settings } = useWorkoutStore();
   const [text, setText] = useState(''); // what's in the composer
   const [sent, setSent] = useState<string | null>(null); // the log as typed, shown as your bubble
@@ -66,6 +68,11 @@ export function useLogDraft({ date, onLogged, withFood }: { date: string; onLogg
   const parse = async () => {
     const raw = text.trim();
     if (!raw || busy) return;
+    if (onQuestion && readsAsQuestion(raw)) {
+      setText('');
+      onQuestion(raw);
+      return;
+    }
     setSent(raw);
     setText('');
     setWorkoutDraft(null);
@@ -77,9 +84,14 @@ export function useLogDraft({ date, onLogged, withFood }: { date: string; onLogg
     try {
       const parsed = withFood ? await parseLog(raw, options) : { workout: await parseWorkout(raw, options), food: null };
       if (!parsed.workout?.exercises.length && !parsed.food?.items.length) {
+        setSent(null);
+        // Not a log: a question the parser didn't catch goes to the coach
+        if (onQuestion && looksLikeQuestion(raw)) {
+          onQuestion(raw);
+          return;
+        }
         setError(withFood ? 'Could not understand that. Try naming what you did or ate.' : 'Could not understand the workout. Try being more specific.');
         setText(raw);
-        setSent(null);
         return;
       }
       setWorkoutDraft(parsed.workout?.exercises.length ? parsed.workout : null);
