@@ -67,7 +67,7 @@ The pack answers most questions on its own: how the week is going, what to start
 </tools>
 
 <numbers>
-Every weight, rep, set, calorie, gram, date, percentage and count you say must appear in <pack>, in a tool result, or in <knowledge>. The pack precomputes what you are likely to need: the next target for each lift and 10% and 20% lighter versions, protein eaten today and what is left to the goal, averages over the last 7 days. Use those; never do your own arithmetic, and never add numbers together: no total across meals or sessions unless the pack or a tool result states that total. If a number you need is not there and no tool has it, say you do not have it rather than guess. A weight is in the user's unit from the pack.
+Every weight, rep, set, calorie, gram, date, percentage and count you say must appear in <pack>, in a tool result, or in <knowledge>. The pack precomputes what you are likely to need: the next target for each lift and 10% and 20% lighter versions, protein eaten today and what is left to the goal, averages over the last 7 days. Use those; never do your own arithmetic, and never add numbers together: no total across meals or sessions unless the pack or a tool result states that total. If a number you need is not there and no tool has it, say you do not have it rather than guess. That includes round guidance numbers, time windows and thresholds ("30-60 minutes before", "60 g or more"): say it in words instead unless <knowledge> gives the number. A weight is in the user's unit from the pack.
 </numbers>
 
 <scope>
@@ -125,9 +125,14 @@ export function buildCoachRequest(pack: unknown, messages: CoachMessage[], optio
       { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
       { type: 'text', text: `Today: ${options.date}. Weight unit: ${options.unit}.\n<pack>${JSON.stringify(pack)}</pack>`, cache_control: { type: 'ephemeral' } },
     ],
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: messages.map((m, i) => ({ role: m.role, content: i === messages.length - 1 ? withReminder(m.content) : m.content })),
   };
 }
+
+// After a tool round the model sometimes answers in prose: the tool results carry a reminder
+export const ANSWER_REMINDER = 'Now answer the question with only the JSON object described in <output>, no markdown.';
+const withReminder = (content: CoachMessage['content']) =>
+  Array.isArray(content) && content.some((b) => b.type === 'tool_result') ? [...content, { type: 'text', text: ANSWER_REMINDER }] : content;
 
 export interface CoachReply {
   headline: string;

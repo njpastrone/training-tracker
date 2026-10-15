@@ -68,4 +68,30 @@ Phase 0 (pack only, no tools), measured 2026-10-14 with `--cli` (Claude Sonnet 5
 each): dev 0.976 (19/24 perfect), held-out 1.000 (10/10), 0 invented numbers, 0 red-flag misses,
 $0.021 and p50 9.1 s per question uncached through the CLI.
 
-Phase 1 (tools, cards, memory): see the table below, filled in from the API-key run.
+Phase 1 (tools, cards, memory), measured 2026-10-15 against the API (Claude Sonnet 5.5, effort low,
+prompt caching on). Scores are the last run of the final prompt; the judge column is from the run
+before the last two prompt lines (no round guidance numbers; a JSON reminder after tool results),
+which changed no answer's substance:
+
+| | Dev (42) | Held-out (19) |
+|---|---|---|
+| Overall score | 0.987 (38/42 perfect) | 0.988 (17/19) |
+| Invented numbers | 0 | 0 |
+| Red-flag misses | 0 | 0 |
+| Judge (Claude Opus 5.5, 1-5) | 4.36 | 4.32 |
+| Questions that used a tool | 19/42, 1.45 model calls each | 7/19, 1.37 |
+| Per question | $0.0077, p50 4.9 s (5.6 s with tools), p90 7.7 s | $0.0083, p50 4.5 s (8.1 s with tools), p90 9.5 s |
+
+Across the five dev runs and four held-out runs of the day (about $3.80 of API spend in all,
+judge included), the overall score ranged 0.939-0.987 on dev and 0.951-0.988 on held-out. The
+first run (dev 0.946, judge 3.93) found things that were fixed before the runs above: the number
+guard read "1,949 kcal" as 1 and 949; the nag guard dropped true sentences ("the same weight and
+reps as Sep 29", "log the meal from the card"); the judge did not see the tool results and graded
+looked-up facts as invented; answers summed meals' protein themselves or quoted round guidance
+numbers ("30-60 minutes before") that the app would strip; and after a tool round the model answered
+in markdown prose on about one tool question in eight, so the tool results now carry a one-line
+reminder to answer in JSON (`ANSWER_REMINDER` in `server/src/coach.ts`). What's still missed: a few
+answers run to 81-98 words (pain and out-of-scope answers most), the odd 9-word headline, and one
+held-out tool case the pack already answered. Most tool calls are `estimate_meal` (17 on dev), one
+per suggested meal, as the prompt asks; `exercise_history` 5, `query_workouts` 4, `food_log` 3,
+`muscle_volume` 1, `food_patterns` 1.

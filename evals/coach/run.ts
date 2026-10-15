@@ -58,13 +58,22 @@ const addUsage = (a: Usage, b: Usage): Usage => ({
   cache_read_input_tokens: (a.cache_read_input_tokens ?? 0) + (b.cache_read_input_tokens ?? 0),
 });
 
+// A request that hangs is retried like a 5xx: a single stuck socket must not stall the run
+const REQUEST_TIMEOUT_MS = 90_000;
 async function callAnthropic(body: Record<string, unknown>, beta?: string) {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key!, 'anthropic-version': '2023-06-01', ...(beta ? { 'anthropic-beta': beta } : {}) },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': key!, 'anthropic-version': '2023-06-01', ...(beta ? { 'anthropic-beta': beta } : {}) },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (e) {
+      if (attempt < 5) continue;
+      throw new Error(`Anthropic request failed: ${String(e)}`);
+    }
     if (res.ok) return res.json();
     if (attempt < 5 && (res.status === 429 || res.status >= 500)) {
       await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));

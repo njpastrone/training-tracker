@@ -111,6 +111,9 @@ test('code checks: nagging, unknown exercises, invented numbers', () => {
   assert.doesNotMatch('I can help you keep track of how it goes', NAG);
   assert.doesNotMatch('Once you have a plan, I can help you track it', NAG);
   assert.match('Track your sets next time', NAG);
+  assert.match('Log the weights too', NAG);
+  assert.doesNotMatch('Log the meal from the card when you have eaten it', NAG);
+  assert.doesNotMatch('You log your food every day', NAG);
 
   const d = of('maya');
   assert.deepEqual(unknownExercises(['Goblet Squats', 'push-ups', 'Romanian Deadlift', 'Leg Press'], d), ['Romanian Deadlift', 'Leg Press']);

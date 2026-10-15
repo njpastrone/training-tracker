@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCoachRequest, COACH_MODEL, KNOWLEDGE, readCoachReply, validThread } from './coach.ts';
+import { ANSWER_REMINDER, buildCoachRequest, COACH_MODEL, KNOWLEDGE, readCoachReply, validThread } from './coach.ts';
 
 const pack = { training: { daysSinceLastWorkout: 6 } };
 const ask = (q: string) => [{ role: 'user' as const, content: q }];
@@ -77,6 +77,14 @@ test('readCoachReply reads a suggested workout, meals and a thing to remember, a
   assert.equal('workout' in bad, false);
   assert.equal('meals' in bad, false);
   assert.equal('remember' in bad, false);
+});
+
+test('tool results go up with a reminder to answer in JSON; the thread itself is left alone', () => {
+  const thread = [...ask('how is my squat?'), { role: 'assistant' as const, content: [{ type: 'tool_use', id: 't1', name: 'exercise_history', input: { exercise: 'squat' } }] }, { role: 'user' as const, content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] }];
+  const req = buildCoachRequest(pack, thread, { date: '2026-10-08', unit: 'lbs' });
+  assert.deepEqual(req.messages[2].content, [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }, { type: 'text', text: ANSWER_REMINDER }]);
+  assert.equal(thread[2].content.length, 1);
+  assert.equal(buildCoachRequest(pack, ask('hi'), { date: '2026-10-08', unit: 'lbs' }).messages[0].content, 'hi');
 });
 
 test('the coach request declares the read tools with strict schemas', () => {
