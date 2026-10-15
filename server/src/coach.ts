@@ -190,8 +190,8 @@ function readMeals(raw: unknown): SuggestedMeal[] | undefined {
 }
 
 function readRemember(raw: unknown): Remember | undefined {
-  if (!isObj(raw) || !KINDS.includes(raw.kind as string) || !str(raw.text)) return undefined;
-  return { kind: raw.kind as Remember['kind'], text: str(raw.text).slice(0, 120), quote: (str(raw.quote) || str(raw.text)).slice(0, 200) };
+  if (!isObj(raw) || !KINDS.includes(raw.kind as string) || !str(raw.text) || !str(raw.quote)) return undefined;
+  return { kind: raw.kind as Remember['kind'], text: str(raw.text).slice(0, 120), quote: str(raw.quote).slice(0, 200) };
 }
 
 // Model text → the reply, or null when the text holds no usable answer. Prose around the JSON is

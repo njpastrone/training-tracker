@@ -106,6 +106,17 @@ test('a suggested workout and meals come back as cards made safe on the phone; a
   assert.equal(useWorkoutStore.getState().settings.profile, undefined); // nothing saved yet
 });
 
+test("a thing to remember is offered only when its quote is the user's own words, now or earlier in the thread", async () => {
+  const remember = (quote: string) => `,"remember":${JSON.stringify({ kind: 'food', text: 'no dairy', quote })}`;
+  replies = [answer('Try chicken and rice.', remember('I avoid dairy'))];
+  assert.equal((await askCoach('dinner ideas?', [], SAM_NOW)).cards.remember, undefined);
+  replies = [answer('Try chicken and rice.', remember('No  dairy for me'))];
+  const earlier = await askCoach('dinner ideas?', [{ role: 'user', content: 'no dairy for me, ok?' }, { role: 'assistant', content: answer('Noted.') }], SAM_NOW);
+  assert.equal(earlier.cards.remember?.quote, 'No  dairy for me');
+  replies = [answer('Try chicken and rice.', `,"remember":{"kind":"food","text":"no dairy"}`)];
+  assert.equal((await askCoach('dinner ideas? no dairy', [], SAM_NOW)).cards.remember, undefined);
+});
+
 test('an invented number costs no second call: its sentence goes', async () => {
   replies = [answer('Try 170x5 today. Keep the reps.')];
   const { reply, raw } = await askCoach('what should I squat?', [], SAM_NOW);

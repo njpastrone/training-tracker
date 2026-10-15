@@ -77,6 +77,10 @@ test('readCoachReply reads a suggested workout, meals and a thing to remember, a
   assert.equal('workout' in bad, false);
   assert.equal('meals' in bad, false);
   assert.equal('remember' in bad, false);
+  for (const quote of [undefined, '', '  ', 7]) {
+    const r = readCoachReply(JSON.stringify({ answer: 'ok', remember: { kind: 'food', text: 'no dairy', quote } }))!;
+    assert.equal('remember' in r, false, String(quote));
+  }
 });
 
 test('tool results go up with a reminder to answer in JSON; the thread itself is left alone', () => {
