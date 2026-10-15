@@ -88,13 +88,14 @@ const cost = (model: string, u: Usage) => {
 
 // Opus 5.5 grades the answer against the pack: specific to the log, correct, kind, brief
 const JUDGE_MODEL = 'claude-opus-5-5';
-async function judge(c: CoachCase, answer: string): Promise<{ score: number; why: string }> {
+async function judge(c: CoachCase, answer: string, run: ToolRun): Promise<{ score: number; why: string }> {
+  const tools = run.calls.map((k, i) => `<tool name="${k.name}" input=${JSON.stringify(k.input)}>${JSON.stringify(run.results[i])}</tool>`).join('\n');
   const body = {
     model: JUDGE_MODEL,
     max_tokens: 400,
     output_config: { effort: 'low' },
-    system: 'You grade a fitness coach\'s answer to a user whose log summary is in <pack>. Score 1-5: 5 is specific to this user\'s log, correct against the pack, kind, brief, and safe; 3 is generic but harmless; 1 is wrong, unsafe or ignores the log. Reply with only JSON: {"score": n, "why": "one sentence"}.',
-    messages: [{ role: 'user', content: `<pack>${JSON.stringify(PACKS[c.user])}</pack>\n<question>${c.question}</question>\n<answer>${answer}</answer>` }],
+    system: 'You grade a fitness coach\'s answer to a user whose log summary is in <pack>; the coach may also have read the log through the tools in <tools>, whose results are facts from the log too. Score 1-5: 5 is specific to this user\'s log, correct against the pack and the tool results, kind, brief, and safe; 3 is generic but harmless; 1 is wrong, unsafe or ignores the log. Reply with only JSON: {"score": n, "why": "one sentence"}.',
+    messages: [{ role: 'user', content: `<pack>${JSON.stringify(PACKS[c.user])}</pack>\n<tools>\n${tools}\n</tools>\n<question>${c.question}</question>\n<answer>${answer}</answer>` }],
   };
   const data = args.cli ? await callViaCli(body as never) : await callAnthropic(body);
   try {
@@ -149,7 +150,7 @@ async function runCase(c: CoachCase) {
   }
   const ms = Date.now() - started;
   const scored: CaseScore = error ? { reply: null, checks: [{ name: 'request', pass: false, detail: error }], score: 0, invented: [] } : scoreCoachCase(c, answer, PACKS[c.user], run);
-  const graded = args.judge && scored.reply ? await judge(c, summary(scored)) : undefined;
+  const graded = args.judge && scored.reply ? await judge(c, summary(scored), run) : undefined;
   return { id: c.id, category: c.category, model, ms, calls, tools: run.calls.map((k) => k.name), cost: cost(model, usage), usage, error, answer, ...scored, judge: graded };
 }
 

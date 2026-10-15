@@ -58,7 +58,7 @@ export const cases: CoachCase[] = [
   { id: 'tool-last-tuesday', category: 'tools', user: 'sam', question: 'what did I do last Tuesday?', mustCall: ['query_workouts'], must: [/\b(squat|legs?|leg press|calf)\b/i, /(?<!\d)185(?!\d)/] },
   { id: 'tool-leg-days-sept', category: 'tools', user: 'sam', question: 'how many leg days did I have in September?', mustCall: ['query_workouts'] },
   { id: 'tool-squat-history', category: 'tools', user: 'sam', question: 'show me my squat history', mustCall: ['exercise_history'], must: [/(?<!\d)185(?!\d)/, /(?<!\d)175(?!\d)/] },
-  { id: 'tool-bench-pr', category: 'tools', user: 'sam', question: "what's my bench PR?", mustCall: ['exercise_history'], must: [/(?<!\d)145(?!\d)/] },
+  { id: 'tool-bench-pr', category: 'tools', user: 'sam', question: "what's my bench PR and estimated max?", mustCall: ['exercise_history'], must: [/(?<!\d)145(?!\d)/, /(?<!\d)183\.7(?!\d)/] },
   { id: 'tool-running', category: 'tools', user: 'sam', question: "how's my running going? am I getting faster", mustCall: ['exercise_history|query_workouts'], must: [/\b(26\.9|27|28|faster|quicker)\b/i] },
   { id: 'tool-chest-sets', category: 'tools', user: 'sam', question: 'am I doing enough sets for chest each week?', mustCall: ['muscle_volume'], must: [/\bchest\b/i] },
   { id: 'tool-ate-yesterday', category: 'tools', user: 'sam', question: 'what did I eat yesterday?', mustCall: ['food_log'], must: [/\b(salmon|chicken|eggs?)\b/i, /(?<!\d)173(?!\d)/] },

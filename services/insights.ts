@@ -199,7 +199,7 @@ export function target(t: LiftTrend): Target {
 
 // Remarks about how someone logs ("log your weights", "more detail") are never shown
 // Mentioning a weight-and-reps fact or keeping track of progress is fine; asking the user to write them down is not
-export const NAG = /\b(log(ging)? (more|your|the)|(?<!on |keep |keeps |keeping |kept )track(ing)?\b(?! (record|day))|record(ing)? (your|more)|more detail|(add|log|track|record|write|note|include|put|enter)\w* (in |down )?(your |the )?(weights? and reps|set counts?)|numbers? (to|so)|missing)\b/i;
+export const NAG = /\b(log(ging)? (more|your|the)|track(ing)? (your|more)|record(ing)? (your|more)|more detail|(add|log|track|record|write|note|include|put|enter)\w* (in |down )?(your |the )?(weights? and reps|set counts?)|numbers? (to|so)|missing)\b/i;
 
 // Exercises a reply names that the user has never logged
 export const unknownExercises = (names: string[], d: Digest) => {
@@ -208,9 +208,11 @@ export const unknownExercises = (names: string[], d: Digest) => {
 };
 
 // Numbers in a reply that appear nowhere in what the model was given. 1-3 are too common to check.
+// "1,949" is one number, not 1 and 949.
 export function inventedNumbers(text: string, given: unknown): string[] {
-  const NUM = /\d+(?:\.\d+)?/g;
-  const source = new Set((JSON.stringify(given).match(NUM) ?? []).map(Number));
-  const nums = text.match(NUM) ?? [];
+  const NUM = /\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g;
+  const plain = (n: string) => n.replace(/,/g, '');
+  const source = new Set((JSON.stringify(given).match(NUM) ?? []).map((n) => Number(plain(n))));
+  const nums = (text.match(NUM) ?? []).map(plain);
   return [...new Set(nums.filter((n) => !/^[123]$/.test(n) && !source.has(Number(n))))];
 }
