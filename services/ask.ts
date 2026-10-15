@@ -69,8 +69,9 @@ export async function askCoach(question: string, thread: CoachMessage[] = [], no
   const read = readCoachReply(text);
   if (!read) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP), cards: {} };
   // Only what the user said and what the tools returned count as given: the coach's own earlier words don't vouch for a number
-  const given = { pack, question, asked: thread.filter(m => m.role === 'user'), tools, knowledge: KNOWLEDGE };
-  const checked = checkReply(read, question, given);
+  const asked = thread.flatMap(m => (m.role === 'user' && typeof m.content === 'string' ? [m.content] : []));
+  const given = { pack, question, asked, tools, knowledge: KNOWLEDGE };
+  const checked = checkReply(read, question, given, asked);
   const stripped = stripInvented(checked.reply, checked.invented);
   if (!stripped.answer.trim()) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP), cards: {} };
   const cards: CoachCards = {

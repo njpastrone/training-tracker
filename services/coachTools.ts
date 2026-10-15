@@ -167,16 +167,45 @@ export function estimateMeal(items: unknown, foodEntries: PackInput['foodEntries
   return { result, parsed: known };
 }
 
-// A result the Worker accepts: while it is too long, the longest top-level list loses its last entry
-function fit<T extends Record<string, unknown>>(result: T): T {
-  let out: Record<string, unknown> = { ...result };
-  while (JSON.stringify(out).length > MAX_TOOL_RESULT_CHARS) {
-    const lists = Object.entries(out).filter(([, v]) => Array.isArray(v) && v.length > 1) as [string, unknown[]][];
-    if (!lists.length) break;
-    const [k, v] = lists.sort((a, b) => JSON.stringify(b[1]).length - JSON.stringify(a[1]).length)[0];
-    out = { ...out, [k]: v.slice(0, -1), truncated: true };
+// Lists that run oldest first, so trimming them drops the oldest entry
+const OLDEST_FIRST = new Set(['days', 'perWeek', 'meals']);
+
+// A result the Worker accepts: while it is too long, the longest list anywhere loses its oldest entry
+// (the front of an oldest-first list, else the end); when no list has more than one entry, the longest
+// string is cut. A result that still can't fit comes back as an error.
+function fit(result: Record<string, unknown>): Record<string, unknown> {
+  const out = JSON.parse(JSON.stringify(result)) as Record<string, unknown>;
+  const size = () => JSON.stringify(out).length;
+  while (size() > MAX_TOOL_RESULT_CHARS) {
+    out.truncated = true;
+    const lists: [string, unknown[]][] = [];
+    const strings: [Record<string, unknown> | unknown[], string | number][] = [];
+    const walk = (v: unknown, key: string) => {
+      if (Array.isArray(v)) {
+        if (v.length > 1) lists.push([key, v]);
+        v.forEach((x, i) => (typeof x === 'string' ? strings.push([v, i]) : walk(x, key)));
+      } else if (typeof v === 'object' && v !== null) {
+        for (const [k, x] of Object.entries(v)) {
+          if (typeof x === 'string') strings.push([v as Record<string, unknown>, k]);
+          else walk(x, k);
+        }
+      }
+    };
+    walk(out, '');
+    const len = (v: unknown) => JSON.stringify(v).length;
+    const list = lists.sort((x, y) => len(y[1]) - len(x[1]))[0];
+    if (list) {
+      if (OLDEST_FIRST.has(list[0])) list[1].shift();
+      else list[1].pop();
+      continue;
+    }
+    const at = (h: [Record<string, unknown> | unknown[], string | number]) => (h[0] as Record<string | number, string>)[h[1]];
+    const longest = strings.filter(h => at(h).length > 1).sort((x, y) => at(y).length - at(x).length)[0];
+    if (!longest) return { error: 'Too much to send at once: ask about a shorter span' };
+    const s = at(longest);
+    (longest[0] as Record<string | number, string>)[longest[1]] = `${s.slice(0, Math.max(0, s.length - (size() - MAX_TOOL_RESULT_CHARS) - 1))}…`;
   }
-  return out as T;
+  return out;
 }
 
 // Runs one tool call. Unknown names and bad inputs come back as { error } for the model to read.

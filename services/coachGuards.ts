@@ -29,21 +29,44 @@ const mapSentences = (text: string, f: (s: string) => string) => rejoin(text.spl
 
 const lowCalorie = (s: string) => [...s.matchAll(CALORIE_TARGET)].some(m => Number((m[1] ?? m[2]).replace(',', '')) < CALORIE_FLOOR);
 
-// The answer with the fixed rules applied, and the numbers it says that appear nowhere in what the
-// model was given (the pack, the knowledge, the question): the caller decides what to do with those
-export function checkReply(reply: CoachReply, question: string, given: unknown): { reply: CoachReply; invented: string[] } {
+// What a card shows the user in words, so its numbers are held to the same rule as the answer's
+const cardText = (r: CoachReply) =>
+  [r.workout?.name, r.workout?.why, ...(r.workout?.exercises.map(e => e.note) ?? []), ...(r.meals?.flatMap(m => [m.label, m.note]) ?? []), r.remember?.text, r.remember?.quote]
+    .filter(Boolean)
+    .join('\n');
+
+// Lowercase, one kind of quote mark, single spaces, no punctuation or quote marks at the ends
+const words = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').replace(/^[\s"'.,!?]+|[\s"'.,!?]+$/g, '');
+
+// The answer with the fixed rules applied, and the numbers it or its cards say that appear nowhere in
+// what the model was given (the pack, the knowledge, the question): the caller decides what to do with
+// those. A thing to remember stays only when its quote is the user's own words, from this question or
+// an earlier one (`asked`).
+export function checkReply(reply: CoachReply, question: string, given: unknown, asked: string[] = []): { reply: CoachReply; invented: string[] } {
   const tidy = (text: string) =>
     mapSentences(text.replace(/!/g, '.'), s => (NAG.test(s) ? '' : lowCalorie(s) ? FLOOR_LINE : s));
   let answer = tidy(reply.answer);
   if (RED_FLAG.test(question) && !SEE_SOMEONE.test(answer)) answer = `${RED_FLAG_LINE}\n${answer}`;
-  const out = { ...reply, headline: reply.headline.replace(/!/g, ''), answer, fromLog: tidy(reply.fromLog) };
-  return { reply: out, invented: inventedNumbers(`${out.headline}\n${out.answer}\n${out.fromLog}`, given) };
+  const { remember, ...rest } = reply;
+  const said = remember && words(remember.quote) && [question, ...asked].some(q => words(q).includes(words(remember.quote)));
+  const out = { ...rest, headline: reply.headline.replace(/!/g, ''), answer, fromLog: tidy(reply.fromLog), ...(said ? { remember } : {}) };
+  return { reply: out, invented: inventedNumbers(`${out.headline}\n${out.answer}\n${out.fromLog}\n${cardText(out)}`, given) };
 }
 
-// Drops every sentence that holds one of the invented numbers; the headline goes if it does
+// Drops every sentence that holds one of the invented numbers: from the answer, a card's why and notes;
+// the headline, a workout's name and a meal's label go if they do, and so does a thing to remember
 export function stripInvented(reply: CoachReply, invented: string[]): CoachReply {
   if (!invented.length) return reply;
   const has = (s: string) => (s.match(/\d+(?:\.\d+)?/g) ?? []).some(n => invented.includes(n));
   const strip = (text: string) => mapSentences(text, s => (has(s) ? '' : s));
-  return { ...reply, headline: has(reply.headline) ? '' : reply.headline, answer: strip(reply.answer), fromLog: strip(reply.fromLog) };
+  const { workout, meals, remember, ...rest } = reply;
+  return {
+    ...rest,
+    headline: has(reply.headline) ? '' : reply.headline,
+    answer: strip(reply.answer),
+    fromLog: strip(reply.fromLog),
+    ...(workout ? { workout: { ...workout, name: has(workout.name) ? 'Suggested workout' : workout.name, why: strip(workout.why), exercises: workout.exercises.map(e => ({ ...e, note: e.note && strip(e.note) })) } } : {}),
+    ...(meals ? { meals: meals.map(m => ({ ...m, label: has(m.label) ? 'Meal' : m.label, note: m.note && strip(m.note) })) } : {}),
+    ...(remember && !has(`${remember.text} ${remember.quote}`) ? { remember } : {}),
+  };
 }

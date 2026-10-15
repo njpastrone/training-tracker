@@ -106,3 +106,16 @@ test('every tool result fits the Worker cap and holds only numbers from the log;
   assert.deepEqual(inventedNumbers('Squat 185x5 held 4 sessions; next 165x7.', { squat }), []);
   assert.deepEqual(run('nope', {}), { error: 'No tool called nope' });
 });
+
+test('a result too big for the cap loses its oldest days first, and one huge day is cut to fit', () => {
+  const day = SAM.foodEntries.find(e => e.date === '2026-10-12') ?? SAM.foodEntries[0];
+  const meals = (date: string, n: number) => Array.from({ length: n }, (_, i) => ({ ...day, id: `${date}-${i}`, date, createdAt: `${date}T0${i % 10}:00:00.000Z` }));
+  const dates = Array.from({ length: 14 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`).filter(d => d <= '2026-10-12');
+  const many = run('food_log', { from: '2026-09-29', to: '2026-10-12' }, { ...SAM, foodEntries: dates.flatMap(d => meals(d, 4)) }) as { days: { date: string }[]; truncated?: boolean };
+  assert.equal(many.truncated, true);
+  assert.equal(many.days[many.days.length - 1].date, '2026-10-12'); // the most recent day stays
+  assert.notEqual(many.days[0].date, '2026-10-01');
+  const huge = run('food_log', { from: '2026-10-12', to: '2026-10-12' }, { ...SAM, foodEntries: meals('2026-10-12', 60) }) as { days: unknown[] };
+  assert.ok(JSON.stringify(huge).length <= MAX_TOOL_RESULT_CHARS);
+  assert.equal(huge.days.length, 1);
+});

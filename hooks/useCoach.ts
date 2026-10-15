@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Alert } from 'react-native';
 import { addDays, format } from 'date-fns';
 import { ApiError } from '../services/claude';
 import { askCoach, type CoachCards, type CoachMessage, type CoachReply } from '../services/ask';
@@ -17,6 +18,7 @@ export interface CoachTurn {
   raw?: string; // the checked reply, sent back with the next question
   cards?: CoachCards;
   planned?: string; // the date a suggested workout was planned for
+  templateId?: string; // the template made from the suggested workout, reused on another tap
   logged?: string[]; // ids of the meal entries logged from this answer, by meal index
   remembered?: boolean | 'no'; // the remember chip's answer
 }
@@ -55,24 +57,40 @@ export function useCoach() {
     }
   };
 
-  // The suggested workout as a planned day: a template plus a calendar entry, so Log shows "Today's plan"
+  // The suggested workout as a planned day: a template plus a calendar entry, so Log shows "Today's plan".
+  // A day that already has a plan asks before replacing it.
   const plan = async (i: number, workout: WorkoutCard) => {
     const date = format(addDays(new Date(), workout.when === 'tomorrow' ? 1 : 0), 'yyyy-MM-dd');
-    try {
-      const template = await templateService.createTemplate({
-        name: workout.name,
-        description: workout.why,
-        exercises: workout.exercises.map(({ isNew, ...e }) => e),
-        muscleGroups: workout.muscleGroups,
-      });
-      await scheduleService.scheduleWorkout(date, template.id);
-      const { loadTemplates, loadSchedule } = useWorkoutStore.getState();
-      await Promise.all([loadTemplates(), loadSchedule()]);
-      patch(i, { planned: date });
-    } catch (err) {
-      console.error('Error planning the suggested workout:', err);
-      setError("Couldn't plan that. Try again.");
-    }
+    const save = async () => {
+      try {
+        let templateId = turns[i].templateId;
+        if (!templateId || !(await templateService.getTemplate(templateId))) {
+          templateId = (
+            await templateService.createTemplate({
+              name: workout.name,
+              description: workout.why,
+              exercises: workout.exercises.map(({ isNew, ...e }) => e),
+              muscleGroups: workout.muscleGroups,
+            })
+          ).id;
+          patch(i, { templateId });
+        }
+        await scheduleService.scheduleWorkout(date, templateId);
+        const { loadTemplates, loadSchedule } = useWorkoutStore.getState();
+        await Promise.all([loadTemplates(), loadSchedule()]);
+        patch(i, { planned: date });
+      } catch (err) {
+        console.error('Error planning the suggested workout:', err);
+        setError("Couldn't plan that. Try again.");
+      }
+    };
+    const existing = (await scheduleService.getSchedule().catch(() => [])).find(s => s.date === date);
+    if (!existing) return save();
+    const name = (await templateService.getTemplate(existing.templateId).catch(() => null))?.name ?? 'a workout';
+    Alert.alert(`You already have ${name} ${workout.when}. Replace it?`, undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Replace', style: 'destructive', onPress: save },
+    ]);
   };
 
   // One meal into today's food log; tapping again takes it back out
