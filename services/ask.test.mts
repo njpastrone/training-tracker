@@ -19,11 +19,15 @@ const { COACH_MODEL } = await import('../server/src/coach');
 
 process.env.EXPO_PUBLIC_API_URL = 'https://worker.test';
 let sent: Record<string, any>[] = [];
-let replies: string[] = [];
+// A reply is the model's text, or the content blocks of a tool-calling turn
+let replies: (string | { content: unknown[] })[] = [];
 globalThis.fetch = (async (_url: string, init: RequestInit) => {
   sent.push(JSON.parse(init.body as string));
-  return new Response(JSON.stringify({ text: replies.shift() ?? '' }), { status: 200 });
+  const next = replies.shift() ?? '';
+  const body = typeof next === 'string' ? { text: next, content: [{ type: 'text', text: next }], stop_reason: 'end_turn' } : { text: '', content: next.content, stop_reason: 'tool_use' };
+  return new Response(JSON.stringify(body), { status: 200 });
 }) as typeof fetch;
+const toolUse = (id: string, name: string, input: unknown) => ({ content: [{ type: 'thinking', thinking: '', signature: 'sig' }, { type: 'tool_use', id, name, input }] });
 
 const answer = (a: string, extra = '') => `{"headline":"Start lower, a bit lighter","answer":"${a}","fromLog":"6 days since your last workout","chips":["Upper instead","Why 10% off?","Make it 30 minutes"]${extra}}`;
 
@@ -57,6 +61,60 @@ test('a follow-up sends the thread with the model\'s own earlier reply', async (
   await askCoach('Upper instead', [{ role: 'user', content: 'what first?' }, { role: 'assistant', content: first }], SAM_NOW);
   assert.deepEqual(sent[0].coach.messages.map((m: { role: string }) => m.role), ['user', 'assistant', 'user']);
   assert.equal(sent[0].coach.messages[1].content, first);
+});
+
+test('a tool call runs on the phone and goes back as a result under the same turn id; its numbers count as given', async () => {
+  replies = [toolUse('t1', 'exercise_history', { exercise: 'squat' }), answer('Squat has held 185x5 for 4 sessions; the app suggests 165x7 and your best estimated max is 215.8.')];
+  const { reply } = await askCoach("how's my squat going?", [], SAM_NOW);
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].coach.turnId, sent[1].coach.turnId);
+  assert.match(sent[0].coach.turnId, /^[0-9a-f-]{36}$/);
+  const thread = sent[1].coach.messages;
+  assert.deepEqual(thread.map((m: { role: string }) => m.role), ['user', 'assistant', 'user']);
+  assert.deepEqual(thread[1].content, toolUse('t1', 'exercise_history', { exercise: 'squat' }).content); // echoed as returned, thinking included
+  assert.equal(thread[2].content[0].type, 'tool_result');
+  assert.equal(thread[2].content[0].tool_use_id, 't1');
+  const result = JSON.parse(thread[2].content[0].content);
+  assert.equal(result.exercise, 'Squat');
+  assert.equal(result.next, '165x7 ×3');
+  // 215.8 is in the tool result, not the pack: it stays
+  assert.match(reply.answer, /215\.8/);
+});
+
+test('a bad tool call comes back as an error result and the loop stops at three calls', async () => {
+  replies = [toolUse('t1', 'exercise_history', { exercise: 'kettlebell swings' }), toolUse('t2', 'food_patterns', {}), toolUse('t3', 'food_patterns', {})];
+  const { reply } = await askCoach('how are my swings?', [], SAM_NOW);
+  assert.equal(sent.length, 3);
+  assert.equal(sent[1].coach.messages[2].content[0].is_error, true);
+  assert.match(sent[1].coach.messages[2].content[0].content, /Nothing logged/);
+  assert.deepEqual(reply, CANT_HELP);
+});
+
+test('a suggested workout and meals come back as cards made safe on the phone; a thing to remember waits for a tap', async () => {
+  const card = { name: 'Lower A, lighter', when: 'today', why: 'legs rested longest', exercises: [{ name: 'Squat', sets: 3, reps: 5, weight: 165, note: 'was 185x5 on Oct 6' }, { name: 'Leg Press', sets: 3, reps: 10, weight: 999 }] };
+  const meals = [{ label: 'Lunch', items: ['200 g chicken breast', '1.5 cups white rice'] }, { label: 'Snack', items: ['moon dust'] }];
+  const remember = { kind: 'food', text: 'no dairy', quote: 'I avoid dairy' };
+  replies = [answer('Legs first, lighter.', `,"workout":${JSON.stringify(card)},"meals":${JSON.stringify(meals)},"remember":${JSON.stringify(remember)}`)];
+  const { cards } = await askCoach("what should I start with? I avoid dairy by the way", [], SAM_NOW);
+  assert.equal(cards.workout!.name, 'Lower A, lighter');
+  assert.equal(cards.workout!.exercises[0].exerciseId, 'squat');
+  assert.equal(cards.workout!.exercises[0].weight, 165);
+  assert.equal(cards.workout!.exercises[1].weight, undefined); // 999 appears nowhere the model was given
+  assert.equal(cards.meals!.length, 1); // moon dust prices to nothing
+  assert.equal(cards.meals![0].items.length, 2);
+  assert.deepEqual(cards.remember, remember);
+  assert.equal(useWorkoutStore.getState().settings.profile, undefined); // nothing saved yet
+});
+
+test("a thing to remember is offered only when its quote is the user's own words, now or earlier in the thread", async () => {
+  const remember = (quote: string) => `,"remember":${JSON.stringify({ kind: 'food', text: 'no dairy', quote })}`;
+  replies = [answer('Try chicken and rice.', remember('I avoid dairy'))];
+  assert.equal((await askCoach('dinner ideas?', [], SAM_NOW)).cards.remember, undefined);
+  replies = [answer('Try chicken and rice.', remember('No  dairy for me'))];
+  const earlier = await askCoach('dinner ideas?', [{ role: 'user', content: 'no dairy for me, ok?' }, { role: 'assistant', content: answer('Noted.') }], SAM_NOW);
+  assert.equal(earlier.cards.remember?.quote, 'No  dairy for me');
+  replies = [answer('Try chicken and rice.', `,"remember":{"kind":"food","text":"no dairy"}`)];
+  assert.equal((await askCoach('dinner ideas? no dairy', [], SAM_NOW)).cards.remember, undefined);
 });
 
 test('an invented number costs no second call: its sentence goes', async () => {

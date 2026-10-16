@@ -1,5 +1,7 @@
-import { StyleSheet, Alert, ScrollView, ActionSheetIOS, View } from 'react-native';
+import { StyleSheet, Alert, ScrollView, ActionSheetIOS, Pressable, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
+import { Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
@@ -11,6 +13,7 @@ import { spacing } from '../../constants/theme';
 import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
 import { askAiConsent } from '../../services/aiConsent';
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
+import { forgetFact } from '../../services/coachCards';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
@@ -137,6 +140,32 @@ export default function SettingsScreen() {
           />
         </SkyCard>
 
+        {/* What you told the coach, in your words; × forgets it. Everything else it knows is recomputed from the log. */}
+        {!!settings.profile?.facts.length && (
+          <>
+            <SectionLabel style={styles.label}>What LiftText knows</SectionLabel>
+            <SkyCard style={styles.card}>
+              {settings.profile.facts.map((f, i) => (
+                <Row
+                  key={f.id}
+                  first={i === 0}
+                  icon="logo"
+                  title={f.text}
+                  subtitle={`"${f.quote}" · ${format(parseISO(f.saidOn), 'MMM d')}`}
+                  right={
+                    <Pressable onPress={() => updateSettings(forgetFact(settings, f.id))} accessibilityRole="button" accessibilityLabel={`Forget ${f.text}`} hitSlop={10}>
+                      <SymbolView name="xmark.circle.fill" size={22} tintColor={colors.textTertiary} />
+                    </Pressable>
+                  }
+                />
+              ))}
+              <Text variant="bodySmall" style={[styles.note, { color: colors.textTertiary }]}>
+                Only things you told the coach. The rest comes from your log each time you ask.
+              </Text>
+            </SkyCard>
+          </>
+        )}
+
         <SectionLabel style={styles.label}>Training</SectionLabel>
         <SkyCard style={styles.card}>
           <Row
@@ -187,7 +216,7 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
-          <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, never the whole log. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days)." />
+          <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days)." />
         </SkyCard>
       </ScrollView>
     </SkyScreen>
@@ -209,5 +238,9 @@ const styles = StyleSheet.create({
   },
   below: {
     paddingBottom: spacing.sm,
+  },
+  note: {
+    paddingHorizontal: spacing.gap,
+    paddingVertical: spacing.sm,
   },
 });

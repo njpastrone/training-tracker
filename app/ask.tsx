@@ -50,14 +50,14 @@ export default function AskScreen() {
           headerLeft: coach.turns.length ? () => <HeaderButton icon="arrow.counterclockwise" label="Start over" onPress={coach.startOver} /> : undefined,
         }}
       />
-      <LargeTitle title="Ask" subtitle="Answers from your last 4 weeks" />
+      <LargeTitle title="Ask" subtitle="Answers from your log" />
 
       {coach.turns.length === 0 && (
         <SkyCard style={styles.hint}>
           <LogoMark size={30} color={colors.sunrise} />
           <Text variant="titleMedium" style={{ color: colors.text }}>Ask the coach</Text>
           <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-            It knows what you logged in the last 4 weeks, your goals and what you usually eat. It gives general training information, not medical advice.
+            It knows what you logged, your goals, what you usually eat and what you've told it to remember. It can suggest a workout or meals you save with a tap. General training information, not medical advice.
           </Text>
         </SkyCard>
       )}
@@ -65,7 +65,18 @@ export default function AskScreen() {
       {coach.turns.map((turn, i) => (
         <View key={i}>
           <UserBubble text={turn.question} />
-          {turn.reply ? <CoachCard reply={turn.reply} /> : <ThinkingCard title="Thinking about your log…" />}
+          {turn.reply ? (
+            <CoachCard
+              reply={turn.reply}
+              cards={turn.cards}
+              turn={turn}
+              onPlan={workout => coach.plan(i, workout)}
+              onLogMeal={(meal, k) => coach.logMeal(i, meal, k)}
+              onRemember={yes => coach.remember(i, yes)}
+            />
+          ) : (
+            <ThinkingCard title="Thinking about your log…" />
+          )}
         </View>
       ))}
     </ChatScreen>

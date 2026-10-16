@@ -1,13 +1,18 @@
 import { format } from 'date-fns';
-import { buildCoachRequest, KNOWLEDGE, readCoachReply, type CoachMessage, type CoachReply } from '../server/src/coach';
+import { v4 as uuidv4 } from 'uuid';
+import { buildCoachRequest, KNOWLEDGE, MAX_CALLS_PER_QUESTION, readCoachReply, type CoachMessage, type CoachReply, type ContentBlock, type Remember } from '../server/src/coach';
 import { buildCoachPack } from './coachPack';
+import { runTool } from './coachTools';
+import { priceMeals, resolveWorkout, type MealCard, type WorkoutCard } from './coachCards';
 import { checkReply, stripInvented } from './coachGuards';
-import { callClaude } from './claude';
+import { callWorker } from './claude';
 import { useWorkoutStore } from '../stores/workoutStore';
 
-// The coach (Phase 0, data/lifttext-agentic/report.md): a question about your own training or food,
-// answered by Claude from the context pack (services/coachPack.ts) through the Worker's coach mode,
-// then checked in code (services/coachGuards.ts). No tools yet: the pack is all it knows.
+// The coach (Phase 1, data/lifttext-agentic/report.md): a question about your own training or food,
+// answered by Claude from the context pack (services/coachPack.ts) and the read tools it asks for
+// (services/coachTools.ts, run here on the phone), through the Worker's coach mode, then checked in
+// code (services/coachGuards.ts). A suggested workout or meals come back as cards (services/coachCards.ts)
+// that save only on a tap; a thing to remember is stored only on a tap.
 
 export type { CoachMessage, CoachReply };
 
@@ -19,26 +24,63 @@ export const CANT_HELP: CoachReply = {
   chips: [],
 };
 
+export interface CoachCards {
+  workout?: WorkoutCard;
+  meals?: MealCard[];
+  remember?: Remember;
+}
+
+export interface Answer {
+  reply: CoachReply; // the checked answer
+  raw: string; // the assistant turn to send back with the next question
+  cards: CoachCards;
+}
+
 // Asks the coach. `thread` is the earlier questions and the coach's checked replies, newest last. One
-// Worker call per question (one cap slot); a sentence with a number from nowhere is dropped. Returns
-// the checked reply as the assistant turn to send back. Throws ApiError on a server refusal.
-export async function askCoach(question: string, thread: CoachMessage[] = [], now: Date = new Date()): Promise<{ reply: CoachReply; raw: string }> {
+// question is one cap slot however many model calls it takes: the first call may ask for tools, which
+// run here and go back as tool results; the next call answers. A sentence with a number from nowhere
+// is dropped. Throws ApiError on a server refusal.
+export async function askCoach(question: string, thread: CoachMessage[] = [], now: Date = new Date()): Promise<Answer> {
   const { workouts, foodEntries, settings, exerciseLibrary, schedule, templates } = useWorkoutStore.getState();
-  const pack = buildCoachPack({ workouts, foodEntries, settings, library: exerciseLibrary, schedule, templates }, now);
+  const data = { workouts, foodEntries, settings, library: exerciseLibrary, schedule, templates };
+  const pack = buildCoachPack(data, now);
   const options = { date: format(now, 'yyyy-MM-dd'), unit: settings.weightUnit };
   const req = buildCoachRequest(pack, [], options);
   // Workers deployed before coach mode read system/messages: they get the prompt, the pack and the question
   const system = req.system.map(b => b.text).join('\n\n');
   const messages: CoachMessage[] = [...thread, { role: 'user', content: question }];
-  const text = await callClaude(system, question, req.max_tokens, { coach: { ...options, pack, messages } });
+  const turnId = uuidv4();
+  const tools: unknown[] = []; // every tool result, so the guard counts their numbers as given
+  let text = '';
+  for (let call = 0; call < MAX_CALLS_PER_QUESTION; call++) {
+    const res = await callWorker(system, question, req.max_tokens, { coach: { ...options, pack, messages, turnId } });
+    const uses = (res.content ?? []).filter(b => b.type === 'tool_use') as (ContentBlock & { id: string; name: string; input: unknown })[];
+    if (!uses.length || call === MAX_CALLS_PER_QUESTION - 1) {
+      text = res.text;
+      break;
+    }
+    const results: ContentBlock[] = uses.map(u => {
+      const out = runTool(u.name, u.input, data, now);
+      tools.push(out);
+      return { type: 'tool_result', tool_use_id: u.id, content: JSON.stringify(out), ...(out.error ? { is_error: true } : {}) };
+    });
+    messages.push({ role: 'assistant', content: res.content! }, { role: 'user', content: results });
+  }
   const read = readCoachReply(text);
-  if (!read) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP) };
-  // Only what the user said counts as given: the coach's own earlier words don't vouch for a number
-  const given = { pack, question, asked: thread.filter(m => m.role === 'user'), knowledge: KNOWLEDGE };
-  const checked = checkReply(read, question, given);
+  if (!read) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP), cards: {} };
+  // Only what the user said and what the tools returned count as given: the coach's own earlier words don't vouch for a number
+  const asked = thread.flatMap(m => (m.role === 'user' && typeof m.content === 'string' ? [m.content] : []));
+  const given = { pack, question, asked, tools, knowledge: KNOWLEDGE };
+  const checked = checkReply(read, question, given, asked);
   const stripped = stripInvented(checked.reply, checked.invented);
-  const reply = stripped.answer.trim() ? stripped : CANT_HELP;
-  return { reply, raw: JSON.stringify(reply) };
+  if (!stripped.answer.trim()) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP), cards: {} };
+  const cards: CoachCards = {
+    ...(stripped.workout ? { workout: resolveWorkout(stripped.workout, exerciseLibrary, settings.weightUnit, given) } : {}),
+    ...(stripped.meals ? { meals: priceMeals(stripped.meals, foodEntries) } : {}),
+    ...(stripped.remember ? { remember: stripped.remember } : {}),
+  };
+  if (cards.meals && !cards.meals.length) delete cards.meals;
+  return { reply: stripped, raw: JSON.stringify(stripped), cards };
 }
 
 // ---------------------------------------------------------------- routing

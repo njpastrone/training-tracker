@@ -25,8 +25,32 @@ const FOODS = 20;
 const PORTIONS = 12;
 const NOTE_CHARS = 80;
 
-const note = (s?: string) => (s ? s.slice(0, NOTE_CHARS) : undefined);
-const clean = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null)) as T;
+export const note = (s?: string) => (s ? s.slice(0, NOTE_CHARS) : undefined);
+export const clean = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null)) as T;
+
+// "Squat 185x5 ×3 (felt heavy again)", "Leg Press", "Running 28 min": one logged exercise as a line
+export function exerciseLine(e: { name: string; sets?: number; reps?: number; weight?: number; duration?: number; notes?: string }): string {
+  const n = e.weight ? ` ${setLine({ weight: e.weight, reps: e.reps, sets: e.sets })}` : e.sets && e.reps ? ` ${e.sets}x${e.reps}` : e.duration ? ` ${e.duration} min` : '';
+  return `${e.name}${n}${e.notes ? ` (${note(e.notes)})` : ''}`;
+}
+// "185x5 ×3"
+export const setLine = (s: { weight: number; reps?: number; sets?: number }) => `${s.weight}${s.reps !== undefined ? `x${s.reps}` : ''}${s.sets && s.sets > 1 ? ` ×${s.sets}` : ''}`;
+
+// What you usually eat, with its numbers: the usual meal per slot and your usual amount of each food.
+// Shared by the pack and the food_patterns tool (services/coachTools.ts).
+export function foodHabits(foodEntries: FoodEntry[], now: Date) {
+  const usualMealLines = Object.fromEntries(usualMeals(foodEntries, now).map(u => [u.slot, `${u.entry.items.map(i => `${i.name} ${Math.round(i.macros.protein)} g protein ${Math.round(i.macros.kcal)} kcal`).join(', ')} (${u.days} of the last 14 days)`]));
+  const portions = [...usualPortions(foodEntries)].slice(0, PORTIONS).flatMap(([id, p]) => {
+    const food = foodById.get(id);
+    if (!food) return [];
+    const item = itemFor(food, p.qty, p.unit);
+    return [`${food.name} ${p.qty} ${p.unit}: ${Math.round(item.macros.protein)} g protein, ${item.macros.kcal} kcal`];
+  });
+  return { usualMeals: usualMealLines, usualPortions: portions };
+}
+
+// Things you told the coach, as it reads them: "food: no dairy (said 2026-10-01)"
+export const factLines = (settings: UserSettings) => (settings.profile?.facts ?? []).map(f => `${f.kind}: ${f.text} (said ${f.saidOn})`);
 
 export interface PackInput {
   workouts: Workout[];
@@ -45,7 +69,7 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
   const today = d.today;
   const inc = unit === 'kg' ? 2.5 : 5;
   const step = (x: number) => Math.round(x / inc) * inc;
-  const set = (s: { weight: number; reps?: number; sets?: number }) => `${s.weight}${s.reps !== undefined ? `x${s.reps}` : ''}${s.sets && s.sets > 1 ? ` ×${s.sets}` : ''}`;
+  const set = setLine;
 
   // Sets per muscle over the last 4 weeks (1 for the main muscle, ½ per helper)
   const volume = analyzeWeeklyVolume(workouts, trainingWindow(workouts.map(w => w.date), 28, now));
@@ -60,10 +84,7 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
     .map(w => clean({
       date: w.date,
       name: workoutName(w.muscleGroups),
-      exercises: w.exercises.map(e => {
-        const n = e.weight ? ` ${set({ weight: e.weight, reps: e.reps, sets: e.sets })}` : e.sets && e.reps ? ` ${e.sets}x${e.reps}` : e.duration ? ` ${e.duration} min` : '';
-        return `${e.name}${n}${e.notes ? ` (${note(e.notes)})` : ''}`;
-      }),
+      exercises: w.exercises.map(exerciseLine),
       notes: note(w.notes),
     }));
 
@@ -122,14 +143,8 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
   const todayFood = foodByDay(foodEntries).get(today);
   const foodGoal = settings.goals?.food;
   const left = foodGoal && todayFood ? Math.max(0, foodGoal.target - (foodGoal.kind === 'protein' ? todayFood.protein : todayFood.kcal)) : undefined;
-  const meals = Object.fromEntries(usualMeals(foodEntries, now).map(u => [u.slot, `${u.entry.items.map(i => `${i.name} ${Math.round(i.macros.protein)} g protein ${Math.round(i.macros.kcal)} kcal`).join(', ')} (${u.days} of the last 14 days)`]));
-  // Your usual amount of each food with its numbers, so a meal idea can quote them
-  const portions = [...usualPortions(foodEntries)].slice(0, PORTIONS).flatMap(([id, p]) => {
-    const food = foodById.get(id);
-    if (!food) return [];
-    const item = itemFor(food, p.qty, p.unit);
-    return [`${food.name} ${p.qty} ${p.unit}: ${Math.round(item.macros.protein)} g protein, ${item.macros.kcal} kcal`];
-  });
+  // Your usual meals and your usual amount of each food with their numbers, so a meal idea can quote them
+  const { usualMeals: meals, usualPortions: portions } = foodHabits(foodEntries, now);
   const foodsLogged = [...new Set(foodEntries.filter(e => e.date >= since14 && e.date <= today).flatMap(e => e.items.map(i => i.name)))].slice(0, FOODS);
   const food = foodEntries.length
     ? clean({
@@ -151,6 +166,7 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
       daysAWeek: settings.weeklyTarget,
       trainingFor: settings.goal,
       goals: settings.goals && goalLines(settings.goals, library).length ? goalLines(settings.goals, library) : undefined,
+      facts: factLines(settings).length ? factLines(settings) : undefined,
     }),
     training,
     food,

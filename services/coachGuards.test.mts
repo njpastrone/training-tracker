@@ -46,3 +46,29 @@ test('stripInvented drops the sentences and lines that hold the invented numbers
   assert.deepEqual(r, { headline: '', answer: 'Squat 165x5.\nKeep it short.', fromLog: 'squat 185x5 on Oct 6', chips: ['a', 'b', 'c'] });
   assert.equal(stripInvented(reply('fine'), []).answer, 'fine');
 });
+
+test("a card's words are held to the given numbers too: the sentence, note or fact that holds one goes", () => {
+  const card = {
+    ...reply('Legs first.'),
+    workout: { name: 'Lower 47', when: 'today' as const, why: 'Your squat dropped 17% so start at 165. Legs rested longest.', exercises: [{ name: 'Squat', sets: 3, reps: 5, note: 'was 185x5 on Oct 6' }, { name: 'Leg Press', sets: 3, reps: 10, note: 'aim for 400' }] },
+    meals: [{ label: 'Lunch', items: ['200 g chicken breast'], note: 'About 58 g protein.' }],
+    remember: { kind: 'equipment' as const, text: 'home gym to 70 lb', quote: 'home gym to 70 lb' },
+  };
+  const q = 'what first? I have a home gym to 70 lb';
+  const { reply: r, invented } = checkReply(card, q, { ...given, question: 'what first?' });
+  assert.deepEqual(invented.sort(), ['17', '400', '47', '58', '70'].sort());
+  const s = stripInvented(r, invented);
+  assert.equal(s.workout!.name, 'Suggested workout');
+  assert.equal(s.workout!.why, 'Legs rested longest.');
+  assert.deepEqual(s.workout!.exercises.map(e => e.note), ['was 185x5 on Oct 6', '']);
+  assert.equal(s.meals![0].note, '');
+  assert.equal('remember' in s, false);
+});
+
+test('a thing to remember stays only when its quote is what the user said, in this question or an earlier one', () => {
+  const r = (quote: string) => ({ ...reply('Noted.'), remember: { kind: 'food' as const, text: 'no dairy', quote } });
+  assert.equal(checkReply(r('I avoid dairy'), 'dinner ideas?', given).reply.remember, undefined);
+  assert.equal(checkReply(r(''), 'dinner ideas?', given).reply.remember, undefined);
+  assert.deepEqual(checkReply(r('I don’t do Dairy.'), "dinner ideas? i don't do dairy", given).reply.remember?.quote, 'I don’t do Dairy.');
+  assert.ok(checkReply(r('no dairy for me'), 'dinner ideas?', given, ['No dairy for me, ok?']).reply.remember);
+});

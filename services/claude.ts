@@ -6,6 +6,7 @@ import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems, type DraftFoodForModel } from '../server/src/food';
+import type { ContentBlock } from '../server/src/coach';
 import { FoodDraft } from '../types/food';
 import { buildFoodCandidates, candidateNames, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
 import { foodById } from '../data/foods';
@@ -50,15 +51,23 @@ export class AiOffError extends ApiError {
 const aiUnavailable = (error: unknown) =>
   error instanceof AiOffError || (error instanceof ApiError && (error.status === 429 || error.status === 503));
 
+// What the Worker answers: the model's text, and in coach mode its content blocks (tool calls to run,
+// thinking to echo back) and why it stopped
+export interface WorkerReply {
+  text: string;
+  content?: ContentBlock[];
+  stop_reason?: string;
+}
+
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model.
 // `mode` asks the Worker to build the prompt itself (parse, food or coach); Workers deployed before a mode
 // existed ignore it and send system/messages, so a new mode works before the Worker is redeployed.
-export async function callClaude(
+export async function callWorker(
   system: string,
   content: string,
   maxTokens: number,
   mode?: { parse: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string } } | { food: Record<string, unknown> } | { coach: Record<string, unknown> }
-): Promise<string> {
+): Promise<WorkerReply> {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
     throw new Error('EXPO_PUBLIC_API_URL is not set');
@@ -87,8 +96,11 @@ export async function callClaude(
   if (!res.ok || typeof data.text !== 'string') {
     throw new Error(data.error ?? `AI server error (${res.status})`);
   }
-  return data.text;
+  return { text: data.text, ...(Array.isArray(data.content) ? { content: data.content } : {}), ...(typeof data.stop_reason === 'string' ? { stop_reason: data.stop_reason } : {}) };
 }
+
+// The model's text alone, for the parsers
+export const callClaude = (...args: Parameters<typeof callWorker>) => callWorker(...args).then((r) => r.text);
 
 // Parses a free-text log. options.date is the day being logged; dayOffset on each exercise
 // says how many days before it the exercise was done.

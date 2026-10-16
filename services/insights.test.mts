@@ -105,6 +105,15 @@ test('code checks: nagging, unknown exercises, invented numbers', () => {
   assert.match('Add more detail next time', NAG);
   assert.doesNotMatch('Three solid weeks will keep you on track', NAG);
   assert.doesNotMatch('Legs have gone quiet: last leg day was 20 days ago', NAG);
+  assert.match('Write down your weights and reps next time', NAG);
+  assert.match('Add set counts so I can see volume', NAG);
+  assert.doesNotMatch("That's the same weight and reps as Sep 29", NAG);
+  assert.doesNotMatch('I can help you keep track of how it goes', NAG);
+  assert.doesNotMatch('Once you have a plan, I can help you track it', NAG);
+  assert.match('Track your sets next time', NAG);
+  assert.match('Log the weights too', NAG);
+  assert.doesNotMatch('Log the meal from the card when you have eaten it', NAG);
+  assert.doesNotMatch('You log your food every day', NAG);
 
   const d = of('maya');
   assert.deepEqual(unknownExercises(['Goblet Squats', 'push-ups', 'Romanian Deadlift', 'Leg Press'], d), ['Romanian Deadlift', 'Leg Press']);
@@ -115,6 +124,9 @@ test('code checks: nagging, unknown exercises, invented numbers', () => {
   assert.deepEqual(inventedNumbers('Back to normal in about 10 days, aim for 157 next week', given), ['157']);
   // 65 and 75 are only substrings of 165 and 275
   assert.deepEqual(inventedNumbers('Aim for 65, then add 75', given), ['65', '75']);
+  // A thousands separator is part of the number, in the answer and in what was given
+  assert.deepEqual(inventedNumbers('Yesterday: 1,949 kcal against a 1,632 average', { kcal: 1949, avg: '1,632 kcal' }), []);
+  assert.deepEqual(inventedNumbers('About 2,100 kcal', { kcal: 1949 }), ['2100']);
 });
 
 test('warm-up sets on one day count as one session at the top set', () => {

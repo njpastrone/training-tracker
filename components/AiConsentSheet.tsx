@@ -15,7 +15,7 @@ const SENT = [
   'Food names from the built-in food list that match what you typed',
   'Your weight unit and the date',
   'When you plan a week: a summary of your recent training and your goals',
-  'When you ask the coach: a summary of your last 4 weeks of training and food (the numbers on Progress), your goals, and your question',
+  'When you ask the coach: a summary of your last 4 weeks of training and food (the numbers on Progress), your goals, the things you asked it to remember, your question, and what the question needs (one exercise\'s history, a day\'s meals)',
   'A random ID for this phone',
 ];
 const NOT_SENT = ['Your full workout or food history: only a summary and what a question needs', 'Who you are', 'Photos', 'Apple Health data'];
