@@ -1,6 +1,6 @@
 # Chat tab
 
-Date: 2026-10-15 · Status: draft for review
+Date: 2026-10-15 · Status: approved 2026-10-16
 Mockup: "Chat tab · your log as a thread" on the LiftText design directions canvas (https://claude.ai/artifact/ML7Z1yCk1yGeQqAAHp2HNL).
 Builds on `main` after #42 (Ask the coach, Phase 0). Ships after the Daylight polish.
 
