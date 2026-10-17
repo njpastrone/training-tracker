@@ -76,6 +76,23 @@ test('rejects missing and wrong passwords without spending the cap', async () =>
   assert.equal(store.size, 0);
 });
 
+test('serves the privacy policy and terms to anyone, without touching the cap or Anthropic', async () => {
+  const { env, store } = makeEnv('2', undefined, '50', '50', { CONTACT_EMAIL: 'help@example.com' });
+  upstream = [];
+  for (const [path, title] of [['/privacy', 'Privacy Policy'], ['/terms', 'Terms of Use']]) {
+    const res = await worker.fetch(new Request(`https://worker.test${path}`), env);
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type') ?? '', /text\/html/);
+    const html = await res.text();
+    assert.match(html, new RegExp(`<title>LiftText ${title}</title>`));
+    assert.match(html, /DRAFT/);
+    assert.match(html, /mailto:help@example\.com/);
+  }
+  assert.equal((await worker.fetch(new Request('https://worker.test/other'), env)).status, 405);
+  assert.equal(upstream.length, 0);
+  assert.equal(store.size, 0);
+});
+
 test('forwards with the server-chosen model, effort and max_tokens, whatever the app asked for', async () => {
   const { env } = makeEnv();
   const { status, body } = await call(req('pw'), env);

@@ -1,4 +1,4 @@
-import { StyleSheet, Alert, ScrollView, ActionSheetIOS, Pressable, View } from 'react-native';
+import { StyleSheet, Alert, ScrollView, ActionSheetIOS, Linking, Pressable, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Text } from 'react-native-paper';
@@ -11,7 +11,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
 import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
-import { askAiConsent } from '../../services/aiConsent';
+import { askAiConsent, legalUrl } from '../../services/aiConsent';
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 import { forgetFact } from '../../services/coachCards';
 import { importSummary, pickExport, plural, readExport } from '../../services/importHistory';
@@ -173,7 +173,9 @@ export default function SettingsScreen() {
                 ? 'On: what you type goes to Anthropic to be read'
                 : settings.aiConsent === 'declined'
                   ? 'Off: each line you type becomes an exercise'
-                  : 'Asks before the first time'
+                  : settings.aiConsent === 'under18'
+                    ? 'Off: AI is for 18 and older'
+                    : 'Asks before the first time'
             }
             onPress={askAiConsent}
           />
@@ -261,7 +263,8 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
-          <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days)." />
+          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
+          <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving" onPress={() => Linking.openURL(legalUrl('terms'))} />
         </SkyCard>
         </SkySheet>
       </ScrollView>
