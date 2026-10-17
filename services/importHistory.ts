@@ -94,7 +94,7 @@ class Skip extends Error {}
 
 // The file's workouts and their sets, and the rows left out by reason
 function readRows(rows: string[][], unit: WeightUnit): { sessions: Session[]; skipped: Record<string, number>; source: ImportSource; needsUnit: boolean } {
-  const header = rows[0].map((h) => h.trim().replace(/^﻿/, ''));
+  const header = rows[0].map((h) => h.trim().replace(/^\uFEFF/, ''));
   const col = (...names: string[]) => names.map((n) => header.indexOf(n)).find((i) => i >= 0) ?? -1;
   const hevy = header.includes('exercise_title');
   if (!hevy && !(header.includes('Exercise Name') && header.includes('Set Order'))) throw new Error(NOT_AN_EXPORT);
