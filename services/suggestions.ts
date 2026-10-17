@@ -1,6 +1,7 @@
 import { differenceInCalendarDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { muscleName } from './goals';
-import type { MuscleGroup, Workout } from '../types/workout';
+import { digest } from './insights';
+import type { ExerciseLibrary, MuscleGroup, WeightUnit, Workout } from '../types/workout';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
 import type { FoodEntry } from '../types/food';
 
@@ -139,4 +140,21 @@ export function usualMeal(food: FoodEntry[], now: Date = new Date()): Chip[] {
   const names = usual.entry.items.map(i => i.name.toLowerCase());
   const short = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ');
   return [chip(`Usual ${meal.name} · ${short}`, usual.entry.items.map(i => i.said ?? i.name).join(', '))];
+}
+
+// Chat: questions anyone asks a coach, until there's a log to ask about
+export const ASK_STARTERS = toChips(["I've taken a few days off. What should I start with?", 'Suggest high-protein meals from what I usually eat', "How's my week going?", 'What should I train today?']);
+
+// Chat: questions about your own log. Your most-logged lift with numbers, what to train next, and
+// protein when you have a protein goal. Tapping one asks it.
+export function askChips(workouts: Workout[], library: ExerciseLibrary, unit: WeightUnit, proteinGoal: boolean, now: Date = new Date()): Chip[] {
+  if (!workouts.length) return ASK_STARTERS;
+  const d = digest(workouts, library, unit, now);
+  const lifts = new Set(d.liftTrends.map(t => t.id));
+  const lift = d.exercises.find(e => lifts.has(e.id));
+  return toChips([
+    ...(lift ? [`Is my ${lift.name.split(/\s+/)[0].toLowerCase()} stuck?`] : []),
+    'What should I train tomorrow?',
+    ...(proteinGoal ? ["How's my protein?"] : []),
+  ]);
 }
