@@ -5,11 +5,12 @@ import { sunArc } from './sunArc';
 
 const W = 350, H = 170;
 
-test('one dot per target day along the arc, the last on the horizon', () => {
+test('one dot per target day rising from the left, the last at the top (full daylight)', () => {
   const a = sunArc(0, 3, W, H);
   assert.equal(a.dots.length, 3);
   const last = a.dots[2];
-  assert.ok(Math.abs(last.x - (a.cx + a.r)) < 0.01 && Math.abs(last.y - a.cy) < 0.01);
+  assert.ok(Math.abs(last.x - a.cx) < 0.01 && Math.abs(last.y - (a.cy - a.r)) < 0.01);
+  assert.ok(a.dots[0].y < a.cy - 1, 'the first dot is above the horizon');
   assert.ok(a.dots.every(d => !d.done));
 });
 
@@ -29,7 +30,14 @@ test('more done than the target clamps at the end of the arc', () => {
   assert.equal(a.dots.length, 3);
   assert.ok(a.dots.every(d => d.done));
   assert.deepEqual(a.sun, { x: a.dots[2].x, y: a.dots[2].y });
-  assert.equal(a.doneAngle, 0);
+  assert.equal(a.doneAngle, Math.PI / 2);
+});
+
+test('the sun and its halo stay inside the drawing at the top and sides (the horizon may cut a low sun)', () => {
+  for (const [done, target] of [[1, 1], [3, 3], [1, 7], [7, 7]]) {
+    const { sun } = sunArc(done, target, W, H);
+    assert.ok(sun!.x - 34 >= 0 && sun!.x + 34 <= W && sun!.y - 34 >= 0, `${done} of ${target}`);
+  }
 });
 
 test('targets of 1 and 7 stay on the arc and apart', () => {

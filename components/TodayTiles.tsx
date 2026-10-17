@@ -105,7 +105,7 @@ export function UpNext({ date, today, template }: { date: string; today: string;
       {({ pressed }) => (
         <SkyCard style={[styles.tight, pressed && { opacity: 0.7 }]}>
           <View style={styles.row}>
-            <View style={[styles.ringDot, { borderColor: colors.text, borderStyle: 'dashed' }]} />
+            <View style={[styles.ringDot, { borderColor: colors.text }]} />
             <View style={styles.fill}>
               <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
               <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{sub}</Text>
