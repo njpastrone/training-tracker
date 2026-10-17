@@ -16,7 +16,7 @@ export interface Env {
   APP_ATTEST_MODE?: string;
   APP_ATTEST_APP_ID?: string; // secret: "<Apple Team ID>.<bundle id>"
   APP_ATTEST_CHALLENGE_SECRET?: string; // secret: signs the challenges the Worker hands out
-  CONTACT_EMAIL?: string; // shown on the privacy policy and terms pages
+  CONTACT_EMAIL?: string; // shown on the privacy policy and terms pages; they answer 503 until it is set
   USAGE: KVNamespace;
 }
 

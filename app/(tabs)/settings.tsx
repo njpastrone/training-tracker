@@ -11,7 +11,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { spacing } from '../../constants/theme';
 import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
-import { askAiConsent, legalUrl } from '../../services/aiConsent';
+import { askAiConsent, currentAiConsent, legalUrl } from '../../services/aiConsent';
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 import { forgetFact } from '../../services/coachCards';
 import { importSummary, pickExport, plural, readExport } from '../../services/importHistory';
@@ -19,6 +19,7 @@ import type { WeightUnit } from '../../types/workout';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates, importWorkouts } = useWorkoutStore();
+  const aiConsent = currentAiConsent(settings);
   const { colors } = useTheme();
   const router = useRouter();
   const [isClearing, setIsClearing] = useState(false);
@@ -169,11 +170,11 @@ export default function SettingsScreen() {
             icon="logo"
             title="AI reading"
             subtitle={
-              settings.aiConsent === 'granted'
+              aiConsent === 'granted'
                 ? 'On: what you type goes to Anthropic to be read'
-                : settings.aiConsent === 'declined'
+                : aiConsent === 'declined'
                   ? 'Off: each line you type becomes an exercise'
-                  : settings.aiConsent === 'under18'
+                  : aiConsent === 'under18'
                     ? 'Off: AI is for 18 and older'
                     : 'Asks before the first time'
             }

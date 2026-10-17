@@ -86,6 +86,7 @@ export interface UserSettings {
   onboardedAt?: string; // yyyy-MM-dd setup was finished or skipped; unset for users from before setup
   goals?: Goals; // checked against the log on Progress; "days a week" is weeklyTarget
   aiConsent?: 'granted' | 'declined' | 'under18'; // asked before the first AI call (services/aiConsent.ts); unset = not asked yet; only 'granted' (18+) turns AI on
+  aiConsentVersion?: number; // which version of that question was answered; older (or unset) = asked again
   goalsPromptDismissed?: boolean; // "Not now" on Progress's set-a-goal prompt: it doesn't come back
   profile?: { facts: Fact[] }; // things you told the coach to remember (services/ask.ts); shown and deletable in Settings
 }

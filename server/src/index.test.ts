@@ -93,6 +93,15 @@ test('serves the privacy policy and terms to anyone, without touching the cap or
   assert.equal(store.size, 0);
 });
 
+test('without CONTACT_EMAIL the privacy policy and terms are not served', async () => {
+  const { env } = makeEnv();
+  for (const path of ['/privacy', '/terms']) {
+    const res = await worker.fetch(new Request(`https://worker.test${path}`), env);
+    assert.equal(res.status, 503);
+    assert.doesNotMatch(await res.text(), /Privacy Policy|Terms of Use/);
+  }
+});
+
 test('forwards with the server-chosen model, effort and max_tokens, whatever the app asked for', async () => {
   const { env } = makeEnv();
   const { status, body } = await call(req('pw'), env);

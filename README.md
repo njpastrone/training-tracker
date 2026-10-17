@@ -91,7 +91,7 @@ npx wrangler secret put ANTHROPIC_API_KEY # paste your Anthropic API key
 npx wrangler secret put APP_PASSWORD      # choose a password to share with the app
 npx wrangler secret put APP_ATTEST_APP_ID           # <Team ID>.com.njpastrone.trainingtracker (Team ID: Apple Developer account, Membership details)
 npx wrangler secret put APP_ATTEST_CHALLENGE_SECRET  # any long random string, e.g. `openssl rand -base64 32`
-npx wrangler secret put CONTACT_EMAIL     # the support address the privacy policy and terms show
+npx wrangler secret put CONTACT_EMAIL     # required: the support address the privacy policy and terms show (503 without it)
 npx wrangler deploy                       # prints the Worker URL
 ```
 
@@ -110,7 +110,7 @@ Server tests (Node 22.18+): `cd server && npm test`
 
 ### Privacy policy and terms
 
-The Worker serves the privacy policy and terms of use as plain pages at `GET /privacy` and `GET /terms` (`server/src/legal.ts`), with no password or cap, so they live at the same URL as the API and ship with each Worker deploy. Settings › About and the AI consent sheet link them; put `<Worker URL>/privacy` in App Store Connect (App Privacy) and the TestFlight test information. Both are marked DRAFT until a lawyer has read them. The contact address comes from the `CONTACT_EMAIL` secret; until it is set the pages point to the support email on the App Store page. When the app starts sending or keeping something new, update the policy in the same change.
+The Worker serves the privacy policy and terms of use as plain pages at `GET /privacy` and `GET /terms` (`server/src/legal.ts`), with no password or cap, so they live at the same URL as the API and ship with each Worker deploy. Settings › About and the AI consent sheet link them; put `<Worker URL>/privacy` in App Store Connect (App Privacy) and the TestFlight test information. Both are marked DRAFT until a lawyer has read them. The contact address comes from the `CONTACT_EMAIL` secret, which is required: until it is set both pages answer 503 instead of a policy with no contact. When the app starts sending or keeping something new, update the policy in the same change.
 
 Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 

@@ -32,7 +32,7 @@ ${body}
 </html>`;
 
 const privacy = (contact: string) => page('Privacy Policy', `
-<p>LiftText is a workout and food log for iPhone, made by an independent developer in the United States ("we", "us"). This policy says what LiftText collects, where it goes, how long it's kept and how to delete it. Questions or requests: ${contact}.</p>
+<p>LiftText is a workout and food log for iPhone, run by the developer of LiftText in the United States ("we", "us"). The company (an LLC) that runs LiftText will be named here once it is formed. This policy says what LiftText collects, where it goes, how long it's kept and how to delete it. Questions or requests: ${contact}.</p>
 
 <h2>The short version</h2>
 <ul>
@@ -71,7 +71,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <h2>How long it's kept</h2>
 <ul>
 <li>Our server never stores what you type. It keeps a count of each phone's AI requests per day under the random ID, deleted after 2 days, and a per-question counter for the coach, deleted after 15 minutes.</li>
-<li>For App Attest it keeps the public half of your phone's App Attest key and a counter. It identifies the key, not you.</li>
+<li>For App Attest it keeps the public half of your phone's App Attest key and a counter until the key is replaced or you ask us to delete it. It identifies the key, not you.</li>
 <li>Server logs record the time, the random ID or key ID, which AI model answered and how much text it read and wrote (counts, not the text), plus the request details Cloudflare logs. They're deleted after 7 days.</li>
 <li>Anthropic: up to 30 days, or up to 2 years if flagged, as above.</li>
 </ul>
@@ -79,7 +79,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <h2>Your choices</h2>
 <ul>
 <li><strong>Turn AI off</strong> anytime: Settings › AI reading › Not now. LiftText keeps working on your phone: each line or comma you type becomes an exercise you fill in by hand, and common foods are looked up on the phone.</li>
-<li><strong>Delete your data</strong>: Settings › Clear all data deletes your workouts, food and settings. It leaves templates, your schedule, saved plans and backup files, so delete those in the app or in the Files app. Deleting LiftText removes everything it saved on the phone.</li>
+<li><strong>Delete your data</strong>: Settings › Clear all data deletes your workouts, food and settings. It leaves templates, your schedule, saved plans and backup files, so delete those in the app or in the Files app. It also keeps the random install ID and the App Attest key ID, which the daily limits per phone rely on. Deleting LiftText removes everything it saved on the phone.</li>
 <li>We can't find your requests by your name because we never have it. Email us with your request and we'll answer within 45 days.</li>
 </ul>
 
@@ -107,7 +107,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 `);
 
 const terms = (contact: string) => page('Terms of Use', `
-<p>These terms cover your use of LiftText, a workout and food log for iPhone made by an independent developer in the United States ("we", "us"). They add to Apple's standard Licensed Application End User License Agreement, which also applies. By using LiftText you agree to them. Questions: ${contact}.</p>
+<p>These terms cover your use of LiftText, a workout and food log for iPhone run by the developer of LiftText in the United States ("we", "us"). The company (an LLC) that runs LiftText will be named here once it is formed. They add to Apple's standard Licensed Application End User License Agreement, which also applies. By using LiftText you agree to them. Questions: ${contact}.</p>
 
 <h2>Who can use LiftText</h2>
 <ul>
@@ -129,7 +129,7 @@ const terms = (contact: string) => page('Terms of Use', `
 </ul>
 
 <h2>The beta</h2>
-<p>During the TestFlight beta LiftText is free. Features may change, break or go away, and the AI has a daily limit per phone. Before any paid features start, these terms will be updated to cover price, renewal, trials and cancellation, and the app will show them before you buy.</p>
+<p>During the TestFlight beta LiftText is free, and the beta runs on these DRAFT terms. Features may change, break or go away, and the AI has a daily limit per phone. Before any paid launch, these terms will be completed with governing law and subscription terms (price, renewal, trials and cancellation), and the app will show them before you buy.</p>
 
 <h2>Your data</h2>
 <p>What you log is yours. Our <a href="privacy">Privacy Policy</a> says what's collected and how to delete it.</p>
@@ -147,10 +147,10 @@ const terms = (contact: string) => page('Terms of Use', `
 <p>[To be completed with counsel: the state whose law governs these terms and where disputes are heard.]</p>
 `);
 
-// The page for a GET path, or null when the path isn't one
+// The page for a GET path, or null when the path isn't one; 503 until CONTACT_EMAIL is set, so no policy goes out without a contact
 export function legalPage(path: string, contactEmail?: string): Response | null {
   const render = path === '/privacy' ? privacy : path === '/terms' ? terms : null;
   if (!render) return null;
-  const contact = contactEmail ? `<a href="mailto:${contactEmail}">${contactEmail}</a>` : 'the support email on LiftText\'s App Store page';
-  return new Response(render(contact), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
+  if (!contactEmail) return new Response('This page is not available yet.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  return new Response(render(`<a href="mailto:${contactEmail}">${contactEmail}</a>`), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=3600' } });
 }

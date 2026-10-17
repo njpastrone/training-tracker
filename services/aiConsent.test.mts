@@ -14,7 +14,7 @@ mock.module('@react-native-async-storage/async-storage', {
 });
 
 const { useWorkoutStore } = await import('../stores/workoutStore');
-const { askAiConsent, setAiConsentAsker } = await import('./aiConsent');
+const { AI_CONSENT_VERSION, askAiConsent, setAiConsentAsker } = await import('./aiConsent');
 const { callClaude, parseLog, parseWorkout, AiOffError } = await import('./claude');
 
 process.env.EXPO_PUBLIC_API_URL = 'https://worker.test';
@@ -31,7 +31,7 @@ const consent = () => useWorkoutStore.getState().settings.aiConsent;
 beforeEach(() => {
   sent = 0;
   asked = 0;
-  useWorkoutStore.getState().updateSettings({ aiConsent: undefined });
+  useWorkoutStore.getState().updateSettings({ aiConsent: undefined, aiConsentVersion: undefined });
   setAiConsentAsker(null);
 });
 
@@ -74,7 +74,7 @@ test('calls waiting at the same time share one sheet', async () => {
 });
 
 test('with AI off a typed log becomes one exercise per line or comma, sent nowhere', async () => {
-  useWorkoutStore.getState().updateSettings({ aiConsent: 'declined' });
+  useWorkoutStore.getState().updateSettings({ aiConsent: 'declined', aiConsentVersion: AI_CONSENT_VERSION });
   const parsed = await parseWorkout('bench press, squats\nplank', { date: '2026-10-06', unit: 'lbs' });
   assert.equal(sent, 0);
   assert.deepEqual(parsed?.exercises.map(e => [e.name, e.muscleGroup]), [['bench press', 'chest'], ['squats', 'quads'], ['plank', 'core']]);
@@ -94,7 +94,7 @@ test('under 18: the Worker is never called, the answer is remembered, and logs r
 });
 
 test('AI turns on only with a yes from someone 18 or older, asked again from Settings', async () => {
-  useWorkoutStore.getState().updateSettings({ aiConsent: 'under18' });
+  useWorkoutStore.getState().updateSettings({ aiConsent: 'under18', aiConsentVersion: AI_CONSENT_VERSION });
   answer('under18');
   assert.equal(await askAiConsent(), false);
   await assert.rejects(callClaude('sys', 'bench 3x8', 100), AiOffError);
@@ -102,4 +102,19 @@ test('AI turns on only with a yes from someone 18 or older, asked again from Set
   assert.equal(await askAiConsent(), true);
   assert.equal(await callClaude('sys', 'bench 3x8', 100), 'ok');
   assert.equal(sent, 1);
+});
+
+test('a yes from before the 18+ question is asked again, and nothing is sent before the answer', async () => {
+  useWorkoutStore.getState().updateSettings({ aiConsent: 'granted' });
+  let reply!: (r: AiConsentAnswer) => void;
+  setAiConsentAsker(() => { asked++; return new Promise(r => { reply = r; }); });
+  const pending = callClaude('sys', 'bench 3x8', 100);
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(asked, 1);
+  assert.equal(sent, 0);
+  reply('under18');
+  await assert.rejects(pending, AiOffError);
+  assert.equal(sent, 0);
+  assert.equal(consent(), 'under18');
+  assert.equal(useWorkoutStore.getState().settings.aiConsentVersion, AI_CONSENT_VERSION);
 });
