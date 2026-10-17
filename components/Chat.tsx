@@ -7,8 +7,8 @@ import { radius } from '../constants/theme';
 export function UserBubble({ text }: { text: string }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.user, { backgroundColor: colors.sunrise }]}>
-      <Text variant="bodyLarge" style={{ color: colors.onSunrise }}>
+    <View style={[styles.user, { backgroundColor: colors.indigo }]}>
+      <Text variant="bodyLarge" style={{ color: colors.onIndigo }}>
         {text}
       </Text>
     </View>

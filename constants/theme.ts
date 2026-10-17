@@ -9,7 +9,7 @@ import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper'
 export const lightColors = {
   text: '#0E1430',
   textSecondary: '#3E4766',
-  textTertiary: '#6E7798',
+  textTertiary: '#5F6889',
   card: 'rgba(255,255,255,0.62)',
   cardLine: 'rgba(255,255,255,0.8)',
   glass: 'rgba(255,255,255,0.5)',
@@ -19,11 +19,13 @@ export const lightColors = {
   sunriseSoft: '#FF7A4F',
   onSunrise: '#FFFFFF',
   cobalt: '#3560F0',
+  indigo: '#5534C8', // you: your messages, the selected tab
+  onIndigo: '#FFFFFF',
   mint: '#13865A',
   error: '#D70015',
   warning: '#B25E00',
   // Solid surfaces: Reduce Transparency, sheets, and screens not yet on the sky
-  background: '#E4EEFF',
+  background: '#F6F5FF',
   surface: '#F7F9FF',
   border: '#D5DCEF',
   disabled: '#A3AAC4',
@@ -44,10 +46,12 @@ export const darkColors: typeof lightColors = {
   sunriseSoft: '#FF9D7A',
   onSunrise: '#2A1208',
   cobalt: '#8EA6FF',
+  indigo: '#A995FF',
+  onIndigo: '#0A1030',
   mint: '#52D9A0',
   error: '#FF6961',
   warning: '#FFB340',
-  background: '#141938',
+  background: '#1E1A44',
   surface: '#1C2142',
   border: '#2E3460',
   disabled: '#5A6189',
@@ -83,7 +87,7 @@ export const muscleGroupColors: Record<string, string> = {
   glutes: '#EE6F9F',
   calves: '#7A6FE0',
   cardio: '#3FA7D6',
-  full_body: '#D2441C',
+  full_body: '#7C8DB5', // slate, so done-orange stays unique
 };
 
 // Food categories get the same small dots as muscle groups

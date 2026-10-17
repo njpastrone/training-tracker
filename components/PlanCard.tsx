@@ -85,7 +85,7 @@ export default function PlanCard({ draft, previous, preview, context, busy, savi
             const on = plannedDates.has(format(d, 'yyyy-MM-dd'));
             return (
               <View key={d.toISOString()} style={styles.weekDay} accessible accessibilityLabel={`${format(d, 'EEEE')}${on ? ', workout' : ''}`}>
-                <View style={[styles.weekDot, on ? { backgroundColor: colors.cobalt } : { borderWidth: 1.5, borderColor: colors.dim }]}>
+                <View style={[styles.weekDot, on ? { backgroundColor: colors.text } : { borderWidth: 1.5, borderColor: colors.dim }]}>
                   <Text style={[styles.weekLetter, { color: on ? colors.onSunrise : colors.textTertiary }]}>{format(d, 'EEEEE')}</Text>
                 </View>
                 <Text style={[styles.weekNumber, { color: colors.textTertiary }]}>{format(d, 'd')}</Text>

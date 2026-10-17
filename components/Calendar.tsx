@@ -20,7 +20,7 @@ const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 // Last week, this week and next week; "Show full month" opens the month grid.
-// Trained = sunrise disc, planned = cobalt ring, today = a ring around the date, ate = a grey dot
+// Trained = sunrise disc, planned = an ink dashed ring, today = a ring around the date, ate = a grey dot
 // under the date. The legend names only the marks for what you log (training, food or both).
 // Every day opens the day screen, which shows what was logged or planned there.
 export default function Calendar({ workouts, schedule = [], foodDates }: Props) {
@@ -121,14 +121,14 @@ export default function Calendar({ workouts, schedule = [], foodDates }: Props) 
                 style={[
                   styles.disc,
                   hasWorkout && { backgroundColor: colors.sunrise },
-                  hasScheduled && { borderWidth: 2, borderColor: colors.cobalt },
-                  today && { borderWidth: 2, borderColor: colors.text },
+                  hasScheduled && { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.text },
+                  today && { borderWidth: 2, borderStyle: 'solid', borderColor: colors.text },
                 ]}
               >
                 <Text
                   style={[
                     styles.dayText,
-                    { color: hasWorkout ? colors.onSunrise : hasScheduled ? colors.cobalt : past ? colors.textSecondary : colors.text },
+                    { color: hasWorkout ? colors.onSunrise : hasScheduled ? colors.text : past ? colors.textSecondary : colors.text },
                   ]}
                   maxFontSizeMultiplier={1.4} // stays inside the 34 pt disc
                 >
@@ -144,7 +144,7 @@ export default function Calendar({ workouts, schedule = [], foodDates }: Props) 
 
       <View style={styles.legend}>
         {lifts && <LegendItem label="Trained" swatch={{ backgroundColor: colors.sunrise }} />}
-        {lifts && <LegendItem label="Planned" swatch={{ borderWidth: 2, borderColor: colors.cobalt }} />}
+        {lifts && <LegendItem label="Planned" swatch={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.text }} />}
         {eats && <LegendItem label="Ate" swatch={{ backgroundColor: colors.textTertiary }} />}
         <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
       </View>

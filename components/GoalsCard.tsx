@@ -5,11 +5,10 @@ import { useRouter } from 'expo-router';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { format, parseISO } from 'date-fns';
 import { SkyCard, SectionLabel } from './Sky';
-import GoalRing from './GoalRing';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { resolveId } from '../services/exerciseIdentity';
-import { foodGoalName, foodTarget, formatSets, muscleName, trainedLine, type CustomProgress, type FoodProgress, type MuscleProgress } from '../services/goals';
+import { foodGoalName, foodMet, foodTarget, foodValue, formatSets, muscleName, trainedLine, type CustomProgress, type FoodProgress, type MuscleProgress } from '../services/goals';
 import type { FoodDayTotal } from '../services/progress';
 import { fonts, muscleGroupColors, radius, spacing } from '../constants/theme';
 import type { FoodGoal, MuscleGroup, Workout } from '../types/workout';
@@ -28,7 +27,7 @@ export function GoalsHeader({ label }: { label: string }) {
     <View style={styles.header}>
       <SectionLabel style={styles.fill}>{label}</SectionLabel>
       <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" accessibilityLabel="Edit goals" hitSlop={10}>
-        <Text variant="labelLarge" style={{ color: colors.sunrise }}>Edit</Text>
+        <Text variant="labelLarge" style={{ color: colors.textSecondary }}>Edit</Text>
       </Pressable>
     </View>
   );
@@ -84,7 +83,7 @@ export function WeekGrid({ muscles, workouts, food, days }: GridProps) {
                   )}
                 </View>
               ))}
-              <Text style={[styles.count, styles.countText, { color: met ? colors.mint : colors.textSecondary }]}>
+              <Text style={[styles.count, styles.countText, { color: met ? colors.sunrise : colors.textSecondary }]}>
                 {met ? '✓' : `${m.times}/${m.timesGoal}`}
               </Text>
             </View>
@@ -101,32 +100,36 @@ export function WeekGrid({ muscles, workouts, food, days }: GridProps) {
           {list && label(foodGoalName(food.goal))}
           <View style={styles.gridRow}>
             {!list && label(foodGoalName(food.goal))}
-            {days.map(d => (
-              <View key={d.date} style={styles.cell}>
-                <GoalRing goal={food.goal} day={d.total} size={22} />
-              </View>
-            ))}
+            <DayBars goal={food.goal} days={days} />
             <Text style={[styles.count, styles.countText, { color: colors.textSecondary }]}>{food.hit}/{food.logged}</Text>
           </View>
         </View>
       )}
 
-      {food && (
-        <Text variant="bodySmall" style={[styles.legend, { color: colors.textTertiary }]}>
-          Rings fill toward your target; green is a day you met it ({ringRule(food.goal)}).
-        </Text>
-      )}
     </SkyCard>
   );
 }
 
-// What a met day is, for the grid's legend
-const ringRule = (goal: FoodGoal) =>
-  goal.kind === 'protein'
-    ? `protein at least ${foodTarget(goal)}`
-    : goal.kind === 'cut'
-      ? `calories under ${foodTarget(goal)}, cutting`
-      : `calories at least ${foodTarget(goal)}, bulking`;
+// The food goal across the last 7 days: one bar a day toward the target (the dashed line), sunrise when met.
+// Spans the grid's seven day cells.
+export function DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; total?: { protein: number; kcal: number } }[] }) {
+  const { colors } = useTheme();
+  const top = Math.max(goal.target, ...days.map(d => (d.total ? foodValue(goal, d.total) : 0))) * 1.1;
+  return (
+    <View style={styles.dayBars}>
+      <View style={[styles.targetLine, { bottom: `${(goal.target / top) * 100}%`, borderColor: colors.textTertiary }]} />
+      {days.map(d => (
+        <View key={d.date} style={[styles.cell, styles.barCell]}>
+          {d.total ? (
+            <View style={[styles.dayBar, { height: `${Math.max(6, (foodValue(goal, d.total) / top) * 100)}%`, backgroundColor: foodMet(goal, d.total) ? colors.sunrise : colors.dim }]} />
+          ) : (
+            <View style={[styles.restDot, { backgroundColor: colors.dim }]} />
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
 
 // One tile per goal muscle: its sets against the minimum (MEV), a bar, and when it was last trained.
 // Two a row; one at large text sizes. A tile opens that muscle.
@@ -214,7 +217,7 @@ function CustomRow({ c, first }: { c: CustomProgress; first: boolean }) {
         </View>
       </View>
       <Bar progress={c.now / c.target} done={c.met} />
-      {points.length >= 2 && <Trend points={points} color={colors.sunrise} />}
+      {points.length >= 2 && <Trend points={points} color={colors.text} />}
     </Pressable>
   );
 }
@@ -242,12 +245,12 @@ function Trend({ points, color }: { points: { i: number; v: number }[]; color: s
   );
 }
 
-// A progress bar: sunrise, mint once met; never shorter than a stub
+// A progress bar: ink toward the target, sunrise once met; never shorter than a stub
 export function Bar({ progress, done }: { progress: number; done: boolean }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.track, { backgroundColor: colors.dim }]}>
-      <View style={[styles.bar, { width: `${Math.max(4, Math.min(100, progress * 100))}%`, backgroundColor: done ? colors.mint : colors.sunrise }]} />
+      <View style={[styles.bar, { width: `${Math.max(4, Math.min(100, progress * 100))}%`, backgroundColor: done ? colors.sunrise : colors.text }]} />
     </View>
   );
 }
@@ -329,8 +332,25 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: 10,
   },
-  legend: {
-    marginTop: 2, // 10 pt with the grid's row gap
+  dayBars: {
+    flex: 7, // the seven day cells
+    flexDirection: 'row',
+    height: 44,
+  },
+  barCell: {
+    alignSelf: 'stretch',
+    justifyContent: 'flex-end',
+  },
+  targetLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderTopWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  dayBar: {
+    width: 14,
+    borderRadius: 4,
   },
   dot: {
     width: 10,

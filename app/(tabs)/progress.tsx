@@ -196,7 +196,7 @@ export default function ProgressScreen() {
                     <SectionLabel style={styles.fill}>Days since trained</SectionLabel>
                     {!goals?.custom.length && settings.goalsPromptDismissed && (
                       <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" hitSlop={10}>
-                        <Text variant="labelLarge" style={{ color: colors.sunrise }}>Set goals</Text>
+                        <Text variant="labelLarge" style={{ color: colors.textSecondary }}>Set goals</Text>
                       </Pressable>
                     )}
                   </View>
@@ -288,7 +288,7 @@ function ExerciseRow({ exercise, lift, first, onPress }: { exercise: ExerciseSum
         <View style={styles.nameRow}>
           <Text variant="bodyLarge" style={[styles.shrink, { color: colors.text }]} numberOfLines={1}>{exercise.name}</Text>
           {lift?.trend.isAllTimeBest && (
-            <Text variant="labelSmall" style={[styles.badge, { color: colors.mint, backgroundColor: colors.mint + '1F' }]}>PR</Text>
+            <Text variant="labelSmall" style={[styles.badge, { color: colors.sunrise, backgroundColor: colors.sunrise + '1F' }]}>PR</Text>
           )}
         </View>
         <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{lastDoneLine(exercise)}</Text>
