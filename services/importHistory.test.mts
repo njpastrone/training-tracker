@@ -152,3 +152,22 @@ test('the preview names the range, what is already there and every reason rows w
   assert.match(text, /The file stays on this phone\.$/);
   assert.match(importSummary({ ...preview, workouts: 0, sets: 0, skipped: {}, already: 3 }), /^No new workouts in this Strong file\.\n\n3 workouts already/);
 });
+
+test('Hevy with a byte-order mark and CRLF line endings reads the same as the plain file', () => {
+  const plain = read('hevy.csv', 'lbs');
+  const bom = readExport('﻿' + fixture('hevy.csv').replace(/\n/g, '\r\n'), [], emptyLibrary(), 'lbs');
+  assert.equal(bom.preview.source, 'Hevy');
+  assert.equal(bom.preview.needsUnit, false);
+  assert.deepEqual(bom.preview, plain.preview);
+  assert.deepEqual(bom.workouts.map((w) => [w.date, w.notes, w.exercises.map((e) => [e.name, e.sets, e.reps, e.weight, e.unit])]),
+    plain.workouts.map((w) => [w.date, w.notes, w.exercises.map((e) => [e.name, e.sets, e.reps, e.weight, e.unit])]));
+  assert.equal(byName(bom.workouts.find((w) => w.date === '2026-05-22')!, 'Bench Press (Barbell)')[0].unit, 'kg');
+});
+
+test('Strong rows with Infinity or a negative weight are skipped, not imported', () => {
+  const header = fixture('strong.csv').split('\n')[0];
+  const row = (weight: string, reps: string) => `2026-03-01 07:00:00,"Leg Day",1h,"Squat (Barbell)",1,${weight},${reps},0,0.0,,,`;
+  const { preview, workouts } = readExport([header, row('Infinity', '5'), row('-20', '5'), row('100', '5')].join('\n'), [], emptyLibrary(), 'lbs');
+  assert.deepEqual(preview.skipped, { "rows with a number that can't be read": 2 });
+  assert.deepEqual(workouts.flatMap((w) => w.exercises.map((e) => [e.sets, e.reps, e.weight])), [[1, 5, 100]]);
+});
