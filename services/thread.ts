@@ -25,10 +25,18 @@ export const needsStamp = (prev: ChatItem | undefined, next: ChatItem) =>
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const names = (q: string, words: string) => new RegExp(`\\b${escape(words.toLowerCase())}\\b`).test(q);
 
-// The lift a question is about, by its name or first word: only when exactly one matches, so a
-// chart is never of the wrong lift
+// The word people call a lift by: its first word that isn't equipment or a stance ("Barbell Bench
+// Press" → "bench", "Seated Cable Row" → "row")
+const NOT_THE_LIFT = new Set(['barbell', 'dumbbell', 'db', 'bb', 'cable', 'machine', 'smith', 'ez', 'ez-bar', 'kettlebell', 'seated', 'standing', 'incline', 'decline', 'flat', 'weighted', 'assisted', 'single-arm', 'one-arm']);
+export const liftWord = (lift: string) => {
+  const words = lift.toLowerCase().split(/\s+/);
+  return words.find((w) => !NOT_THE_LIFT.has(w)) ?? words[0];
+};
+
+// The lift a question is about, by its name or the word people call it by: only when exactly one
+// matches, so a chart is never of the wrong lift
 export function chartFor(question: string, trends: { id: string; lift: string }[]): string | undefined {
   const q = question.toLowerCase();
-  const hits = trends.filter((t) => names(q, t.lift) || names(q, t.lift.split(/\s+/)[0]));
+  const hits = trends.filter((t) => names(q, t.lift) || names(q, liftWord(t.lift)));
   return hits.length === 1 ? hits[0].id : undefined;
 }

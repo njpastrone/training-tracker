@@ -1,6 +1,7 @@
 import { differenceInCalendarDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { muscleName } from './goals';
 import { digest } from './insights';
+import { liftWord } from './thread';
 import type { ExerciseLibrary, MuscleGroup, WeightUnit, Workout } from '../types/workout';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
 import type { FoodEntry } from '../types/food';
@@ -153,7 +154,7 @@ export function askChips(workouts: Workout[], library: ExerciseLibrary, unit: We
   const lifts = new Set(d.liftTrends.map(t => t.id));
   const lift = d.exercises.find(e => lifts.has(e.id));
   return toChips([
-    ...(lift ? [`Is my ${lift.name.split(/\s+/)[0].toLowerCase()} stuck?`] : []),
+    ...(lift ? [`Is my ${liftWord(lift.name)} stuck?`] : []),
     'What should I train tomorrow?',
     ...(proteinGoal ? ["How's my protein?"] : []),
   ]);

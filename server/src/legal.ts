@@ -43,7 +43,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 </ul>
 
 <h2>What stays on your phone</h2>
-<p>Everything you log or set up: workouts, food, plans, templates, your schedule, goals, settings, and the things you asked the coach to remember. Backups you export, and the weekly backup, are files in the Files app (On My iPhone › LiftText › Backups) that only you can share. If iCloud Backup is on for your iPhone, Apple includes LiftText's data in your iPhone's backup, under Apple's privacy policy.</p>
+<p>Everything you log or set up: workouts, food, plans, templates, your schedule, goals, settings, your Chat history, and the things you asked the coach to remember. Backups you export, and the weekly backup, are files in the Files app (On My iPhone › LiftText › Backups) that only you can share. If iCloud Backup is on for your iPhone, Apple includes LiftText's data in your iPhone's backup, under Apple's privacy policy.</p>
 <p>LiftText doesn't read or write Apple Health data, and it doesn't use your photos, contacts or location.</p>
 
 <h2>What leaves your phone, and why</h2>
@@ -53,7 +53,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <li>exercise names (yours and matching ones from the built-in list) and food names from the built-in food list that match what you typed</li>
 <li>your weight unit and the date</li>
 <li>when you plan a week: a summary of your recent training and your goals</li>
-<li>when you ask the coach: a summary of your last 4 weeks of training and food, your goals, the things you asked it to remember, your question, and what the question needs (for example one exercise's history or a day's meals)</li>
+<li>when you ask the coach: a summary of your last 4 weeks of training and food, your goals, the things you asked it to remember, your question, your earlier questions to it that day with its answers, and what the question needs (for example one exercise's history or a day's meals)</li>
 </ul>
 <p>Your full history, your name and your photos are never sent. We use this only to turn what you type into a workout or food log, plan your week and answer your questions.</p>
 <p><strong>With every AI request</strong>, the app also sends a random ID it made for this install and, on a real iPhone, a signature from a key Apple's App Attest service checked, which proves the request comes from a genuine copy of LiftText. Neither is linked to who you are. We use them to limit how many AI requests each phone makes a day and to stop abuse of our server.</p>

@@ -69,13 +69,17 @@ export function LoggedCard({ item }: { item: Extract<ChatItem, { kind: 'logged' 
   return (
     <Reply>
       <Header title={`Logged · ${name}`} onOpen={open} />
+      {groups.length > 0 && (
+        <Text variant="bodyMedium" style={[styles.line, { color: colors.textSecondary }]}>
+          {groups.map(g => (
+            <Text key={g}>
+              <Text style={{ color: muscleGroupColors[g] }}>● </Text>
+              {muscleName(g)}{'  '}
+            </Text>
+          ))}
+        </Text>
+      )}
       <Text variant="bodyMedium" style={[styles.line, { color: colors.textSecondary }]}>
-        {groups.map(g => (
-          <Text key={g}>
-            <Text style={{ color: muscleGroupColors[g] }}>● </Text>
-            {muscleName(g)}{'  '}
-          </Text>
-        ))}
         {[exercises ? `${exercises} exercise${exercises === 1 ? '' : 's'}` : '', items.length ? `${kcal} kcal · ${protein} g protein` : ''].filter(Boolean).join(' · ')}
       </Text>
     </Reply>

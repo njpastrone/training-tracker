@@ -9,7 +9,8 @@ This directory contains all routes using Expo Router's file-based routing.
   - `index.tsx`: Log tab (home) - workout input + recent workouts
   - `history.tsx`: History tab - the record: calendar (every day opens `day/[date].tsx`), workouts by month, and the planner chat bar
   - `progress.tsx`: Progress tab - goals (`components/GoalsCard.tsx`), exercises (last done, how often, PRs), days since trained, and a box for adding missed workouts
-  - `settings.tsx`: Settings tab - preferences, data management
+  - `chat.tsx`: Chat tab - the log as one thread (`stores/chatStore.ts`), the coach, the opener; the gear opens Settings
+- `settings.tsx`: Settings (pushed from the gear on Chat) - preferences, backups, data management
 - `goals.tsx`: set goals (each muscle N× a week, minimum sets per muscle, days a week, your own lift and frequency goals)
 
 ## Routing Conventions

@@ -30,7 +30,8 @@ DESIGN-SYSTEM.md  # UI component standards and design guidelines
 2. **AI Parsing**: Claude API extracts structured workout data
 3. **Workout History**: Calendar of logged and planned days (each day opens its day screen) and every day by month
 4. **Progress**: Goals (each muscle N× a week, minimum sets, your own lift and frequency goals) checked against the last 7 days, last done and how often per exercise, PRs where there are numbers, days since each muscle group, and natural-language corrections
-5. **Local Storage**: Data persists on device
+5. **Chat**: The fourth tab is the log as one thread (`stores/chatStore.ts`): every bar's logs, plans and questions land there; questions from any bar are answered there by the coach; Settings is behind its gear
+6. **Local Storage**: Data persists on device
 
 ## Upcoming Features
 See `FEATURES.md` for detailed implementation plans:

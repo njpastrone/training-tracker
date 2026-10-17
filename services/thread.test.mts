@@ -13,7 +13,7 @@ mock.module('@react-native-async-storage/async-storage', {
   },
 });
 
-const { coachThread, needsStamp, chartFor } = await import('./thread');
+const { coachThread, needsStamp, chartFor, liftWord } = await import('./thread');
 const { useChatStore } = await import('../stores/chatStore');
 
 const now = new Date(2026, 9, 17, 18, 0);
@@ -47,6 +47,16 @@ test('chartFor picks the one lift a question names, else none', () => {
   assert.equal(chartFor('bench or squat today?', trends), undefined);
   assert.equal(chartFor("how's my protein?", trends), undefined);
   assert.equal(chartFor('benches near me', trends), undefined); // whole words only
+  // Equipment words don't name a lift
+  const barbell = [{ id: 'bench', lift: 'Barbell Bench Press' }, { id: 'row', lift: 'Barbell Row' }];
+  assert.equal(chartFor('is my bench stuck?', barbell), 'bench');
+  assert.equal(chartFor('barbell or dumbbells?', barbell), undefined);
+});
+
+test('liftWord skips equipment and stance words', () => {
+  assert.equal(liftWord('Barbell Bench Press'), 'bench');
+  assert.equal(liftWord('Seated Cable Row'), 'row');
+  assert.equal(liftWord('Squat'), 'squat');
 });
 
 test('the store adds, patches an answer and clears', () => {

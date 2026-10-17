@@ -48,10 +48,14 @@ export default function ChatScreenTab() {
 
   const coach = useCoach();
   const todaysSchedule = schedule.find(s => s.date === today && !s.completed && !s.skipped);
+  // A question the coach couldn't answer goes back in the bar to try again
+  const ask = async (q: string) => {
+    if (!(await coach.ask(q))) log.setText(q);
+  };
   const log = useLogDraft({
     date: today,
     withFood: true,
-    onQuestion: coach.ask,
+    onQuestion: ask,
     onLogged: async (workoutId, templateId) => {
       // Started from today's plan: mark the day done, as Log does
       if (templateId && todaysSchedule?.templateId === templateId) await markWorkoutCompleted(todaysSchedule.date, workoutId).catch(() => {});
@@ -70,7 +74,7 @@ export default function ChatScreenTab() {
   // A question typed into another tab's bar arrives here already asked
   useEffect(() => {
     if (!question) return;
-    coach.ask(question);
+    ask(question);
     router.setParams({ question: '' });
   }, [question]);
 
@@ -113,7 +117,7 @@ export default function ChatScreenTab() {
           },
           placeholder: 'Log something or ask',
           chips: log.text.trim() ? [] : coach.chips.length ? toChips(coach.chips) : starters,
-          onChip: coach.ask,
+          onChip: ask,
           busy: log.busy === 'parse' || coach.busy || planner.busy,
           error: coach.error ?? log.error ?? planner.error,
         };

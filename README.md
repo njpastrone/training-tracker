@@ -10,7 +10,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Progress** - When you last did each exercise and how often, PRs where you logged numbers, days since each muscle group, and a box to add a workout you forgot ("did legs six days ago")
 - **Goals** - Set goals on Progress (each muscle 1-3× a week, minimum sets per muscle, days a week, a weight to lift or an exercise to do often) and see them against your last 7 days; the planner aims at them
-- **Ask the coach** - Tap **Ask** on Progress (or type a question into the Log or Progress box) to ask about your own training and food ("I've taken a few days off, what should I start with?", "what did I squat last Tuesday?"); it answers from a summary of your last 4 weeks and looks up the rest in your log, suggests a workout or meals you save with one tap, and offers to remember things you tell it (no dairy, a home gym), which you can see and forget in Settings
+- **Chat** - The fourth tab is your log as one thread: everything you type into any box lands there with what came of it ("Logged · Push" with Open), kept on your phone and in backups. It opens on something timely (today's plan with Start / Not today, or a comeback line after a few days off) and its chips are questions from your own log. Ask the coach there, or type a question into any tab's box and Chat answers it: ask about your own training and food ("I've taken a few days off, what should I start with?", "what did I squat last Tuesday?"); it answers from a summary of your last 4 weeks and looks up the rest in your log, suggests a workout or meals you save with one tap, and offers to remember things you tell it (no dairy, a home gym), which you can see and forget in Settings
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
 - **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, the things you asked it to remember and what the question needs (one exercise's history, a day's meals), never the whole log. Our server never stores what you type: it keeps daily request counts per phone (using a random ID, deleted after 2 days) and request logs without your text for 7 days. AI is for 18 and older; under 18 it stays off and nothing you type leaves the phone. The [privacy policy and terms](#privacy-policy-and-terms) say the rest.
 
@@ -128,8 +128,8 @@ training-tracker/
 │   │   ├── index.tsx       # Log tab (home)
 │   │   ├── history.tsx     # History & calendar
 │   │   ├── progress.tsx    # Progress: goals, exercises, days since, corrections
-│   │   └── settings.tsx    # App settings
-│   ├── ask.tsx             # Ask the coach (opened from Progress)
+│   │   └── chat.tsx        # Chat: your log as one thread, and the coach
+│   ├── settings.tsx        # Settings (the gear on Chat)
 │   ├── goals.tsx           # Set your goals
 │   └── _layout.tsx         # Root layout
 ├── components/             # Reusable UI components
@@ -178,7 +178,7 @@ Tap any day on the calendar to open it: its workouts, or its planned workout (**
 
 ### Backing Up
 
-All data lives on the phone. It is included in the iPhone's normal iCloud device backup, and **Settings › Backup** adds:
+All data lives on the phone, the Chat thread too. It is included in the iPhone's normal iCloud device backup, and **Settings › Backup** adds:
 - **Export backup** - saves workouts, food, plans, templates and schedule as one `.json` file via the share sheet (Files, iCloud Drive, AirDrop, ...)
 - **Restore from backup** - picks a LiftText backup file and replaces the data on this phone. The current data is saved first as a safety file.
 - **Import from Strong or Hevy** - picks the CSV export from either app, shows how many workouts, the date range and any skipped rows, then adds the workouts to History (asking kg or lb when the file doesn't say). Workouts already imported are not added again.

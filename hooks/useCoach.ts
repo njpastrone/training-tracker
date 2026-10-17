@@ -20,29 +20,29 @@ const answerById = (id: string) => useChatStore.getState().items.find((i): i is 
 // back with each question (services/thread.ts). Cards save only on a tap: a workout goes on the
 // calendar, a meal into today's food, a fact into Settings; the tap is kept on the answer.
 export function useCoach() {
-  const [text, setText] = useState(''); // what's in the composer
   const [pending, setPending] = useState<string | null>(null); // the question being answered
   const [error, setError] = useState<string | null>(null);
   const items = useChatStore(s => s.items);
   const patch = (id: string, change: Partial<CoachTurnState>) => useChatStore.getState().patch(id, change);
 
-  const ask = async (raw: string) => {
+  // False when it couldn't answer, so the caller can put the question back in its composer
+  const ask = async (raw: string): Promise<boolean> => {
     const question = raw.trim();
-    if (!question || pending) return;
+    if (!question || pending) return false;
     const now = new Date();
     const thread = coachThread(useChatStore.getState().items, now);
     setPending(question);
     setError(null);
-    setText('');
     try {
       const { reply, raw: answered, cards } = await askCoach(question, thread, now);
       const { workouts, exerciseLibrary, settings } = useWorkoutStore.getState();
       const chartExerciseId = chartFor(question, digest(workouts, exerciseLibrary, settings.weightUnit, now).liftTrends);
       useChatStore.getState().add({ kind: 'you', text: question }, { kind: 'answer', question, turn: { reply, raw: answered, cards, chartExerciseId } });
+      return true;
     } catch (err) {
       console.error('Coach error:', err);
       setError(err instanceof ApiError ? err.message : RETRY_MESSAGE);
-      setText(question);
+      return false;
     } finally {
       setPending(null);
     }
@@ -113,5 +113,5 @@ export function useCoach() {
   // The newest answer's follow-ups, while it's the last thing in the thread
   const last = items[items.length - 1];
   const chips = last?.kind === 'answer' ? last.turn.reply.chips : [];
-  return { text, setText, pending, busy: !!pending, error, ask, plan, logMeal, remember, chips };
+  return { pending, busy: !!pending, error, ask, plan, logMeal, remember, chips };
 }
