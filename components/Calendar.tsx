@@ -144,7 +144,7 @@ export default function Calendar({ workouts, schedule = [], foodDates }: Props) 
 
       <View style={styles.legend}>
         {lifts && <LegendItem label="Trained" swatch={{ backgroundColor: colors.sunrise }} />}
-        {lifts && <LegendItem label="Planned" swatch={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.text }} />}
+        {lifts && <LegendItem label="Planned" swatch={{ borderWidth: 1.5, borderColor: colors.text }} />}
         {eats && <LegendItem label="Ate" swatch={{ backgroundColor: colors.textTertiary }} />}
         <LegendItem label="Today" swatch={{ borderWidth: 2, borderColor: colors.text }} />
       </View>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   cell: {
-    width: `${100 / 7}%`,
+    width: '14.28%', // a hair under 1/7 so rounding never wraps the seventh day
     height: 46,
     alignItems: 'center',
     justifyContent: 'center',

@@ -117,7 +117,6 @@ export function DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; 
   const top = Math.max(goal.target, ...days.map(d => (d.total ? foodValue(goal, d.total) : 0))) * 1.1;
   return (
     <View style={styles.dayBars}>
-      <View style={[styles.targetLine, { bottom: `${(goal.target / top) * 100}%`, borderColor: colors.textTertiary }]} />
       {days.map(d => (
         <View key={d.date} style={[styles.cell, styles.barCell]}>
           {d.total ? (
@@ -127,6 +126,7 @@ export function DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; 
           )}
         </View>
       ))}
+      <View style={[styles.targetLine, { bottom: `${(goal.target / top) * 100}%`, borderColor: colors.textTertiary }]} />
     </View>
   );
 }
@@ -342,8 +342,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    borderTopWidth: 1.5,
-    borderStyle: 'dashed',
+    borderTopWidth: 1, // solid: iOS doesn't draw a dashed border on one side only
   },
   dayBar: {
     width: 14,

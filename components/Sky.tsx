@@ -65,11 +65,11 @@ export function Hero({ value, of, note, sub }: { value: string; of?: string; not
 }
 
 // Content card: standard material over the sky, solid under Reduce Transparency. Inside a SkySheet it's
-// a flat section with a hairline on top instead.
+// a flat section with a hairline under it instead.
 export function SkyCard({ style, ...props }: ViewProps) {
   const { colors, reduceTransparency } = useTheme();
   const inSheet = useContext(SheetContext);
-  if (inSheet) return <View {...props} style={[styles.section, { borderTopColor: colors.dim }, style]} />;
+  if (inSheet) return <View {...props} style={[styles.section, { borderBottomColor: colors.dim }, style]} />;
   return (
     <View
       {...props}
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingVertical: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth, // below, so the first section doesn't double the sheet's edge
   },
   hero: {
     marginBottom: spacing.lg,
