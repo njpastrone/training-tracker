@@ -12,16 +12,15 @@ export function SkyScreen({ children, edges = ['top'] }: { children: React.React
   const { isDarkMode, sky } = useTheme();
   const stops = isDarkMode ? SKY.night : sky.stops;
   return (
-    <View style={[styles.fill, { backgroundColor: stops[2] }]}>
-      <LinearGradient colors={stops} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
-      {isDarkMode && (
-        <LinearGradient
-          colors={['rgba(42,39,102,0.9)', 'rgba(42,39,102,0)']}
-          start={{ x: 0.85, y: 0 }}
-          end={{ x: 0.35, y: 0.55 }}
-          style={StyleSheet.absoluteFill}
-        />
-      )}
+    <View style={[styles.fill, { backgroundColor: stops[3] }]}>
+      {/* ponytail: one 45% fade for every screen; the spec's 30% for short headers can come later if History or Settings look washed out */}
+      <LinearGradient colors={stops} locations={[0, 0.15, 0.3, 0.45]} style={StyleSheet.absoluteFill} />
+      <LinearGradient
+        colors={isDarkMode ? ['rgba(42,39,102,0.9)', 'rgba(42,39,102,0)'] : ['rgba(255,248,232,0.75)', 'rgba(255,248,232,0)']}
+        start={{ x: 0.85, y: 0 }}
+        end={{ x: 0.35, y: 0.45 }}
+        style={StyleSheet.absoluteFill}
+      />
       <SafeAreaView edges={edges} style={styles.fill}>
         {children}
       </SafeAreaView>

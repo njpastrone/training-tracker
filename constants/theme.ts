@@ -8,7 +8,7 @@ import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper'
 // Light: text levels, card material, sunrise accent, cobalt for planned, mint for success
 export const lightColors = {
   text: '#0E1430',
-  textSecondary: '#4A5374',
+  textSecondary: '#3E4766',
   textTertiary: '#6E7798',
   card: 'rgba(255,255,255,0.62)',
   cardLine: 'rgba(255,255,255,0.8)',
