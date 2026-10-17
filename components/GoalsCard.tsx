@@ -131,48 +131,45 @@ export function DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; 
   );
 }
 
-// One tile per goal muscle: its sets against the minimum (MEV), a bar, and when it was last trained.
-// Two a row; one at large text sizes. A tile opens that muscle.
+// One row per goal muscle: its sets against the minimum (MEV) with a bar, and when it was last trained.
+// Above 130% text the bar moves under the name. A row opens that muscle.
 export function MuscleSetsCard({ muscles, daysSince }: { muscles: MuscleProgress[]; daysSince: Partial<Record<MuscleGroup, number>> }) {
   const { colors } = useTheme();
   const router = useRouter();
   const { fontScale } = useWindowDimensions();
-  const perRow = fontScale > LIST_AT_FONT_SCALE ? 1 : 2;
-  const rows = Array.from({ length: Math.ceil(muscles.length / perRow) }, (_, i) => muscles.slice(i * perRow, (i + 1) * perRow));
+  const stacked = fontScale > LIST_AT_FONT_SCALE;
   const mins = new Set(muscles.map(m => m.setsGoal));
   const min = mins.size === 1 ? `Minimum ${muscles[0].setsGoal} sets a week (MEV).` : 'Minimum sets a week (MEV).';
 
   return (
     <SkyCard>
-      {rows.map((row, i) => (
-        <View key={row[0].group} style={[styles.tileRow, i > 0 && styles.tileRowGap]}>
-          {row.map(m => {
-            const name = muscleName(m.group);
-            const met = m.sets >= m.setsGoal!;
-            const sets = `${formatSets(m.sets, m.setsMissing)} of ${m.setsGoal} sets`;
-            const last = trainedLine(daysSince[m.group]);
-            return (
-              <Pressable
-                key={m.group}
-                onPress={() => router.push({ pathname: '/exercise', params: { group: m.group } })}
-                accessibilityRole="button"
-                accessibilityLabel={[name, sets, last, met && 'goal met'].filter(Boolean).join(', ')}
-                style={({ pressed }) => [styles.tile, { backgroundColor: colors.dim, borderColor: met ? colors.mint : colors.cardLine }, pressed && styles.pressed]}
-              >
-                <View style={styles.tileHead}>
-                  <View style={[styles.dot, { backgroundColor: muscleGroupColors[m.group] }]} />
-                  <Text style={[styles.tileName, styles.fill, { color: colors.text }]}>{name}</Text>
-                  {met && <Text style={[styles.countText, { color: colors.mint }]}>✓</Text>}
-                </View>
-                <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{sets}</Text>
-                <Bar progress={m.sets / m.setsGoal!} done={met} />
+      {muscles.map((m, i) => {
+        const name = muscleName(m.group);
+        const met = m.sets >= m.setsGoal!;
+        const sets = formatSets(m.sets, m.setsMissing);
+        const last = trainedLine(daysSince[m.group]);
+        const bar = <Bar progress={m.sets / m.setsGoal!} done={met} />;
+        return (
+          <Pressable
+            key={m.group}
+            onPress={() => router.push({ pathname: '/exercise', params: { group: m.group } })}
+            accessibilityRole="button"
+            accessibilityLabel={[name, `${sets} of ${m.setsGoal} sets`, last, met && 'goal met'].filter(Boolean).join(', ')}
+            style={({ pressed }) => [styles.setRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.dim }, pressed && styles.pressed]}
+          >
+            <View style={styles.setHead}>
+              <View style={[styles.dot, { backgroundColor: muscleGroupColors[m.group] }]} />
+              <View style={stacked ? styles.fill : styles.setName}>
+                <Text style={[styles.tileName, { color: colors.text }]}>{name}</Text>
                 <Text variant="bodySmall" style={{ color: colors.textTertiary }}>{last}</Text>
-              </Pressable>
-            );
-          })}
-          {row.length < perRow && <View style={styles.fill} />}
-        </View>
-      ))}
+              </View>
+              {!stacked && <View style={styles.fill}>{bar}</View>}
+              <Text style={[styles.countText, { color: met ? colors.sunrise : colors.text }]}>{met ? `${sets} ✓` : `${sets} / ${m.setsGoal}`}</Text>
+            </View>
+            {stacked && bar}
+          </Pressable>
+        );
+      })}
       <Text variant="bodySmall" style={[styles.footer, { color: colors.textTertiary }]}>
         {min} A set counts fully for its main muscle and half for helpers.
       </Text>
@@ -357,25 +354,18 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  tileRow: {
-    flexDirection: 'row',
-    gap: spacing.gap,
+  setRow: {
+    paddingVertical: 10,
+    minHeight: 44,
+    gap: 6,
   },
-  tileRowGap: {
-    marginTop: spacing.gap,
-  },
-  tile: {
-    flex: 1,
-    borderRadius: radius.tile,
-    borderWidth: 1,
-    paddingVertical: spacing.gap,
-    paddingHorizontal: 14,
-    gap: 2,
-  },
-  tileHead: {
+  setHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.gap,
+  },
+  setName: {
+    width: 104,
   },
   tileName: {
     fontSize: 16,

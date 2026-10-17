@@ -156,12 +156,12 @@ export function Composer({ value, onChangeText, onSend, placeholder, busy, disab
         disabled={!canSend}
         accessibilityRole="button"
         accessibilityLabel="Send"
-        style={[styles.send, { backgroundColor: colors.sunrise, opacity: canSend || busy ? 1 : 0.4 }]}
+        style={[styles.send, { backgroundColor: canSend || busy ? colors.sunrise : colors.dim }]}
       >
         {busy ? (
           <ActivityIndicator color={colors.onSunrise} />
         ) : (
-          <SymbolView name="arrow.up" size={18} weight="bold" tintColor={colors.onSunrise} />
+          <SymbolView name="arrow.up" size={18} weight="bold" tintColor={canSend ? colors.onSunrise : colors.textTertiary} />
         )}
       </Pressable>
     </GlassSurface>

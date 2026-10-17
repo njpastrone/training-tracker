@@ -3,7 +3,9 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 're
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SkyScreen } from './Sky';
+import { SKY } from '../services/sky';
 import { Composer, Pill } from './Glass';
 import type { useLogDraft } from '../hooks/useLogDraft';
 import { toChips, type Chip } from '../services/suggestions';
@@ -85,6 +87,8 @@ interface ChatScreenProps {
 // A chat tab: the page scrolls, the bar stays pinned above the tab bar and rides up with the keyboard
 export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) {
   const scrollRef = useRef<ScrollView>(null);
+  const { isDarkMode, sky } = useTheme();
+  const base = isDarkMode ? SKY.night[3] : sky.stops[3];
   return (
     // The bar sits above the tab bar, so pad the bottom edge too
     <SkyScreen edges={['top', 'bottom']}>
@@ -99,6 +103,7 @@ export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) 
           >
             {children}
           </ScrollView>
+          <LinearGradient pointerEvents="none" colors={[`${base}00`, base]} style={styles.fade} />
           {overlay}
         </View>
         <ChatBar {...bar} />
@@ -113,6 +118,13 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.screen,
+  },
+  fade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 60,
   },
   grow: {
     flexGrow: 1, // so a tab's SkySheet reaches the bottom
