@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { v4 as uuidv4 } from 'uuid';
 import { addDays, format, parseISO } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { useChatStore } from '../stores/chatStore';
 import { parseWorkout, parseLog, correctWorkout, correctFood, workoutsFromParse, ApiError } from '../services/claude';
 import { mentionsFood } from '../services/foods';
 import { routeComposer } from '../services/ask';
@@ -154,7 +155,13 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
     setBusy('save');
     const workouts = draft ? workoutsFromParse(draft, sent ?? 'Started from template', date, templateId) : [];
     workouts.forEach(addWorkout);
-    if (food) foodEntriesFromDraft(food, sent ?? '', date).forEach(addFoodEntry);
+    const foodEntries = food ? foodEntriesFromDraft(food, sent ?? '', date) : [];
+    foodEntries.forEach(addFoodEntry);
+    // Into the Chat thread: what you sent, then what was logged (pointing at the records)
+    useChatStore.getState().add(
+      ...(sent ? [{ kind: 'you' as const, text: sent }] : []),
+      { kind: 'logged', workoutIds: workouts.map((w) => w.id), foodEntryIds: foodEntries.map((e) => e.id), day: workouts[workouts.length - 1]?.date ?? foodEntries[0]?.date ?? date }
+    );
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (templateId) {
       try {

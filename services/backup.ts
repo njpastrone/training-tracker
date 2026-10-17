@@ -3,6 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { CHAT_KEY, useChatStore } from '../stores/chatStore';
 import { GOAL_MUSCLES } from './goals';
 
 // Every AsyncStorage key the app persists. A new persisted key must be added here or backups miss it.
@@ -11,6 +12,7 @@ export const BACKUP_KEYS = [
   '@training-tracker/templates',
   '@training-tracker/schedule',
   '@training-tracker/plans',
+  '@training-tracker/chat', // stores/chatStore.ts: the Chat tab's thread
 ];
 const STORE_KEY = BACKUP_KEYS[0];
 export const BACKUP_VERSION = 1;
@@ -28,6 +30,7 @@ export interface BackupSummary {
   workouts: number;
   templates: number;
   plans: number;
+  messages: number; // items in the Chat thread
   createdAt: string;
 }
 
@@ -106,9 +109,12 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   const goals = store.state.settings.goals;
   if (goals !== undefined && !goalsOk(goals)) fail(DAMAGED);
   if (store.state.settings.profile !== undefined && !profileOk(store.state.settings.profile)) fail(DAMAGED);
-  for (const key of BACKUP_KEYS.slice(1)) {
+  for (const key of Object.keys(ITEM_CHECKS)) {
     if (b.data[key] != null && !listOf(b.data[key], ITEM_CHECKS[key])) fail(DAMAGED);
   }
+  // The chat thread is a store of its own; a backup from before Chat has none and restores an empty thread
+  const chat = b.data[CHAT_KEY];
+  if (chat != null && !(isObject(chat) && isObject(chat.state) && listOf(chat.state.items, (i) => hasStrings(i, 'id', 'at', 'kind')))) fail(DAMAGED);
 
   const backup: Backup = { app: 'LiftText', backupVersion: b.backupVersion, createdAt: b.createdAt, data: b.data };
   const count = (key: string) => (b.data[key] ?? []).length;
@@ -118,6 +124,7 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
       workouts: workouts.length,
       templates: count('@training-tracker/templates'),
       plans: count('@training-tracker/plans'),
+      messages: chat?.state.items.length ?? 0,
       createdAt: b.createdAt,
     },
   };
@@ -169,6 +176,9 @@ async function writeData(data: Backup['data']): Promise<void> {
 // Rehydrating runs the store's persist migration on backups from older app versions
 async function reloadStore(): Promise<void> {
   await useWorkoutStore.persist.rehydrate();
+  // A backup without a thread leaves nothing to rehydrate from, so the thread empties
+  if (await AsyncStorage.getItem(CHAT_KEY)) await useChatStore.persist.rehydrate();
+  else useChatStore.getState().clear();
   const { loadTemplates, loadSchedule } = useWorkoutStore.getState();
   await Promise.all([loadTemplates(), loadSchedule()]);
 }
