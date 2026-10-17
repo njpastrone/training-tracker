@@ -1,7 +1,7 @@
 # Daylight polish
 
 Date: 2026-10-15 · Status: draft for review
-Mockups: "Daylight, refined" row on the LiftText design directions canvas (https://claude.ai/artifact/ML7Z1yCk1yGeQqAAHp2HNL).
+Mockups: "Daylight, refined" row (layout) and the "G · A + D" row (colours, which win where they differ) on the LiftText design directions canvas (https://claude.ai/artifact/ML7Z1yCk1yGeQqAAHp2HNL).
 
 ## Goal
 
@@ -22,7 +22,16 @@ Audited in the simulator with five weeks of demo data, light and dark:
 
 ### 1. A stronger sky, as a header
 
-- New `day` stops in `services/sky.ts`: `#7FAEFF → #B5D0FF → #DCE8FF`, ending in `#F4F7FF` by about 45% of the screen. Dawn and dusk get the same treatment: the top stop is the saturated one (dawn `#FFB98F`, dusk `#FF9F72`), fading to the same light base. Night is unchanged.
+- Palette **G · Sunrise + indigo you** (picked 2026-10-16 from seven options on the canvas, "A + D mixes" row): twilight skies with a lavender cast. Each phase is four stops (top → middle → low → base); the base is reached by about 45–60% of the screen on Log, 30% on screens with a short header:
+
+  | Phase | Top | Middle | Low | Base |
+  |---|---|---|---|---|
+  | `day` | `#8AA8FF` | `#BCC9FF` | `#E0E3FF` | `#F6F5FF` |
+  | `dawn` | `#FFB4A0` | `#F9CFE0` | `#E8E0FA` | `#F8F6FF` |
+  | `dusk` | `#FF9F7E` | `#E7A6CF` | `#C9BDF2` | `#F3F1FF` |
+  | `night` | `#0D0B2A` | `#1A1640` | `#2A1F52` | `#1E1A44` |
+
+  `SkyStops` grows from three stops to four; the base is what the chat-bar fade and `background` use. Dawn still blends toward day by progress.
 - A soft radial glow at the top right in every phase (warm white by day, `#2A2766` at night, as today).
 - `services/sky.ts` logic and tests are unchanged; only the stops move.
 
@@ -42,13 +51,20 @@ Audited in the simulator with five weeks of demo data, light and dark:
 
 | Colour | Means | Not used for |
 |---|---|---|
-| `sunrise` | the one action on screen (Start, Plan my week), done (trained day, goal met ✓, the sun) | links, labels, partial progress, unmet goals |
+| `sunrise` | the one action on screen (Start, Plan my week), done (trained day, goal met ✓, the sun) | links, labels, partial progress, unmet goals, your messages |
+| `indigo` (new) | you: your chat bubbles (`UserBubble`), the selected tab | actions, done |
 | `text` (ink) | partial progress bars, planned (dashed ring) | |
 | `textSecondary` | links ("All days ›", "Edit", "Select"), subtitles | |
 | muscle/food dots | identity only | met/unmet |
 
 - `cobalt` is retired for planned; planned is an ink dashed ring. `mint` is retired for met; met is sunrise ✓. (`mint` stays only for the save toast.) Keep the tokens until no screen uses them, then delete.
 - Unmet is never coloured: it's grey text ("1/2"), never orange or red.
+- New tokens: `indigo` `#5534C8` light (white text 7.7:1) / `#A995FF` dark with `onIndigo` `#0A1030` (7.5:1). The tab bar tint moves from sunrise to indigo.
+- `textTertiary` light darkens `#6E7798` → `#5F6889`: the old grey is 4.4:1 on white and 4.1:1 on the sky base, under 4.5:1. Dark `textTertiary` `#8189AE` passes on the new night base (4.8:1); keep it.
+- `background` follows the new bases: light `#F6F5FF`, dark `#1E1A44`.
+- Sunrise is 4.2:1 on the light sky base, so it's never small text there; on cards (white) it's 4.6:1.
+- `muscleGroupColors.full_body` is `#D2441C`, the same as sunrise; change it to slate `#7C8DB5` so done-orange stays unique. The other dots are unchanged (they always sit next to a label).
+- The Chat tab (separate spec) uses the same jobs: your bubbles indigo, actions in answers sunrise, ✓ on logged cards sunrise.
 
 ### 5. Big numbers
 
@@ -82,11 +98,11 @@ The Chat tab and moving Settings to a gear (separate follow-up), new data, copy 
 
 ## Docs
 
-Update `DESIGN-SYSTEM.md` in the same change: the new sky stops, `SkySheet`, `SunArc`, `GoalBar`, the colour-jobs table and the removals (`Ring`, `TodayTiles`, `GoalRing`, cobalt for planned, mint for met).
+Update `DESIGN-SYSTEM.md` in the same change: the new sky stops, the `indigo` token and the darker `textTertiary`, `SkySheet`, `SunArc`, `GoalBar`, the colour-jobs table and the removals (`Ring`, `TodayTiles`, `GoalRing`, cobalt for planned, mint for met).
 
 ## Testing
 
 - `services/sky.test.mts` must still pass (the logic is unchanged; update only any stop literals it checks).
 - A unit test for the `SunArc` geometry helper (done/target → sun position and dot positions, including 0 of N, N of N and done > target).
 - Visual check in the simulator per DESIGN-SYSTEM.md's consistency rule: Log, History, Progress, Settings and a day screen at 375 pt, default and largest Accessibility text size, light and dark, plus dawn and dusk skies.
-- Contrast: text on the new sky stops at the title position meets 4.5:1 (ink `#0E1430` on `#7FAEFF` is about 8:1).
+- Contrast: text on the new sky stops at the title position meets 4.5:1 (ink `#0E1430` on `#8AA8FF` is 7.9:1, on dawn `#FFB4A0` 10.6:1, on dusk `#FF9F7E` 9.1:1; `textSecondary` on `#BCC9FF` 4.7:1).

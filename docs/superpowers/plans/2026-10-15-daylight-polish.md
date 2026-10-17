@@ -8,7 +8,7 @@
 
 **Tech Stack:** Expo 57 / React Native 0.86, TypeScript strict, React Native Paper, `react-native-svg`, `expo-linear-gradient`, Reanimated. Tests: `node --test` via `npm test`.
 
-**Spec:** `docs/superpowers/specs/2026-10-15-daylight-polish-design.md` (mockups: "Daylight, refined" row on https://claude.ai/artifact/ML7Z1yCk1yGeQqAAHp2HNL).
+**Spec:** `docs/superpowers/specs/2026-10-15-daylight-polish-design.md` (colours: palette G, which wins over the refined mockups where they differ) (mockups: "Daylight, refined" row on https://claude.ai/artifact/ML7Z1yCk1yGeQqAAHp2HNL).
 
 ## Global Constraints
 
@@ -16,7 +16,7 @@
 - `sunrise` = the one action on a screen, or done (trained day, goal met ✓, the sun). Never links, labels, partial progress or unmet.
 - Partial progress and planned are ink (`colors.text`); links and section actions are `colors.textSecondary`.
 - Unmet is grey text ("1/2"), never orange or red.
-- `cobalt` no longer means planned; `mint` only for the save/undo toasts' checkmark.
+- `cobalt` no longer means planned; `mint` only for the save/undo toasts' checkmark; `indigo` means you (your bubbles, the selected tab), never actions or done.
 - Copy rules from DESIGN-SYSTEM.md hold: "the last 7" is the rolling window, never "this week"; sentence case; no exclamation marks; nothing truncates.
 - Respect Reduce Motion (no spring) and Reduce Transparency (solid surfaces: `colors.surface` / `colors.border`).
 - Every UI change is checked on a 375 pt iPhone at default and the largest Accessibility text size, light and dark.
@@ -52,21 +52,19 @@ The simulator already has five weeks of demo data restored (scratchpad `LiftText
 
 ---
 
-### Task 1: Stronger sky
+### Task 1: Stronger sky (palette G)
 
 **Files:**
-- Modify: `services/sky.ts:10-15`
+- Modify: `services/sky.ts:8-15`
 - Modify: `components/Sky.tsx:11-31`
 - Test: `services/sky.test.mts`
 
 **Interfaces:**
-- Produces: `SKY` keeps its shape (`{ dawn, day, dusk, night }: SkyStops`); `SKY_BASE = '#F4F7FF'` exported from `services/sky.ts` (the light base every light sky fades to; used by Task 5's fade).
+- Produces: `SkyStops` is now four stops `[top, middle, low, base]`; `SKY` keeps its keys. The base (`stops[3]`) is what fills below the gradient and what Task 5's fade uses.
 
 - [ ] **Step 1: Write the failing test** (append to `services/sky.test.mts`)
 
 ```ts
-import { SKY_BASE } from './sky';
-
 // WCAG relative luminance and contrast, for text on the sky
 const lum = (hex: string) => {
   const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(1 + i, 3 + i), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -74,39 +72,44 @@ const lum = (hex: string) => {
 };
 const contrast = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-test('light skies fade to the shared base and keep the title readable', () => {
+test('every sky has four stops and keeps the title and subtitle readable', () => {
   for (const phase of ['dawn', 'day', 'dusk'] as const) {
-    assert.equal(SKY[phase][2], SKY_BASE, phase);
-    for (const stop of SKY[phase]) assert.ok(contrast('#0E1430', stop) >= 4.5, `${phase} ${stop}`);
+    assert.equal(SKY[phase].length, 4, phase);
+    for (const stop of SKY[phase]) assert.ok(contrast('#0E1430', stop) >= 4.5, `title on ${phase} ${stop}`);
+    assert.ok(contrast('#4A5374', SKY[phase][1]) >= 4.5, `subtitle on ${phase}`);
   }
-  assert.ok(contrast('#F3F5FF', SKY.night[0]) >= 4.5);
+  assert.equal(SKY.night.length, 4);
+  for (const stop of SKY.night) assert.ok(contrast('#F3F5FF', stop) >= 4.5, `night ${stop}`);
 });
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `npm test 2>&1 | grep -A3 "shared base"`
-Expected: FAIL (`SKY_BASE` is undefined).
+Run: `npm test 2>&1 | grep -B2 -A6 "four stops"`
+Expected: FAIL (`SKY.day.length` is 3).
 
-- [ ] **Step 3: Change the stops** in `services/sky.ts`
+- [ ] **Step 3: Palette G** in `services/sky.ts`
 
 ```ts
-// Saturated at the top, fading to one light base by about 45% of the screen (components/Sky.tsx)
-export const SKY_BASE = '#F4F7FF';
+export type SkyStops = [string, string, string, string]; // top, middle, low, base
+
+// Palette G (twilight skies with a lavender cast): saturated at the top, the base by about 45% of the screen
 export const SKY = {
-  dawn: ['#FFB98F', '#FBD3DC', SKY_BASE] as SkyStops,
-  day: ['#7FAEFF', '#C4DAFF', SKY_BASE] as SkyStops,
-  dusk: ['#FF9F72', '#EFB0C8', SKY_BASE] as SkyStops,
-  night: ['#0A0F26', '#141938', '#1F1B44'] as SkyStops,
+  dawn: ['#FFB4A0', '#F9CFE0', '#E8E0FA', '#F8F6FF'] as SkyStops,
+  day: ['#8AA8FF', '#BCC9FF', '#E0E3FF', '#F6F5FF'] as SkyStops,
+  dusk: ['#FF9F7E', '#E7A6CF', '#C9BDF2', '#F3F1FF'] as SkyStops,
+  night: ['#0D0B2A', '#1A1640', '#2A1F52', '#1E1A44'] as SkyStops,
 };
 ```
+
+`mixStops` already maps over every stop, so dawn still blends toward day.
 
 - [ ] **Step 4: Run tests**
 
 Run: `npm test`
-Expected: all pass (the older sky tests compare against `SKY`, not literals).
+Expected: all pass. If the subtitle check fails on a phase, report it rather than changing the palette: the spec's numbers say it passes.
 
-- [ ] **Step 5: Gradient shape and glow** in `components/Sky.tsx` `SkyScreen`: change `locations={[0, 0.45, 1]}` to `locations={[0, 0.22, 0.45]}` (the view's `backgroundColor: stops[2]` fills below), and show a glow in every phase, warm by day:
+- [ ] **Step 5: Gradient shape and glow** in `components/Sky.tsx` `SkyScreen`: `backgroundColor: stops[3]`, `locations={[0, 0.15, 0.3, 0.45]}`, and a glow in every phase, warm by day (replace the `{isDarkMode && (...)}` block):
 
 ```tsx
 <LinearGradient
@@ -117,15 +120,15 @@ Expected: all pass (the older sky tests compare against `SKY`, not literals).
 />
 ```
 
-(Replace the `{isDarkMode && (...)}` block with this unconditional one.)
+`// ponytail: one 45% fade for every screen; the spec's 30% for short headers can come later if History or Settings look washed out.`
 
-- [ ] **Step 6: Check in the simulator** — Log, History, Progress, Settings in light and dark; the top of each screen is clearly blue (day). To see dawn and dusk, temporarily set `settings.weeklyTarget` to 5 in the restored data (Settings › Days a week › 5+): dusk shows when behind; set it back.
+- [ ] **Step 6: Typecheck and simulator** — `npx tsc --noEmit` (fix any other `SkyStops`/`SKY.*[2]` users it flags by switching them to `[3]`), then check all four tabs in light and dark. For dusk, set Settings › Days a week › 5+ (behind pace); set it back after.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add services/sky.ts services/sky.test.mts components/Sky.tsx
-git commit -m "feat(sky): stronger sky that fades to one light base"
+git commit -m "feat(sky): palette G, four-stop twilight skies"
 ```
 
 ---
@@ -138,7 +141,14 @@ git commit -m "feat(sky): stronger sky that fades to one light base"
 - Modify: `components/GoalsCard.tsx` (Bar, WeekGrid food row and counts, GoalsHeader link, PR is in progress.tsx), `components/DayRow.tsx:40-60`, `components/FoodDay.tsx:47-60`, `components/Calendar.tsx:23,123-148`, `components/PlanCard.tsx:88`, `components/TodayTiles.tsx` (UpNext dot, RecentDays link), `app/(tabs)/progress.tsx:291`, `app/(tabs)/history.tsx` (Select link colour)
 
 **Interfaces:**
-- Produces: `GoalBar({ goal: FoodGoal; day?: { protein: number; kcal: number } }): JSX.Element | null` (default export); `Bar({ progress, done })` keeps its signature but is ink when partial, sunrise when done. `DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; total?: { protein: number; kcal: number } }[] })` exported from `components/GoalsCard.tsx`.
+- Produces: tokens `indigo`, `onIndigo`; `GoalBar({ goal: FoodGoal; day?: { protein: number; kcal: number } }): JSX.Element | null` (default export); `Bar({ progress, done })` keeps its signature but is ink when partial, sunrise when done. `DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; total?: { protein: number; kcal: number } }[] })` exported from `components/GoalsCard.tsx`.
+
+- [ ] **Step 0: Palette G tokens** in `constants/theme.ts`:
+  - add `indigo: '#5534C8'`, `onIndigo: '#FFFFFF'` (light) and `indigo: '#A995FF'`, `onIndigo: '#0A1030'` (dark);
+  - light `textTertiary` `#6E7798` → `#5F6889`;
+  - `background` light `#F6F5FF`, dark `#1E1A44`;
+  - `muscleGroupColors.full_body` `#D2441C` → `#7C8DB5`.
+  Then: `UserBubble` (`components/Chat.tsx`) uses `colors.indigo` / `colors.onIndigo`; the tab bar (`app/(tabs)/_layout.tsx`) `tintColor={colors.indigo}`.
 
 - [ ] **Step 1: `Bar` colours** (`components/GoalsCard.tsx`, `Bar`): `backgroundColor: done ? colors.sunrise : colors.text`, and update its comment to `// A progress bar: ink toward the target, sunrise once met; never shorter than a stub`.
 
@@ -473,7 +483,7 @@ git commit -m "feat(ui): one sheet per tab, Progress hero number"
 - Modify: `components/ChatBar.tsx` (`ChatScreen` fade), `components/Glass.tsx:154-166` (send), `components/GoalsCard.tsx` (`MuscleSetsCard`)
 
 **Interfaces:**
-- Consumes: `SKY`, `SKY_BASE` (Task 1), `Bar` (Task 2).
+- Consumes: `SKY` and four-stop `sky.stops` (Task 1), `Bar` (Task 2).
 
 - [ ] **Step 1: Fade above the chat bar** — in `ChatScreen`, after `{overlay}` inside the same `View`:
 
@@ -485,7 +495,7 @@ git commit -m "feat(ui): one sheet per tab, Progress hero number"
 />
 ```
 
-with `const { isDarkMode } = useTheme(); const base = isDarkMode ? SKY.night[2] : SKY_BASE;` and `fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 60 }`. Imports: `LinearGradient` from `expo-linear-gradient`, `SKY, SKY_BASE` from `../services/sky`.
+with `const { isDarkMode, sky } = useTheme(); const base = isDarkMode ? SKY.night[3] : sky.stops[3];` and `fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 60 }`. Imports: `LinearGradient` from `expo-linear-gradient`, `SKY` from `../services/sky`.
 
 - [ ] **Step 2: Quiet disabled send** (`components/Glass.tsx`):
 
@@ -525,7 +535,8 @@ git commit -m "feat(ui): fade under the chat bar, quiet send button, sets as row
 - Modify: `DESIGN-SYSTEM.md`
 
 - [ ] **Step 1: Update `DESIGN-SYSTEM.md`**
-  - The Sky: new gradient stops (dawn `#FFB98F → #FBD3DC → #F4F7FF`, day `#7FAEFF → #C4DAFF → #F4F7FF`, dusk `#FF9F72 → #EFB0C8 → #F4F7FF`, night unchanged), the gradient ends at 45% of the screen, a glow in every phase.
+  - The Sky: palette G's four-stop table from the spec, the gradient reaches the base at 45% of the screen, a glow in every phase.
+  - Colour: `indigo`/`onIndigo`, darker light `textTertiary`, new `background` values, `full_body` slate.
   - Colour: add the colour-jobs table from the spec; `cobalt` no longer marks planned (planned = ink dashed ring); `mint` only for the toast checkmark; remove the "old names" rollout note if no aliases remain (`grep -rn "colors\.\(primary\|secondary\|success\|accent\)\b" app components`).
   - Typography: `displaySmall` = Rounded Heavy 56, the hero number.
   - Components: add `SkySheet`, `Hero`, `SunArc`, `GoalBar`, `DayBars`; remove `Ring`, `GoalRing`, the Log ring tiles (now `TodaySummary`); `MuscleSetsCard` is rows.
