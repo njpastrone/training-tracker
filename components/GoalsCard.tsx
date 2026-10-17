@@ -10,7 +10,7 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { resolveId } from '../services/exerciseIdentity';
 import { foodGoalName, foodMet, foodTarget, foodValue, formatSets, muscleName, trainedLine, type CustomProgress, type FoodProgress, type MuscleProgress } from '../services/goals';
 import type { FoodDayTotal } from '../services/progress';
-import { fonts, muscleGroupColors, radius, spacing } from '../constants/theme';
+import { fonts, muscleGroupColors, spacing } from '../constants/theme';
 import type { FoodGoal, MuscleGroup, Workout } from '../types/workout';
 
 // The goal cards on Progress: the last 7 days as a grid (goal muscles and the food goal down the side,
