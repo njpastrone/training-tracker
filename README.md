@@ -176,6 +176,7 @@ Tap any day on the calendar to open it: its workouts, or its planned workout (**
 All data lives on the phone. It is included in the iPhone's normal iCloud device backup, and **Settings › Backup** adds:
 - **Export backup** - saves workouts, food, plans, templates and schedule as one `.json` file via the share sheet (Files, iCloud Drive, AirDrop, ...)
 - **Restore from backup** - picks a LiftText backup file and replaces the data on this phone. The current data is saved first as a safety file.
+- **Import from Strong or Hevy** - picks the CSV export from either app, shows how many workouts, the date range and any skipped rows, then adds the workouts to History (asking kg or lb when the file doesn't say). Workouts already imported are not added again.
 - **Weekly backup** - on app launch, saves a file at most once a week to Files › On My iPhone › LiftText › Backups (keeps the last 8). This folder is on the phone, not in iCloud Drive; it leaves the phone only through the iCloud device backup.
 
 ## Releasing to TestFlight
