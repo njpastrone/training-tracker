@@ -161,7 +161,7 @@ The AI will parse your input and extract:
 
 You can log several days at once ("yesterday squats 5x5 225, today bench 3x8 185"); each day is saved as its own workout.
 
-Before the first AI call, the app asks whether what you type may be sent to Anthropic (change it anytime in **Settings › AI reading**). With AI off, each line or comma you type becomes an exercise you fill in by hand.
+Before the first AI call, the app asks whether what you type may be sent to Anthropic and whether you're 18 or older (change it anytime in **Settings › AI reading**); anyone who answered before the age question is asked again. AI stays off under 18. With AI off, each line or comma you type becomes an exercise you fill in by hand.
 
 ### Planning a Week
 
