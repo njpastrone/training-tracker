@@ -9,6 +9,7 @@ import { ChatScreen } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import PlanCard from '../../components/PlanCard';
 import { usePlanner } from '../../hooks/usePlanner';
+import { readsAsQuestion } from '../../services/ask';
 import { GOALS } from '../../services/onboarding';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -94,7 +95,12 @@ export default function HistoryScreen() {
       bar={{
         value: planner.text,
         onChangeText: planner.setText,
-        onSend: () => planner.send(planner.text),
+        onSend: () => {
+          // A question goes to Chat, where questions are answered; anything else plans
+          if (planner.draft || !readsAsQuestion(planner.text)) return planner.send(planner.text);
+          router.navigate({ pathname: '/(tabs)/chat', params: { question: planner.text.trim() } });
+          planner.setText('');
+        },
         placeholder: planner.draft ? 'Fix or ask…' : 'Plan your week…',
         chips: planner.draft ? toChips(planner.draft.chips.length ? planner.draft.chips : DEFAULT_TWEAKS) : planner.text.trim() ? [] : starters,
         onChip: planner.send,

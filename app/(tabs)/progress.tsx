@@ -47,7 +47,7 @@ export default function ProgressScreen() {
   const log = useLogDraft({
     date: d.today,
     onLogged: (_id, _template, saved) => setLogged(saved ?? null),
-    onQuestion: question => router.push({ pathname: '/ask', params: { question } }),
+    onQuestion: question => router.navigate({ pathname: '/(tabs)/chat', params: { question } }),
   });
 
   const groups = (Object.keys(muscleGroupColors) as MuscleGroup[]).filter(g => d.daysSinceGroupTrained[g] !== undefined);
@@ -70,8 +70,6 @@ export default function ProgressScreen() {
           : `Protein ${food.protein} g a day over the last 7`;
   const lapsed = (workouts.length > 0 || foodEntries.length > 0) && !sky.done && !food.logged;
 
-  const ask = <Pill variant="glass" size="small" icon="logo" label="Ask" onPress={() => router.push('/ask')} />;
-
   return (
     <ChatScreen
       bar={logBar(log, "Forgot something? 'legs on Wed'", chips)}
@@ -90,11 +88,11 @@ export default function ProgressScreen() {
     >
       {workouts.length > 0 ? (
         <>
-          <LargeTitle title="Progress" right={ask} />
+          <LargeTitle title="Progress" />
           <Hero value={`${sky.done}`} of={`of ${sky.target}`} note={sky.done >= sky.target ? 'goal met ✓' : undefined} sub="training days in the last 7" />
         </>
       ) : (
-        <LargeTitle title="Progress" subtitle={subtitle} right={ask} />
+        <LargeTitle title="Progress" subtitle={subtitle} />
       )}
       <SkySheet>
 

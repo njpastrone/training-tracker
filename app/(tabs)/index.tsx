@@ -90,7 +90,7 @@ export default function LogScreen() {
   const log = useLogDraft({
     date: today,
     withFood: true,
-    onQuestion: question => router.push({ pathname: '/ask', params: { question } }),
+    onQuestion: question => router.navigate({ pathname: '/(tabs)/chat', params: { question } }),
     onLogged: async (workoutId, templateId) => {
       // Logged from today's scheduled template: mark the schedule completed
       if (templateId && todaysSchedule && todaysSchedule.templateId === templateId) {

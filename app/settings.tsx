@@ -2,20 +2,21 @@ import { StyleSheet, Alert, ScrollView, ActionSheetIOS, Linking, Pressable, View
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Text } from 'react-native-paper';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
-import { SkyScreen, SkyCard, SkySheet, LargeTitle, SectionLabel } from '../../components/Sky';
-import { Pill, Segmented } from '../../components/Glass';
-import Row from '../../components/Row';
-import { useWorkoutStore } from '../../stores/workoutStore';
-import { useTheme } from '../../contexts/ThemeContext';
-import { spacing } from '../../constants/theme';
-import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
-import { askAiConsent, currentAiConsent, legalUrl } from '../../services/aiConsent';
-import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
-import { forgetFact } from '../../services/coachCards';
-import { importSummary, pickExport, plural, readExport } from '../../services/importHistory';
-import type { WeightUnit } from '../../types/workout';
+import { SkyScreen, SkyCard, SkySheet, LargeTitle, SectionLabel } from '../components/Sky';
+import { Pill, Segmented } from '../components/Glass';
+import Row from '../components/Row';
+import { useWorkoutStore } from '../stores/workoutStore';
+import { useChatStore } from '../stores/chatStore';
+import { useTheme } from '../contexts/ThemeContext';
+import { spacing } from '../constants/theme';
+import { DAYS_OPTIONS, GOALS } from '../services/onboarding';
+import { askAiConsent, currentAiConsent, legalUrl } from '../services/aiConsent';
+import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../services/backup';
+import { forgetFact } from '../services/coachCards';
+import { importSummary, pickExport, plural, readExport } from '../services/importHistory';
+import type { WeightUnit } from '../types/workout';
 
 export default function SettingsScreen() {
   const { clearAllData, settings, updateSettings, templates, importWorkouts } = useWorkoutStore();
@@ -120,6 +121,12 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleClearChat = () =>
+    Alert.alert('Clear chat?', "This empties the Chat thread on this phone. Your workouts and food stay. It can't be undone.", [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => useChatStore.getState().clear() },
+    ]);
+
   const toggleUnit = () => {
     updateSettings({
       weightUnit: settings.weightUnit === 'lbs' ? 'kg' : 'lbs',
@@ -133,8 +140,9 @@ export default function SettingsScreen() {
     );
 
   return (
-    <SkyScreen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SkyScreen edges={[]}>
+      <Stack.Screen options={{ title: '' }} />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LargeTitle title="Settings" subtitle={lastWeekly ? `Backed up ${format(parseISO(lastWeekly), 'MMM d')}` : 'Not backed up yet'} />
         <SkySheet>
 
@@ -259,12 +267,19 @@ export default function SettingsScreen() {
             onPress={handleClearData}
             disabled={isClearing}
           />
+          <Row
+            icon="bubble.left.and.bubble.right"
+            title="Clear chat"
+            subtitle="Empty the Chat thread; workouts and food stay"
+            destructive
+            onPress={handleClearChat}
+          />
         </SkyCard>
 
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
-          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
+          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts and chat history are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
           <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving" onPress={() => Linking.openURL(legalUrl('terms'))} />
         </SkyCard>
         </SkySheet>

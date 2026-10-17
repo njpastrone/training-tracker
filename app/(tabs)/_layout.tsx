@@ -19,9 +19,9 @@ export default function TabLayout() {
         <NativeTabs.Trigger.Icon sf="chart.line.uptrend.xyaxis" md="trending_up" />
         <NativeTabs.Trigger.Label>Progress</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
-        <NativeTabs.Trigger.Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} md="settings" />
-        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="chat">
+        <NativeTabs.Trigger.Icon sf={{ default: 'bubble.left.and.text.bubble.right', selected: 'bubble.left.and.text.bubble.right.fill' }} md="chat" />
+        <NativeTabs.Trigger.Label>Chat</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

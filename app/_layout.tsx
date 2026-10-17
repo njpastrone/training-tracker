@@ -48,7 +48,7 @@ function AppContent({ fresh }: { fresh: boolean }) {
         </Stack.Protected>
         <Stack.Protected guard={!needsSetup}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="settings" />
         </Stack.Protected>
       </Stack>
       <AiConsentSheet />
