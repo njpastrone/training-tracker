@@ -1,0 +1,14 @@
+"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Bench Press (Barbell)",,"Pause reps",0,"warmup",40,10,,,
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Bench Press (Barbell)",,"Pause reps",1,"normal",80,8,,,8
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Bench Press (Barbell)",,"Pause reps",2,"normal",80,8,,,8.5
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Bench Press (Barbell)",,"Pause reps",3,"failure",80,6,,,10
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Triceps Pushdown",0,"",0,"dropset",30,12,,,
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Pull Up (Assisted)",0,"",0,"normal",42.51,5,,,
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Side Plank",,"",0,"normal",,,,30,
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Lower Chest Fly",,"",0,"normal",20,15,,,
+"Push Day!","22 May 2026, 11:45","22 May 2026, 12:55","Gym was packed","Lower Chest Fly",,"",1,"normal",20,15,,,
+"Weekend Long","24 May 2026, 09:00","24 May 2026, 10:10","","Running",,"",0,"normal",,,10.2,3900,
+"Weekend Long","not a date","24 May 2026, 10:10","","Running",,"",1,"normal",,,1,300,
+"Weekend Long","24 May 2026, 09:00","24 May 2026, 10:10","","Running",,"",2,"normal",,,-1,300,
+"Weekend Long","24 May 2026, 09:00","24 May 2026, 10:10","","Running",,"",3,"normal",,,,,

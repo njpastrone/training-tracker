@@ -14,9 +14,11 @@ import { DAYS_OPTIONS, GOALS } from '../../services/onboarding';
 import { askAiConsent } from '../../services/aiConsent';
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../../services/backup';
 import { forgetFact } from '../../services/coachCards';
+import { importSummary, pickExport, plural, readExport } from '../../services/importHistory';
+import type { WeightUnit } from '../../types/workout';
 
 export default function SettingsScreen() {
-  const { clearAllData, settings, updateSettings, templates } = useWorkoutStore();
+  const { clearAllData, settings, updateSettings, templates, importWorkouts } = useWorkoutStore();
   const { colors } = useTheme();
   const router = useRouter();
   const [isClearing, setIsClearing] = useState(false);
@@ -59,6 +61,42 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  // Strong or Hevy history: preview first, then add only the workouts LiftText doesn't have yet
+  const handleImport = async () => {
+    let text: string | null;
+    let preview;
+    // Read against the log as it is at each step, so a second import finds the first one's workouts
+    const read = (unit: WeightUnit) => {
+      const { workouts, exerciseLibrary } = useWorkoutStore.getState();
+      return readExport(text!, workouts, exerciseLibrary, unit);
+    };
+    try {
+      text = await pickExport();
+      if (!text) return;
+      preview = read(settings.weightUnit).preview;
+    } catch (error: any) {
+      Alert.alert("Couldn't import", error.message);
+      return;
+    }
+    if (!preview.workouts) {
+      Alert.alert('Nothing new to import', importSummary(preview));
+      return;
+    }
+    const save = (unit: WeightUnit) => {
+      const r = read(unit);
+      importWorkouts(r.workouts, r.library);
+      Alert.alert('Imported', `${plural(r.preview.workouts, 'workout')} added to History.`);
+    };
+    const label = (u: WeightUnit) => (u === 'kg' ? 'Import in kg' : 'Import in lb');
+    const units: WeightUnit[] = settings.weightUnit === 'kg' ? ['kg', 'lbs'] : ['lbs', 'kg'];
+    Alert.alert(`Import ${plural(preview.workouts, 'workout')}?`, importSummary(preview), [
+      { text: 'Cancel', style: 'cancel' },
+      ...(preview.needsUnit
+        ? units.map((u) => ({ text: label(u), onPress: () => save(u) }))
+        : [{ text: 'Import', onPress: () => save(settings.weightUnit) }]),
+    ]);
   };
 
   const handleClearData = () => {
@@ -193,6 +231,12 @@ export default function SettingsScreen() {
             subtitle="Replace this phone's data with a backup file"
             onPress={handleRestore}
             disabled={isRestoring}
+          />
+          <Row
+            icon="square.and.arrow.down"
+            title="Import from Strong or Hevy"
+            subtitle="Add past workouts from the app's CSV export"
+            onPress={handleImport}
           />
           <Row
             icon="clock.arrow.circlepath"

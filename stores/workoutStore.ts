@@ -29,6 +29,7 @@ interface WorkoutState {
 
   // Actions
   addWorkout: (workout: Workout) => void;
+  importWorkouts: (workouts: Workout[], library: ExerciseLibrary) => void; // from services/importHistory.ts, identity already filled
   updateWorkout: (id: string, updates: Partial<Workout>) => void;
   deleteWorkout: (id: string) => void;
   deleteWorkouts: (ids: string[]) => DeletedWorkouts;
@@ -111,6 +112,17 @@ export const useWorkoutStore = create<WorkoutState>()(
           .linkLoggedWorkout(workout.date, workout.id)
           .then(linked => { if (linked) get().loadSchedule(); })
           .catch(error => console.error('Error linking workout to plan:', error));
+      },
+
+      // Past workouts from another app. Ids already here are kept as they are, so a second import adds nothing.
+      importWorkouts: (imported, library) => {
+        set((state) => {
+          const have = new Set(state.workouts.map((w) => w.id));
+          return {
+            workouts: [...state.workouts, ...imported.filter((w) => !have.has(w.id))].sort((a, b) => b.date.localeCompare(a.date)),
+            exerciseLibrary: library,
+          };
+        });
       },
 
       updateWorkout: (id, updates) => {

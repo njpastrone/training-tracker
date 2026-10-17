@@ -14,7 +14,7 @@ export function exerciseNumbers(e: ExerciseValues): string {
   const parts: string[] = [];
   if (e.sets && e.reps) parts.push(`${e.sets} × ${e.reps}`);
   else if (e.reps) parts.push(`${e.reps} reps`);
-  else if (e.sets) parts.push(`${e.sets} sets`);
+  else if (e.sets) parts.push(`${e.sets} set${e.sets === 1 ? '' : 's'}`);
   if (e.weight) parts.push(`${e.weight} ${unitLabel(e.unit)}`);
   if (e.duration) parts.push(formatDuration(e.duration));
   if (e.distance) parts.push(`${e.distance}${e.distanceUnit ? ` ${e.distanceUnit}` : ''}`);
