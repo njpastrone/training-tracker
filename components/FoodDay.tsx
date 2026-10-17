@@ -12,7 +12,7 @@ import type { FoodEntry, FoodItem } from '../types/food';
 import type { FoodGoal } from '../types/workout';
 import { SectionLabel, SkyCard } from './Sky';
 import FoodRows from './FoodRows';
-import GoalRing from './GoalRing';
+import GoalBar from './GoalBar';
 
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
 
@@ -48,7 +48,6 @@ export default function FoodDay({ entries, goal }: { entries: FoodEntry[]; goal?
       <SkyCard>
         {goal && (
           <View style={styles.goal}>
-            <GoalRing goal={goal} day={t} size={48} />
             <View style={styles.flex}>
               <Text style={[styles.mid, { color: colors.text }]}>
                 {calories ? `${n(t.kcal)} kcal` : `${t.protein} g protein`}
@@ -56,6 +55,7 @@ export default function FoodDay({ entries, goal }: { entries: FoodEntry[]; goal?
               </Text>
               {calories && <Text style={[styles.faint, { color: colors.textTertiary }]}>{calorieLeft(goal, t.kcal)}</Text>}
             </View>
+            <GoalBar goal={goal} day={t} />
           </View>
         )}
         <Text style={[styles.faint, { color: colors.textTertiary }]}>{macros}</Text>
@@ -127,9 +127,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   goal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.gap,
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   mid: {

@@ -6,7 +6,7 @@ export default function TabLayout() {
   const colors = useColors();
 
   return (
-    <NativeTabs tintColor={colors.sunrise} minimizeBehavior="onScrollDown">
+    <NativeTabs tintColor={colors.indigo} minimizeBehavior="onScrollDown">
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf="square.and.pencil" md="edit" />
         <NativeTabs.Trigger.Label>Log</NativeTabs.Trigger.Label>

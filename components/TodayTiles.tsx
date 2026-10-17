@@ -4,15 +4,14 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useTheme } from '../contexts/ThemeContext';
-import { fonts, radius, spacing } from '../constants/theme';
+import { fonts, spacing } from '../constants/theme';
 import { daysAgo, workoutName } from '../services/format';
-import { calorieLeft, foodGoalName, foodTarget, foodValue } from '../services/goals';
+import { calorieLeft, foodTarget, foodValue } from '../services/goals';
 import type { FoodDayTotal } from '../services/progress';
 import type { WorkoutTemplate } from '../types/template';
 import type { FoodGoal, Workout } from '../types/workout';
 import { SkyCard, SectionLabel } from './Sky';
-import GoalRing from './GoalRing';
-import Ring from './Ring';
+import GoalBar from './GoalBar';
 import DayRow from './DayRow';
 
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
@@ -24,14 +23,14 @@ interface Props {
   today: string;
 }
 
-// Log's summary: training days in the last 7 and today's food against the food goal, side by side
-// for people who log both, one full-width tile otherwise. Training always comes first.
-export default function TodayTiles({ training, food, today }: Props) {
+// Log's summary under the sun arc: today's training (what's on, large) then today's food (the goal's
+// number large, its bar, the rest in a line). Training always comes first; each only when it applies.
+export default function TodaySummary({ training, food, today }: Props) {
   if (!training && !food) return null;
   return (
-    <View style={styles.split}>
-      {training && <TrainingTile {...training} today={today} />}
-      {food && <FoodTile {...food} today={today} />}
+    <View style={styles.summary}>
+      {training && <TrainingToday {...training} today={today} />}
+      {food && <FoodToday {...food} today={today} />}
     </View>
   );
 }
@@ -47,77 +46,45 @@ function trainingLine({ todays, planned, last, today }: NonNullable<Props['train
   return ['Nothing yet today'];
 }
 
-function TrainingTile(props: NonNullable<Props['training']> & { today: string }) {
+function TrainingToday(props: NonNullable<Props['training']> & { today: string }) {
   const { colors, sky } = useTheme();
   const router = useRouter();
   const [title, sub] = trainingLine(props);
-  const met = sky.done >= sky.target;
   return (
-    <Tile
-      kicker="Training"
+    <Pressable
       onPress={() => router.navigate('/(tabs)/progress')}
-      label={`Training, ${sky.done} of ${sky.target} days in the last 7. ${title}${sub ? `, ${sub}` : ''}`}
-      title={title}
-      sub={sub}
+      accessibilityRole="button"
+      accessibilityLabel={`Training, ${sky.done} of ${sky.target} days in the last 7. ${title}${sub ? `, ${sub}` : ''}`}
+      style={({ pressed }) => pressed && { opacity: 0.7 }}
     >
-      <Ring size={96} stroke={6} progress={sky.progress} color={met ? colors.mint : colors.sunrise}>
-        <RingLabel value={`${sky.done}/${sky.target}`} sub="last 7 days" />
-      </Ring>
-    </Tile>
-  );
-}
-
-function FoodTile({ goal, day, today }: NonNullable<Props['food']> & { today: string }) {
-  const { colors } = useTheme();
-  const router = useRouter();
-  const meals = day && `${n(day.kcal)} kcal · ${count(day.meals, 'meal')}`;
-  const open = () => router.push(`/day/${today}`);
-
-  // Food goal Off: no ring, just today's protein
-  if (!goal) {
-    const protein = `${day?.protein ?? 0} g protein`;
-    const sub = meals ?? 'Nothing logged yet';
-    return (
-      <Tile kicker="Food" onPress={open} label={`Food today, ${protein}, ${sub}`} title="Food today" sub={sub}>
-        <Text style={[styles.mid, { color: colors.text }]}>{protein}</Text>
-      </Tile>
-    );
-  }
-
-  const value = day ? foodValue(goal, day) : 0;
-  const centre = goal.kind === 'protein' ? `${value} g` : n(value);
-  const title = `${foodGoalName(goal)} today`;
-  const sub = !day ? 'Nothing logged yet' : goal.kind === 'protein' ? meals! : `${calorieLeft(goal, day.kcal)} · ${day.protein}\u00a0g protein`; // the number keeps its unit when it wraps
-  return (
-    <Tile kicker="Food" onPress={open} label={`${title}, ${centre} of ${foodTarget(goal)}, ${sub}`} title={title} sub={sub}>
-      <GoalRing goal={goal} day={day} size={96}>
-        <RingLabel value={centre} sub={`of ${foodTarget(goal)}`} />
-      </GoalRing>
-    </Tile>
-  );
-}
-
-function Tile({ kicker, onPress, label, title, sub, children }: { kicker: string; onPress: () => void; label: string; title: string; sub?: string; children: React.ReactNode }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={({ pressed }) => [styles.fill, pressed && { opacity: 0.7 }]}>
-      <SkyCard style={styles.tile}>
-        <SectionLabel style={styles.kicker}>{kicker}</SectionLabel>
-        <View style={styles.ring}>{children}</View>
-        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-        {sub && <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{sub}</Text>}
-      </SkyCard>
+      <Text variant="headlineMedium" style={{ color: colors.text }}>{title}</Text>
+      {sub && <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{sub}</Text>}
     </Pressable>
   );
 }
 
-function RingLabel({ value, sub }: { value: string; sub: string }) {
+function FoodToday({ goal, day, today }: NonNullable<Props['food']> & { today: string }) {
   const { colors } = useTheme();
+  const router = useRouter();
+  const meals = day && `${n(day.kcal)} kcal · ${count(day.meals, 'meal')}`;
+  const value = goal && day ? foodValue(goal, day) : day?.protein ?? 0;
+  const big = !goal || goal.kind === 'protein' ? `${value} g` : n(value);
+  const of = goal ? ` of ${foodTarget(goal)}${goal.kind === 'protein' ? ' protein' : ' kcal'}` : ' protein';
+  const sub = !day ? 'Nothing logged yet' : !goal || goal.kind === 'protein' ? meals! : `${calorieLeft(goal, day.kcal)} · ${day.protein}\u00a0g protein`; // the number keeps its unit when it wraps
   return (
-    <>
-      <Text style={[styles.mid, { color: colors.text }]}>{value}</Text>
-      <Text style={[styles.ringSub, { color: colors.textTertiary }]}>{sub}</Text>
-    </>
+    <Pressable
+      onPress={() => router.push(`/day/${today}`)}
+      accessibilityRole="button"
+      accessibilityLabel={`Food today, ${big}${of}, ${sub}`}
+      style={({ pressed }) => [styles.food, { borderTopColor: colors.dim }, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={[styles.big, { color: colors.text }]}>
+        {big}
+        <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{of}</Text>
+      </Text>
+      {goal && <GoalBar goal={goal} day={day} />}
+      <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{sub}</Text>
+    </Pressable>
   );
 }
 
@@ -138,7 +105,7 @@ export function UpNext({ date, today, template }: { date: string; today: string;
       {({ pressed }) => (
         <SkyCard style={[styles.tight, pressed && { opacity: 0.7 }]}>
           <View style={styles.row}>
-            <View style={[styles.ringDot, { borderColor: colors.cobalt }]} />
+            <View style={[styles.ringDot, { borderColor: colors.text }]} />
             <View style={styles.fill}>
               <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
               <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{sub}</Text>
@@ -166,7 +133,7 @@ export function RecentDays({ workouts, food, goal, today }: { workouts: Workout[
       <View style={styles.labelRow}>
         <SectionLabel>Recent</SectionLabel>
         <Pressable onPress={() => router.navigate('/(tabs)/history')} accessibilityRole="button" hitSlop={12}>
-          <Text style={[styles.link, { color: colors.sunrise }]}>All days</Text>
+          <Text style={[styles.link, { color: colors.textSecondary }]}>All days ›</Text>
         </Pressable>
       </View>
       <SkyCard style={styles.tight}>
@@ -182,42 +149,21 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
-  split: {
-    flexDirection: 'row',
-    gap: spacing.gap,
-    marginBottom: spacing.gap,
+  summary: {
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  tile: {
-    flex: 1,
-    borderRadius: radius.tile,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 0,
+  food: {
+    gap: 6,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  kicker: {
-    marginBottom: spacing.sm,
-  },
-  ring: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 96,
-  },
-  mid: {
+  big: {
     fontFamily: fonts.rounded,
-    fontSize: 20,
-    lineHeight: 25,
-    fontWeight: '800',
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: '900',
     fontVariant: ['tabular-nums'],
-  },
-  ringSub: {
-    fontSize: 11,
-    lineHeight: 13,
-  },
-  title: {
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '700',
-    marginTop: 10,
   },
   tight: {
     paddingVertical: 6,

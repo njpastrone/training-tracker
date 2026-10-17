@@ -5,11 +5,10 @@ import { SymbolView } from 'expo-symbols';
 import { useColors } from '../contexts/ThemeContext';
 import { fonts, muscleGroupColors, spacing } from '../constants/theme';
 import { workoutName } from '../services/format';
-import { muscleName } from '../services/goals';
+import { foodMet, muscleName } from '../services/goals';
 import type { FoodDayTotal } from '../services/progress';
 import type { FoodGoal, MuscleGroup, Workout } from '../types/workout';
 import { dayLabel } from './WorkoutCard';
-import GoalRing from './GoalRing';
 
 interface Props {
   date: string;
@@ -22,7 +21,7 @@ interface Props {
 const n = (v: number) => v.toLocaleString('en-US');
 
 // One even row per day, for History's Days and Log's Recent: training (name and muscles), then food
-// (the number the food goal doesn't measure, and meals), the goal's number with its ring on the right.
+// (the number the food goal doesn't measure, and meals), the goal's number on the right, with a ✓ once met.
 // The whole row opens the day.
 export default function DayRow({ date, workouts, food, goal, first }: Props) {
   const colors = useColors();
@@ -50,10 +49,10 @@ export default function DayRow({ date, workouts, food, goal, first }: Props) {
         {foodLine && <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{foodLine}</Text>}
       </View>
       {food && (
-        <View style={styles.right}>
-          <Text style={[styles.value, { color: colors.text }]}>{value}</Text>
-          {goal && <GoalRing goal={goal} day={food} size={28} />}
-        </View>
+        <Text style={[styles.value, { color: goal && !foodMet(goal, food) ? colors.textSecondary : colors.text }]}>
+          {value}
+          {goal && foodMet(goal, food) ? <Text style={{ color: colors.sunrise }}>{' ✓'}</Text> : null}
+        </Text>
       )}
       <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.textTertiary} />
     </Pressable>
@@ -106,11 +105,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-  right: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
   value: {
     fontFamily: fonts.rounded,

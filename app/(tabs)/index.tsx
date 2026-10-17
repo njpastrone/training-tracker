@@ -5,14 +5,15 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
-import { SkyCard, LargeTitle } from '../../components/Sky';
+import { SkyCard, SkySheet, LargeTitle } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
 import { ThinkingCard } from '../../components/CoachCard';
-import TodayTiles, { RecentDays, UpNext } from '../../components/TodayTiles';
+import TodaySummary, { RecentDays, UpNext } from '../../components/TodayTiles';
+import SunArc from '../../components/SunArc';
 import { UndoToast } from '../../components/SelectableWorkoutList';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -150,10 +151,12 @@ export default function LogScreen() {
   return (
     <ChatScreen bar={logBar(log, "What'd you do or eat today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
       <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
+      {!reviewing && lifts && <SunArc />}
+      <SkySheet>
 
       {firstRun && !todaysSchedule ? (
         !reviewing && (
-          <SkyCard style={styles.hint}>
+          <SkyCard card style={styles.hint}>
             <LogoMark size={30} color={colors.sunrise} />
             <Text variant="titleMedium" style={{ color: colors.text }}>Log a workout, food, or both</Text>
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -167,7 +170,7 @@ export default function LogScreen() {
         )
       ) : (
         // The rest of the page hides while a parsed card is open (DESIGN-SYSTEM.md, ChatBar)
-        !reviewing && <TodayTiles
+        !reviewing && <TodaySummary
           today={today}
           training={lifts ? { todays, planned: todays.length ? undefined : scheduledTemplate ?? undefined, last: workouts.find(w => w.date < today) } : undefined}
           food={eats ? { goal: foodGoal, day: food.get(today) } : undefined}
@@ -192,7 +195,7 @@ export default function LogScreen() {
       )}
 
       {!reviewing && !hasUpcoming && justStarted && !notNow && (
-        <SkyCard>
+        <SkyCard card>
           <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
           <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
             You're aiming for {weeklyTarget} days a week. I'll fit the rest around what you just did.
@@ -263,6 +266,7 @@ export default function LogScreen() {
       {!reviewing && lifts && next && <UpNext date={next.date} today={today} template={getTemplate(next.templateId)} />}
 
       {!reviewing && <RecentDays workouts={workouts} food={food} goal={foodGoal} today={today} />}
+      </SkySheet>
     </ChatScreen>
   );
 }

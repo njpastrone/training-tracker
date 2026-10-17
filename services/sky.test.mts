@@ -99,3 +99,21 @@ test('after the first 7 days the full target and pace are back', () => {
   assert.equal(sky.target, 4);
   assert.equal(sky.phase, 'dusk'); // nothing in the last 7 days
 });
+
+// WCAG relative luminance and contrast, for text on the sky
+const lum = (hex: string) => {
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(1 + i, 3 + i), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+// #3E4766 is lightColors.textSecondary (constants/theme.ts imports react-native, so it's copied here)
+test('every sky has four stops and keeps the title and subtitle readable', () => {
+  for (const phase of ['dawn', 'day', 'dusk'] as const) {
+    assert.equal(SKY[phase].length, 4, phase);
+    for (const stop of SKY[phase]) assert.ok(contrast('#0E1430', stop) >= 4.5, `title on ${phase} ${stop}`);
+    assert.ok(contrast('#3E4766', SKY[phase][1]) >= 4.5, `subtitle on ${phase}`);
+  }
+  assert.equal(SKY.night.length, 4);
+  for (const stop of SKY.night) assert.ok(contrast('#F3F5FF', stop) >= 4.5, `night ${stop}`);
+});

@@ -5,13 +5,14 @@ import { trainingWindow, usualPerWeek, onPace, perWeekRate } from './pace';
 // brighter with each workout, full daylight once the usual week is in, dusk when behind pace
 // (services/pace.ts). Dark Mode is always night. Pure and deterministic so it can be unit-tested.
 
-export type SkyStops = [string, string, string]; // top, middle, bottom
+export type SkyStops = [string, string, string, string]; // top, middle, low, base
 
+// Palette G (twilight skies with a lavender cast): saturated at the top, the base by about 45% of the screen
 export const SKY = {
-  dawn: ['#FFD3B8', '#FADCE6', '#E4E8FF'] as SkyStops,
-  day: ['#C9DFFF', '#E4EEFF', '#F6F8FF'] as SkyStops,
-  dusk: ['#FFC39C', '#EFB0C8', '#BDB8F0'] as SkyStops,
-  night: ['#0A0F26', '#141938', '#1F1B44'] as SkyStops,
+  dawn: ['#FFB4A0', '#F9CFE0', '#E8E0FA', '#F8F6FF'] as SkyStops,
+  day: ['#8AA8FF', '#BCC9FF', '#E0E3FF', '#F6F5FF'] as SkyStops,
+  dusk: ['#FF9F7E', '#E7A6CF', '#C9BDF2', '#F3F1FF'] as SkyStops,
+  night: ['#0D0B2A', '#1A1640', '#2A1F52', '#1E1A44'] as SkyStops,
 };
 
 export type SkyPhase = 'dawn' | 'day' | 'dusk';

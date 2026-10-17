@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { SkyCard, SkySheet, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
@@ -106,10 +106,11 @@ export default function HistoryScreen() {
       overlay={<UndoToast />}
     >
       <LargeTitle title="History" subtitle={thisWeek} />
+      <SkySheet>
 
       {/* The goal is asked once planning starts, then remembered (Settings can change it) */}
       {(planning || !!planner.text.trim()) && !settings.goal && (
-        <SkyCard>
+        <SkyCard card>
           <SectionLabel>What are you training for?</SectionLabel>
           <View style={styles.goalRow}>
             {GOALS.map(goal => (
@@ -164,7 +165,7 @@ export default function HistoryScreen() {
               )}
             </>
           ) : (
-            <SkyCard style={styles.empty}>
+            <SkyCard card style={styles.empty}>
               <SymbolView name="calendar" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={[styles.center, { color: colors.text }]}>Your workouts show up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -174,6 +175,7 @@ export default function HistoryScreen() {
           )}
         </>
       )}
+      </SkySheet>
     </ChatScreen>
   );
 }

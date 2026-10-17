@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import Svg, { Polyline } from 'react-native-svg';
-import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { SkyCard, SkySheet, Hero, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
@@ -70,6 +70,8 @@ export default function ProgressScreen() {
           : `Protein ${food.protein} g a day over the last 7`;
   const lapsed = (workouts.length > 0 || foodEntries.length > 0) && !sky.done && !food.logged;
 
+  const ask = <Pill variant="glass" size="small" icon="logo" label="Ask" onPress={() => router.push('/ask')} />;
+
   return (
     <ChatScreen
       bar={logBar(log, "Forgot something? 'legs on Wed'", chips)}
@@ -86,11 +88,15 @@ export default function ProgressScreen() {
         )
       }
     >
-      <LargeTitle
-        title="Progress"
-        subtitle={subtitle}
-        right={<Pill variant="glass" size="small" icon="logo" label="Ask" onPress={() => router.push('/ask')} />}
-      />
+      {workouts.length > 0 ? (
+        <>
+          <LargeTitle title="Progress" right={ask} />
+          <Hero value={`${sky.done}`} of={`of ${sky.target}`} note={sky.done >= sky.target ? 'goal met ✓' : undefined} sub="training days in the last 7" />
+        </>
+      ) : (
+        <LargeTitle title="Progress" subtitle={subtitle} right={ask} />
+      )}
+      <SkySheet>
 
       {/* Corrections: a missed workout in plain words goes to its own day */}
       {log.sent && <UserBubble text={log.sent} />}
@@ -110,7 +116,7 @@ export default function ProgressScreen() {
       {reviewing ? null : (
         <>
           {workouts.length === 0 && foodEntries.length === 0 && (
-            <SkyCard style={styles.empty}>
+            <SkyCard card style={styles.empty}>
               <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -120,7 +126,7 @@ export default function ProgressScreen() {
           )}
 
           {lapsed && (
-            <SkyCard style={styles.empty}>
+            <SkyCard card style={styles.empty}>
               <SymbolView name="calendar.badge.clock" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Nothing in the last 7 days</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -203,7 +209,7 @@ export default function ProgressScreen() {
                     <SectionLabel style={styles.fill}>Days since trained</SectionLabel>
                     {!goals?.custom.length && settings.goalsPromptDismissed && (
                       <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" hitSlop={10}>
-                        <Text variant="labelLarge" style={{ color: colors.sunrise }}>Set goals</Text>
+                        <Text variant="labelLarge" style={{ color: colors.textSecondary }}>Set goals</Text>
                       </Pressable>
                     )}
                   </View>
@@ -243,6 +249,7 @@ export default function ProgressScreen() {
           )}
         </>
       )}
+      </SkySheet>
     </ChatScreen>
   );
 }
@@ -257,7 +264,7 @@ const loggedOn = (date: string) => {
 function GoalsPrompt({ onPreset, onOwn, onNotNow }: { onPreset: () => void; onOwn: () => void; onNotNow: () => void }) {
   const { colors } = useTheme();
   return (
-    <SkyCard>
+    <SkyCard card>
       <View style={styles.promptTop}>
         <View style={[styles.promptIcon, { backgroundColor: colors.dim }]}>
           <SymbolView name="target" size={17} weight="semibold" tintColor={colors.sunrise} />
@@ -295,7 +302,7 @@ function ExerciseRow({ exercise, lift, first, onPress }: { exercise: ExerciseSum
         <View style={styles.nameRow}>
           <Text variant="bodyLarge" style={[styles.shrink, { color: colors.text }]} numberOfLines={1}>{exercise.name}</Text>
           {lift?.trend.isAllTimeBest && (
-            <Text variant="labelSmall" style={[styles.badge, { color: colors.mint, backgroundColor: colors.mint + '1F' }]}>PR</Text>
+            <Text variant="labelSmall" style={[styles.badge, { color: colors.sunrise, backgroundColor: colors.sunrise + '1F' }]}>PR</Text>
           )}
         </View>
         <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{lastDoneLine(exercise)}</Text>

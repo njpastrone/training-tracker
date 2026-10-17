@@ -3,7 +3,9 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 're
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SkyScreen } from './Sky';
+import { SKY, mixHex } from '../services/sky';
 import { Composer, Pill } from './Glass';
 import type { useLogDraft } from '../hooks/useLogDraft';
 import { toChips, type Chip } from '../services/suggestions';
@@ -85,6 +87,9 @@ interface ChatScreenProps {
 // A chat tab: the page scrolls, the bar stays pinned above the tab bar and rides up with the keyboard
 export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) {
   const scrollRef = useRef<ScrollView>(null);
+  const { colors, isDarkMode, reduceTransparency, sky } = useTheme();
+  // Fade to the sheet as it renders over the sky base (SkySheet's card material), so there's no band
+  const base = reduceTransparency ? colors.surface : mixHex(isDarkMode ? SKY.night[3] : sky.stops[3], '#FFFFFF', isDarkMode ? 0.075 : 0.62);
   return (
     // The bar sits above the tab bar, so pad the bottom edge too
     <SkyScreen edges={['top', 'bottom']}>
@@ -93,12 +98,13 @@ export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) 
           <ScrollView
             ref={scrollRef}
             style={styles.fill}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, styles.grow]}
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => follow && scrollRef.current?.scrollToEnd({ animated: true })}
           >
             {children}
           </ScrollView>
+          <LinearGradient pointerEvents="none" colors={[`${base}00`, base]} style={styles.fade} />
           {overlay}
         </View>
         <ChatBar {...bar} />
@@ -113,7 +119,16 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.lg,
+  },
+  fade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 60,
+  },
+  grow: {
+    flexGrow: 1, // so a tab's SkySheet reaches the bottom
   },
   bar: {
     paddingHorizontal: spacing.md,
