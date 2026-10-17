@@ -154,7 +154,7 @@ export default function LogScreen() {
 
       {firstRun && !todaysSchedule ? (
         !reviewing && (
-          <SkyCard style={styles.hint}>
+          <SkyCard card style={styles.hint}>
             <LogoMark size={30} color={colors.sunrise} />
             <Text variant="titleMedium" style={{ color: colors.text }}>Log a workout, food, or both</Text>
             <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -193,7 +193,7 @@ export default function LogScreen() {
       )}
 
       {!reviewing && !hasUpcoming && justStarted && !notNow && (
-        <SkyCard>
+        <SkyCard card>
           <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
           <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
             You're aiming for {weeklyTarget} days a week. I'll fit the rest around what you just did.

@@ -65,11 +65,11 @@ export function Hero({ value, of, note, sub }: { value: string; of?: string; not
 }
 
 // Content card: standard material over the sky, solid under Reduce Transparency. Inside a SkySheet it's
-// a flat section with a hairline under it instead.
-export function SkyCard({ style, ...props }: ViewProps) {
+// a flat section with a hairline under it instead, unless `card` (empty states and first-use prompts stay cards).
+export function SkyCard({ style, card, ...props }: ViewProps & { card?: boolean }) {
   const { colors, reduceTransparency } = useTheme();
   const inSheet = useContext(SheetContext);
-  if (inSheet) return <View {...props} style={[styles.section, { borderBottomColor: colors.dim }, style]} />;
+  if (inSheet && !card) return <View {...props} style={[styles.section, { borderBottomColor: colors.dim }, style]} />;
   return (
     <View
       {...props}
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -spacing.screen,
     paddingHorizontal: spacing.screen,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
+    paddingBottom: 72, // clears the 60 pt fade above the chat bar
     flexGrow: 1,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,

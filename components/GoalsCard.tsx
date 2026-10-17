@@ -120,7 +120,7 @@ export function DayBars({ goal, days }: { goal: FoodGoal; days: { date: string; 
       {days.map(d => (
         <View key={d.date} style={[styles.cell, styles.barCell]}>
           {d.total ? (
-            <View style={[styles.dayBar, { height: `${Math.max(6, (foodValue(goal, d.total) / top) * 100)}%`, backgroundColor: foodMet(goal, d.total) ? colors.sunrise : colors.dim }]} />
+            <View style={[styles.dayBar, { height: `${Math.max(6, (foodValue(goal, d.total) / top) * 100)}%`, backgroundColor: foodMet(goal, d.total) ? colors.sunrise : colors.text }]} />
           ) : (
             <View style={[styles.restDot, { backgroundColor: colors.dim }]} />
           )}

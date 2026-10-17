@@ -111,7 +111,7 @@ export default function ProgressScreen() {
       {reviewing ? null : (
         <>
           {workouts.length === 0 && foodEntries.length === 0 && (
-            <SkyCard style={styles.empty}>
+            <SkyCard card style={styles.empty}>
               <SymbolView name="chart.line.uptrend.xyaxis" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Your progress shows up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -121,7 +121,7 @@ export default function ProgressScreen() {
           )}
 
           {lapsed && (
-            <SkyCard style={styles.empty}>
+            <SkyCard card style={styles.empty}>
               <SymbolView name="calendar.badge.clock" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Nothing in the last 7 days</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
@@ -259,7 +259,7 @@ const loggedOn = (date: string) => {
 function GoalsPrompt({ onPreset, onOwn, onNotNow }: { onPreset: () => void; onOwn: () => void; onNotNow: () => void }) {
   const { colors } = useTheme();
   return (
-    <SkyCard>
+    <SkyCard card>
       <View style={styles.promptTop}>
         <View style={[styles.promptIcon, { backgroundColor: colors.dim }]}>
           <SymbolView name="target" size={17} weight="semibold" tintColor={colors.sunrise} />

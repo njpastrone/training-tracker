@@ -110,7 +110,7 @@ export default function HistoryScreen() {
 
       {/* The goal is asked once planning starts, then remembered (Settings can change it) */}
       {(planning || !!planner.text.trim()) && !settings.goal && (
-        <SkyCard>
+        <SkyCard card>
           <SectionLabel>What are you training for?</SectionLabel>
           <View style={styles.goalRow}>
             {GOALS.map(goal => (
@@ -165,7 +165,7 @@ export default function HistoryScreen() {
               )}
             </>
           ) : (
-            <SkyCard style={styles.empty}>
+            <SkyCard card style={styles.empty}>
               <SymbolView name="calendar" size={30} tintColor={colors.sunrise} />
               <Text variant="titleMedium" style={[styles.center, { color: colors.text }]}>Your workouts show up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
