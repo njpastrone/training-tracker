@@ -52,7 +52,7 @@ beforeEach(() => {
   offline = false;
   refuse = 0;
   refuseAll = false;
-  useWorkoutStore.getState().updateSettings({ aiConsent: 'granted' });
+  useWorkoutStore.getState().updateSettings({ aiConsent: 'granted', aiConsentVersion: 2 });
 });
 
 test('food goes to the AI, grounded in the table foods the log names', async () => {
@@ -92,7 +92,7 @@ test('when the parser that ran finds nothing, the other one gets a try', async (
 });
 
 test('AI off: each part goes to its side, nothing is sent', async () => {
-  useWorkoutStore.getState().updateSettings({ aiConsent: 'declined' });
+  useWorkoutStore.getState().updateSettings({ aiConsent: 'declined', aiConsentVersion: 2 });
   const r = await parseLog('squat 3x5, then a Big Mac', options);
   assert.deepEqual(asked(), []);
   assert.deepEqual(r.workout?.exercises.map(e => e.name), ['squat 3x5']);

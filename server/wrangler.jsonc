@@ -23,6 +23,7 @@
   ]
   // Secrets (never in this file), via `npx wrangler secret put`: ANTHROPIC_API_KEY, APP_PASSWORD,
   // APP_ATTEST_APP_ID ("<Apple Team ID>.com.njpastrone.trainingtracker", the App ID Apple attests keys for;
-  // Team ID: developer.apple.com > Membership) and APP_ATTEST_CHALLENGE_SECRET (any long random string; it
-  // signs the challenges the Worker hands out).
+  // Team ID: developer.apple.com > Membership), APP_ATTEST_CHALLENGE_SECRET (any long random string; it
+  // signs the challenges the Worker hands out) and CONTACT_EMAIL (required: the support address the privacy
+  // policy and terms show; GET /privacy and /terms answer 503 until it is set).
 }

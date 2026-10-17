@@ -3,6 +3,7 @@ import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './
 import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
 import { buildCoachRequest, COACH_BETA, MAX_CALLS_PER_QUESTION, MAX_PACK_CHARS, validThread } from './coach.ts';
 import { checkChallenge, issueChallenge, verifyAssertion, verifyAttestation } from './attest.ts';
+import { legalPage } from './legal.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -15,6 +16,7 @@ export interface Env {
   APP_ATTEST_MODE?: string;
   APP_ATTEST_APP_ID?: string; // secret: "<Apple Team ID>.<bundle id>"
   APP_ATTEST_CHALLENGE_SECRET?: string; // secret: signs the challenges the Worker hands out
+  CONTACT_EMAIL?: string; // shown on the privacy policy and terms pages; they answer 503 until it is set
   USAGE: KVNamespace;
 }
 
@@ -134,6 +136,11 @@ export async function takeCoachSlot(kv: KVNamespace, cap: number, now: Date, dev
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    // The privacy policy and terms are public pages: no password, no cap
+    if (request.method === 'GET') {
+      const legal = legalPage(new URL(request.url).pathname, env.CONTACT_EMAIL);
+      if (legal) return legal;
+    }
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
 
     if (!env.APP_PASSWORD || request.headers.get('x-app-password') !== env.APP_PASSWORD) {

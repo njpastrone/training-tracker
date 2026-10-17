@@ -12,7 +12,7 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **Goals** - Set goals on Progress (each muscle 1-3× a week, minimum sets per muscle, days a week, a weight to lift or an exercise to do often) and see them against your last 7 days; the planner aims at them
 - **Ask the coach** - Tap **Ask** on Progress (or type a question into the Log or Progress box) to ask about your own training and food ("I've taken a few days off, what should I start with?", "what did I squat last Tuesday?"); it answers from a summary of your last 4 weeks and looks up the rest in your log, suggests a workout or meals you save with one tap, and offers to remember things you tell it (no dairy, a home gym), which you can see and forget in Settings
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
-- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, the things you asked it to remember and what the question needs (one exercise's history, a day's meals), never the whole log. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days).
+- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, the things you asked it to remember and what the question needs (one exercise's history, a day's meals), never the whole log. Our server never stores what you type: it keeps daily request counts per phone (using a random ID, deleted after 2 days) and request logs without your text for 7 days. AI is for 18 and older; under 18 it stays off and nothing you type leaves the phone. The [privacy policy and terms](#privacy-policy-and-terms) say the rest.
 
 ## Screenshots
 
@@ -91,6 +91,7 @@ npx wrangler secret put ANTHROPIC_API_KEY # paste your Anthropic API key
 npx wrangler secret put APP_PASSWORD      # choose a password to share with the app
 npx wrangler secret put APP_ATTEST_APP_ID           # <Team ID>.com.njpastrone.trainingtracker (Team ID: Apple Developer account, Membership details)
 npx wrangler secret put APP_ATTEST_CHALLENGE_SECRET  # any long random string, e.g. `openssl rand -base64 32`
+npx wrangler secret put CONTACT_EMAIL     # required: the support address the privacy policy and terms show (503 without it)
 npx wrangler deploy                       # prints the Worker URL
 ```
 
@@ -106,6 +107,10 @@ EXPO_PUBLIC_APP_PASSWORD=<the password you chose>
 Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 330: each request is three KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
 
 Server tests (Node 22.18+): `cd server && npm test`
+
+### Privacy policy and terms
+
+The Worker serves the privacy policy and terms of use as plain pages at `GET /privacy` and `GET /terms` (`server/src/legal.ts`), with no password or cap, so they live at the same URL as the API and ship with each Worker deploy. Settings › About and the AI consent sheet link them; put `<Worker URL>/privacy` in App Store Connect (App Privacy) and the TestFlight test information. Both are marked DRAFT until a lawyer has read them. The contact address comes from the `CONTACT_EMAIL` secret, which is required: until it is set both pages answer 503 instead of a policy with no contact. When the app starts sending or keeping something new, update the policy in the same change.
 
 Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 
@@ -156,7 +161,7 @@ The AI will parse your input and extract:
 
 You can log several days at once ("yesterday squats 5x5 225, today bench 3x8 185"); each day is saved as its own workout.
 
-Before the first AI call, the app asks whether what you type may be sent to Anthropic (change it anytime in **Settings › AI reading**). With AI off, each line or comma you type becomes an exercise you fill in by hand.
+Before the first AI call, the app asks whether what you type may be sent to Anthropic and whether you're 18 or older (change it anytime in **Settings › AI reading**); anyone who answered before the age question is asked again. AI stays off under 18. With AI off, each line or comma you type becomes an exercise you fill in by hand.
 
 ### Planning a Week
 
