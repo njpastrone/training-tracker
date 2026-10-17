@@ -110,7 +110,7 @@ export const fonts = {
   rounded: Platform.select({ ios: 'ui-rounded', default: undefined }),
 };
 
-const rounded = (fontSize: number, lineHeight: number, fontWeight: '600' | '700' | '800') => ({
+const rounded = (fontSize: number, lineHeight: number, fontWeight: '600' | '700' | '800' | '900') => ({
   fontFamily: fonts.rounded ?? MD3LightTheme.fonts.titleLarge.fontFamily,
   fontSize,
   lineHeight,
@@ -129,7 +129,7 @@ const paperFonts = configureFonts({
   config: {
     displayLarge: rounded(40, 46, '800'),
     displayMedium: rounded(36, 42, '800'),
-    displaySmall: rounded(34, 41, '800'),
+    displaySmall: rounded(56, 60, '900'), // the hero number (SunArc, Hero)
     headlineLarge: rounded(34, 41, '800'), // Large Title
     headlineMedium: rounded(28, 34, '800'), // Title 1
     headlineSmall: rounded(22, 28, '700'), // Title 2

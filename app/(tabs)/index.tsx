@@ -11,7 +11,8 @@ import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
-import TodayTiles, { RecentDays, UpNext } from '../../components/TodayTiles';
+import TodaySummary, { RecentDays, UpNext } from '../../components/TodayTiles';
+import SunArc from '../../components/SunArc';
 import { UndoToast } from '../../components/SelectableWorkoutList';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -148,6 +149,7 @@ export default function LogScreen() {
   return (
     <ChatScreen bar={logBar(log, "What'd you do or eat today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
       <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
+      {!reviewing && lifts && <SunArc />}
 
       {firstRun && !todaysSchedule ? (
         !reviewing && (
@@ -165,7 +167,7 @@ export default function LogScreen() {
         )
       ) : (
         // The rest of the page hides while a parsed card is open (DESIGN-SYSTEM.md, ChatBar)
-        !reviewing && <TodayTiles
+        !reviewing && <TodaySummary
           today={today}
           training={lifts ? { todays, planned: todays.length ? undefined : scheduledTemplate ?? undefined, last: workouts.find(w => w.date < today) } : undefined}
           food={eats ? { goal: foodGoal, day: food.get(today) } : undefined}
