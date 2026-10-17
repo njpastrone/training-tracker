@@ -69,7 +69,7 @@ export default function AiConsentSheet() {
         <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
           AI is for people 18 and older. Under 18, or with Not now, AI stays off: each line or comma you type becomes an exercise you fill in by hand, common foods are looked up on this phone, and nothing you type leaves it. You can change this anytime in Settings.
         </Text>
-        <Text variant="bodyMedium" style={{ color: colors.sunrise }} accessibilityRole="link" onPress={() => Linking.openURL(legalUrl('privacy'))}>
+        <Text variant="bodyMedium" style={{ color: colors.textSecondary, textDecorationLine: 'underline' }} accessibilityRole="link" onPress={() => Linking.openURL(legalUrl('privacy'))}>
           Read the privacy policy
         </Text>
 
