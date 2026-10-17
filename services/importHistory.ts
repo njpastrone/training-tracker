@@ -1,6 +1,7 @@
 // Imports workout history from a Strong or Hevy CSV export, on the phone only: the file is never
-// sent to the AI or the server. Neither app documents its columns; these are the headers their
-// exports carry (see the fixtures in services/fixtures/):
+// sent to the AI or the server. Neither app documents its columns; these are the headers real exports
+// carry, checked against public exports on GitHub (Strong's current list also matches
+// forum.intervals.icu/t/import-strong-data-weightlifting-app/5531). Fixtures: services/fixtures/.
 // - Strong (current): Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
 //   with no unit column (weights are in the unit Strong was set to), and "Rest Timer" rows between sets
 // - Strong (older): Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;RPE;Distance;Distance Unit;Seconds;Notes;Workout Notes;Workout Duration
