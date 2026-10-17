@@ -91,7 +91,8 @@ export function PlannedCard({ item }: { item: Extract<ChatItem, { kind: 'planned
   const router = useRouter();
   const schedule = useWorkoutStore(s => s.schedule);
   const templates = useWorkoutStore(s => s.templates);
-  const days = schedule.filter(s => item.dates.includes(s.date)).sort((a, b) => a.date.localeCompare(b.date));
+  // By plan when known, so another plan on the same days doesn't show here
+  const days = schedule.filter(s => (item.planId ? s.planId === item.planId : item.dates.includes(s.date))).sort((a, b) => a.date.localeCompare(b.date));
   if (!days.length) {
     return (
       <Reply>

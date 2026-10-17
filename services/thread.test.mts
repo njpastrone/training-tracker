@@ -33,6 +33,11 @@ test("coachThread leaves out yesterday's answers", () => {
   assert.deepEqual(coachThread([answer(0, at(23, 0, 16))], now), []);
 });
 
+test('coachThread leaves out an answer too long for the Worker to take back', () => {
+  const long: ChatItem = { ...answer(1, at(9)), turn: { reply, raw: 'x'.repeat(6001) } } as ChatItem;
+  assert.deepEqual(coachThread([long, answer(2, at(10))], now).map(m => m.content), ['q2', 'r2']);
+});
+
 test('needsStamp: first item, then a gap of 30 minutes or more', () => {
   const you = (d: Date): ChatItem => ({ id: d.toISOString(), at: d.toISOString(), kind: 'you', text: 'x' });
   assert.equal(needsStamp(undefined, you(at(9))), true);

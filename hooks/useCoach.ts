@@ -113,5 +113,5 @@ export function useCoach() {
   // The newest answer's follow-ups, while it's the last thing in the thread
   const last = items[items.length - 1];
   const chips = last?.kind === 'answer' ? last.turn.reply.chips : [];
-  return { pending, busy: !!pending, error, ask, plan, logMeal, remember, chips };
+  return { pending, busy: !!pending, error, clearError: () => setError(null), ask, plan, logMeal, remember, chips };
 }

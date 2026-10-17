@@ -1,5 +1,5 @@
 import { differenceInMinutes, isSameDay, parseISO } from 'date-fns';
-import type { CoachMessage } from '../server/src/coach';
+import { MAX_ANSWER_CHARS, MAX_QUESTION_CHARS, type CoachMessage } from '../server/src/coach';
 import type { ChatItem } from '../stores/chatStore';
 
 // Pure helpers for the Chat tab's thread (stores/chatStore.ts)
@@ -7,10 +7,14 @@ import type { ChatItem } from '../stores/chatStore';
 const PAIRS_SENT = 6; // today's last question/answer pairs that go back with a new question
 const STAMP_GAP_MINUTES = 30;
 
-// What the coach hears of the thread: only today's answers, the last 6, oldest first
+// What the coach hears of the thread: only today's answers, the last 6, oldest first. A pair over
+// the Worker's limits is left out, or it would refuse every later question that day.
 export function coachThread(items: ChatItem[], now: Date): CoachMessage[] {
   return items
-    .filter((i): i is Extract<ChatItem, { kind: 'answer' }> => i.kind === 'answer' && isSameDay(parseISO(i.at), now))
+    .filter(
+      (i): i is Extract<ChatItem, { kind: 'answer' }> =>
+        i.kind === 'answer' && isSameDay(parseISO(i.at), now) && i.question.length <= MAX_QUESTION_CHARS && i.turn.raw.length <= MAX_ANSWER_CHARS
+    )
     .slice(-PAIRS_SENT)
     .flatMap((i) => [
       { role: 'user' as const, content: i.question },

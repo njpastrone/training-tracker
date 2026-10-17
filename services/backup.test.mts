@@ -258,6 +258,9 @@ test('the chat thread is backed up and restored; a backup from before Chat resto
   const damaged: any = structuredClone(withChat);
   damaged.data['@training-tracker/chat'].state.items[0] = { text: 'no id' };
   assert.throws(() => backup.parseBackup(JSON.stringify(damaged)), /damaged/);
+  // An answer without its reply would crash the Chat tab on every render
+  damaged.data['@training-tracker/chat'].state.items[0] = { id: 'x', at: 'now', kind: 'answer', question: 'q', turn: { raw: 'r' } };
+  assert.throws(() => backup.parseBackup(JSON.stringify(damaged)), /damaged/);
 });
 
 test('clear all data empties the chat thread', async () => {

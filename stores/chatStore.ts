@@ -23,7 +23,7 @@ type Stamp = { id: string; at: string };
 export type NewChatItem =
   | { kind: 'you'; text: string }
   | { kind: 'logged'; workoutIds: string[]; foodEntryIds: string[]; day: string }
-  | { kind: 'planned'; dates: string[] }
+  | { kind: 'planned'; dates: string[]; planId?: string }
   | { kind: 'answer'; question: string; turn: CoachTurnState };
 export type ChatItem = NewChatItem & Stamp;
 

@@ -89,7 +89,7 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
       const plan = await savePlan(draft.plan, messages[0], settings.weightUnit);
       await Promise.all([loadSchedule(), loadTemplates()]);
       const dates = useWorkoutStore.getState().schedule.filter(s => s.planId === plan.id).map(s => s.date).sort();
-      useChatStore.getState().add(...(messages[0] ? [{ kind: 'you' as const, text: messages[0] }] : []), { kind: 'planned', dates });
+      useChatStore.getState().add(...(messages[0] ? [{ kind: 'you' as const, text: messages[0] }] : []), { kind: 'planned', dates, planId: plan.id });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       startOver();
       onPlanned(plan);

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -48,9 +48,11 @@ export default function ChatScreenTab() {
 
   const coach = useCoach();
   const todaysSchedule = schedule.find(s => s.date === today && !s.completed && !s.skipped);
-  // A question the coach couldn't answer goes back in the bar to try again
+  // A question the coach couldn't answer goes back in the bar to try again, unless the bar is fixing
+  // a card by then (sending it would apply the question as a fix)
+  const reviewingRef = useRef(false);
   const ask = async (q: string) => {
-    if (!(await coach.ask(q))) log.setText(q);
+    if (!(await coach.ask(q)) && !reviewingRef.current) log.setText(q);
   };
   const log = useLogDraft({
     date: today,
@@ -84,6 +86,7 @@ export default function ChatScreenTab() {
 
   const shown = items.slice(-PAGE * pages);
   const reviewing = !!log.sent || !!log.draft || !!log.food;
+  reviewingRef.current = !!log.draft || !!log.food;
   const planning = !!planner.sent || !!planner.draft;
   const working = reviewing || planning || coach.busy;
 
@@ -110,6 +113,7 @@ export default function ChatScreenTab() {
           value: log.text,
           onChangeText: log.setText,
           onSend: () => {
+            coach.clearError();
             const text = log.text.trim();
             if (!PLAN.test(text)) return log.parse(); // a question goes to the coach (routeComposer)
             log.setText('');
@@ -119,7 +123,7 @@ export default function ChatScreenTab() {
           chips: log.text.trim() ? [] : coach.chips.length ? toChips(coach.chips) : starters,
           onChip: ask,
           busy: log.busy === 'parse' || coach.busy || planner.busy,
-          error: coach.error ?? log.error ?? planner.error,
+          error: log.error ?? planner.error ?? coach.error,
         };
 
   return (

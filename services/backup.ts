@@ -73,6 +73,17 @@ const goalsOk = (g: any) =>
 const FACT_KINDS = ['constraint', 'preference', 'equipment', 'food', 'injury'];
 // Things told to the coach (services/coachCards.ts): each with its kind, words and day
 const profileOk = (p: any) => isObject(p) && listOf(p.facts, (f) => hasStrings(f, 'id', 'text', 'quote', 'saidOn') && FACT_KINDS.includes(f.kind));
+// A Chat thread item, down to the fields the Chat tab dereferences (stores/chatStore.ts)
+const strings = (v: unknown) => listOf(v, (s) => typeof s === 'string');
+const chatItemOk = (i: any) =>
+  hasStrings(i, 'id', 'at', 'kind') &&
+  (i.kind === 'you'
+    ? typeof i.text === 'string'
+    : i.kind === 'logged'
+      ? strings(i.workoutIds) && strings(i.foodEntryIds) && typeof i.day === 'string'
+      : i.kind === 'planned'
+        ? strings(i.dates)
+        : i.kind === 'answer' && typeof i.question === 'string' && isObject(i.turn) && typeof i.turn.raw === 'string' && hasStrings(i.turn.reply, 'answer') && Array.isArray(i.turn.reply.chips));
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
   '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises) && Array.isArray(t.muscleGroups),
@@ -114,7 +125,7 @@ export function parseBackup(text: string): { backup: Backup; summary: BackupSumm
   }
   // The chat thread is a store of its own; a backup from before Chat has none and restores an empty thread
   const chat = b.data[CHAT_KEY];
-  if (chat != null && !(isObject(chat) && isObject(chat.state) && listOf(chat.state.items, (i) => hasStrings(i, 'id', 'at', 'kind')))) fail(DAMAGED);
+  if (chat != null && !(isObject(chat) && isObject(chat.state) && listOf(chat.state.items, chatItemOk))) fail(DAMAGED);
 
   const backup: Backup = { app: 'LiftText', backupVersion: b.backupVersion, createdAt: b.createdAt, data: b.data };
   const count = (key: string) => (b.data[key] ?? []).length;
