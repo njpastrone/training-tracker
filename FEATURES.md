@@ -13,7 +13,7 @@ A lightweight, context-aware AI assistant that provides real-time guidance durin
 ### User Experience
 - **Access Point**: Small "Ask Coach" button on the main Log tab (near recent workouts section)
 - **Context Awareness**: Automatically knows what exercises have been logged today
-- **Interface**: Chat-style questions will live in the planned "Ask about your training" sheet on Progress (a later PR)
+- **Interface**: Chat-style questions live in the Ask sheet on Progress (`app/ask.tsx`, Phase 1 of the coach: answers from a summary of the last 4 weeks, `services/coachPack.ts`, plus read tools over the log run on the phone, `services/coachTools.ts`; a suggested workout or meals come back as cards that save on a tap, `services/coachCards.ts`; explicit memory in Settings › What LiftText knows; a question typed into the Log or Progress composer opens it). Plan: `data/lifttext-agentic/report.md` in the firstmate home
 
 ### Key Capabilities
 - Answer workout-specific questions:

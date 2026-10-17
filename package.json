@@ -7,11 +7,14 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --import tsx --experimental-test-module-mocks --test 'services/*.test.mts' 'data/*.test.mts' 'evals/parse/*.test.ts' 'evals/food/*.test.ts'",
+    "test": "node --import tsx --experimental-test-module-mocks --test 'services/*.test.mts' 'data/*.test.mts' 'evals/parse/*.test.ts' 'evals/food/*.test.ts' 'evals/coach/*.test.ts' 'evals/planner/*.test.ts'",
     "eval:parse": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.eval.local evals/parse/run.ts",
-    "eval:food": "node --env-file-if-exists=.env.eval.local --import tsx evals/food/run.ts"
+    "eval:food": "node --env-file-if-exists=.env.eval.local --import tsx evals/food/run.ts",
+    "eval:coach": "node --env-file-if-exists=.env.eval.local --import tsx evals/coach/run.ts",
+    "eval:planner": "node --env-file-if-exists=.env.eval.local --import tsx --experimental-test-module-mocks evals/planner/run.ts"
   },
   "dependencies": {
+    "@expo/app-integrity": "~57.0.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",

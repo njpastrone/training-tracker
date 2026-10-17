@@ -6,6 +6,7 @@ import { TemplateExercise } from '../types/template';
 import { getExercisesByCategory } from '../data/exercises';
 import { buildParseRequest, buildCorrectionRequest, finalizeParse, finalizeWithNames, type ParseOptions } from '../server/src/parse';
 import { buildFoodCorrectionRequest, buildFoodRequest, readFoodItems, type DraftFoodForModel } from '../server/src/food';
+import type { ContentBlock } from '../server/src/coach';
 import { FoodDraft } from '../types/food';
 import { buildFoodCandidates, candidateNames, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
 import { foodById } from '../data/foods';
@@ -15,8 +16,9 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
 import { hasAiConsent } from './aiConsent';
+import { attestHeaders, forgetKey } from './appAttest';
 
-// Server refusals the user should see (wrong app password, daily cap reached, server busy)
+// Server refusals the user should see (wrong app password, unverified app copy, daily cap reached, server busy)
 export class ApiError extends Error {
   constructor(message: string, readonly status?: number) {
     super(message);
@@ -49,38 +51,56 @@ export class AiOffError extends ApiError {
 const aiUnavailable = (error: unknown) =>
   error instanceof AiOffError || (error instanceof ApiError && (error.status === 429 || error.status === 503));
 
+// What the Worker answers: the model's text, and in coach mode its content blocks (tool calls to run,
+// thinking to echo back) and why it stopped
+export interface WorkerReply {
+  text: string;
+  content?: ContentBlock[];
+  stop_reason?: string;
+}
+
 // Calls Claude through our Cloudflare Worker (server/), which holds the API key and picks the model.
-// `mode` asks the Worker to build the prompt itself (parse or food); Workers deployed before a mode
+// `mode` asks the Worker to build the prompt itself (parse, food or coach); Workers deployed before a mode
 // existed ignore it and send system/messages, so a new mode works before the Worker is redeployed.
-export async function callClaude(
+export async function callWorker(
   system: string,
   content: string,
   maxTokens: number,
-  mode?: { parse: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string } } | { food: Record<string, unknown> }
-): Promise<string> {
+  mode?: { parse: ParseOptions & { input: string; draft?: ParsedWorkoutResponse; fix?: string } } | { food: Record<string, unknown> } | { coach: Record<string, unknown> }
+): Promise<WorkerReply> {
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
     throw new Error('EXPO_PUBLIC_API_URL is not set');
   }
   if (!(await hasAiConsent())) throw new AiOffError();
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-app-password': process.env.EXPO_PUBLIC_APP_PASSWORD ?? '',
-      'x-install-id': await getInstallId(),
-    },
-    body: JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, ...mode }),
-  });
+  const password = process.env.EXPO_PUBLIC_APP_PASSWORD ?? '';
+  const body = JSON.stringify({ system, messages: [{ role: 'user', content }], max_tokens: maxTokens, ...mode });
+  const send = async () =>
+    fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-app-password': password, 'x-install-id': await getInstallId(), ...(await attestHeaders(url, password, body)) },
+      body,
+    });
+  let res = await send();
+  if (res.status === 403) {
+    // The Worker refused the App Attest assertion: try once more with a fresh one from the same key (two
+    // requests signed at once can race on the key's counter). Refused again, the key is likely lost: the
+    // next request attests a new one.
+    res = await send();
+    if (res.status === 403) await forgetKey();
+  }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 || res.status === 429 || res.status === 503) {
+  if (res.status === 401 || res.status === 403 || res.status === 429 || res.status === 503) {
     throw new ApiError(data.error ?? 'AI request refused by the server.', res.status);
   }
   if (!res.ok || typeof data.text !== 'string') {
     throw new Error(data.error ?? `AI server error (${res.status})`);
   }
-  return data.text;
+  return { text: data.text, ...(Array.isArray(data.content) ? { content: data.content } : {}), ...(typeof data.stop_reason === 'string' ? { stop_reason: data.stop_reason } : {}) };
 }
+
+// The model's text alone, for the parsers
+export const callClaude = (...args: Parameters<typeof callWorker>) => callWorker(...args).then((r) => r.text);
 
 // Parses a free-text log. options.date is the day being logged; dayOffset on each exercise
 // says how many days before it the exercise was done.
@@ -298,7 +318,7 @@ function fallbackParse(input: string): ParsedWorkoutResponse | null {
   };
 }
 
-const TEMPLATE_PARSING_PROMPT = `<role>
+export const TEMPLATE_PARSING_PROMPT = `<role>
 You are a fitness template parser that converts natural language workout descriptions into structured exercise templates. Your expertise includes understanding various workout notations and exercise variations.
 </role>
 
@@ -317,6 +337,8 @@ Common notations to recognize:
 - "4 sets of 10" = 4 sets of 10 reps
 - "@225" or "225lbs" or "100kg" = weight specification
 - "3x10@135" = 3 sets of 10 reps at 135 lbs
+- On a dumbbell, db or kettlebell lift, a number with a trailing s after the sets and reps is the weight: "incline db press 3x10 60s" = 3 sets of 10 with 60 lb dumbbells (weight 60)
+- Anywhere else, or when rest or a timed hold is meant, it is seconds, not weight: "plank 3x1 60s" = a 60-second hold, "bench 3x8 90s rest" = 90 seconds rest (put it in notes); leave weight out
 - Exercise names can be abbreviated (bench = bench press, OHP = overhead press)
 </parsing_patterns>
 
@@ -335,9 +357,8 @@ Return ONLY a valid JSON array of exercise objects:
 ]
 </output_format>`;
 
-export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
-  try {
-    const text = await callClaude(TEMPLATE_PARSING_PROMPT, `<template_description>
+// The user message of one template parse (evals/planner sends the same)
+export const templateMessage = (input: string) => `<template_description>
 ${input}
 </template_description>
 
@@ -347,7 +368,11 @@ Parse this workout template into structured exercises. Focus on extracting:
 3. Weights if specified
 4. Proper muscle group classification
 
-Return ONLY the JSON array of exercises.`, 1024);
+Return ONLY the JSON array of exercises.`;
+
+export async function parseTemplateFromNL(input: string): Promise<TemplateExercise[]> {
+  try {
+    const text = await callClaude(TEMPLATE_PARSING_PROMPT, templateMessage(input), 1024);
 
     // Clean response and extract JSON
     let jsonText = text.trim();

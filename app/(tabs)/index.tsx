@@ -11,6 +11,7 @@ import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
+import { ThinkingCard } from '../../components/CoachCard';
 import TodaySummary, { RecentDays, UpNext } from '../../components/TodayTiles';
 import SunArc from '../../components/SunArc';
 import { UndoToast } from '../../components/SelectableWorkoutList';
@@ -89,6 +90,7 @@ export default function LogScreen() {
   const log = useLogDraft({
     date: today,
     withFood: true,
+    onQuestion: question => router.push({ pathname: '/ask', params: { question } }),
     onLogged: async (workoutId, templateId) => {
       // Logged from today's scheduled template: mark the schedule completed
       if (templateId && todaysSchedule && todaysSchedule.templateId === templateId) {
@@ -229,7 +231,7 @@ export default function LogScreen() {
         </>
       )}
 
-      {log.busy === 'parse' && <ReadingCard />}
+      {log.busy === 'parse' && <ThinkingCard title="Reading it…" />}
 
       {log.draft && (
         <ParsedCard
@@ -266,24 +268,6 @@ export default function LogScreen() {
       {!reviewing && <RecentDays workouts={workouts} food={food} goal={foodGoal} today={today} />}
       </SkySheet>
     </ChatScreen>
-  );
-}
-
-// Shown while the AI reads the log
-function ReadingCard() {
-  const { colors } = useTheme();
-  return (
-    <Animated.View entering={FadeInDown.springify().damping(17)} exiting={FadeOut}>
-      <SkyCard>
-        <View style={styles.readingTop}>
-          <LogoMark size={18} color={colors.sunrise} />
-          <Text variant="titleMedium" style={{ color: colors.text }}>Reading it…</Text>
-        </View>
-        {[0.88, 0.72, 0.8].map(w => (
-          <View key={w} style={[styles.skeleton, { width: `${w * 100}%`, backgroundColor: colors.dim }]} />
-        ))}
-      </SkyCard>
-    </Animated.View>
   );
 }
 
@@ -335,16 +319,5 @@ const styles = StyleSheet.create({
   planText: {
     marginTop: spacing.xs,
     marginBottom: spacing.gap,
-  },
-  readingTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: 4,
-  },
-  skeleton: {
-    height: 12,
-    borderRadius: 6,
-    marginTop: 10,
   },
 });

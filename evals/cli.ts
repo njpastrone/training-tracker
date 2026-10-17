@@ -8,7 +8,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-type Body = { model: string; system?: string | { text: string }[]; messages: { content: string }[] };
+type Body = { model: string; system?: string | { text: string }[]; messages: { content: string }[]; output_config?: { effort?: string } };
 
 // An empty folder to run in, so no project CLAUDE.md is picked up
 const dir = mkdtempSync(join(tmpdir(), 'eval-cli-'));
@@ -26,10 +26,10 @@ function systemFile(system: string) {
 
 type CliUsage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number; output_tokens_details?: { thinking_tokens?: number } };
 
-function run(model: string, system: string, user: string): Promise<{ result: string; usage: CliUsage; stop_reason: string; is_error: boolean }> {
+function run(model: string, system: string, user: string, effort?: string): Promise<{ result: string; usage: CliUsage; stop_reason: string; is_error: boolean }> {
   return new Promise((resolve, reject) => {
     const args = ['-p', '--model', model, '--system-prompt-file', systemFile(system), '--output-format', 'json',
-      '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--no-session-persistence'];
+      '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--no-session-persistence', ...(effort ? ['--effort', effort] : [])];
     // No API key in the child: the CLI runs on the login and never bills a key. MAX_THINKING_TOKENS=0
     // matches the Worker's Haiku 4.5 requests; 5.x models think anyway, as they do from the Worker.
     const { ANTHROPIC_API_KEY: _key, ...env } = process.env;
@@ -65,7 +65,7 @@ export async function callViaCli(body: Body) {
   const system = typeof body.system === 'string' ? body.system : (body.system ?? []).map((b) => b.text).join('\n');
   for (let attempt = 0; ; attempt++) {
     try {
-      const [r, extra] = await Promise.all([run(body.model, system, body.messages[0].content), cliOverhead(body.model)]);
+      const [r, extra] = await Promise.all([run(body.model, system, body.messages[0].content, body.output_config?.effort), cliOverhead(body.model)]);
       if (r.is_error) throw new Error(`claude -p error: ${r.result}`.slice(0, 300));
       return {
         content: [{ type: 'text', text: r.result }],

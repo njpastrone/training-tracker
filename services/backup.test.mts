@@ -74,6 +74,7 @@ async function seed() {
       muscles: ['chest', 'back'], timesPerWeek: 2, minSets: { chest: 10 }, food: { kind: 'protein', target: 140 },
       custom: [{ id: 'g1', kind: 'lift', exerciseId: 'bench', weight: 100, unit: 'kg' }, { id: 'g2', kind: 'often', exerciseId: 'squat', perWeek: 2 }],
     },
+    profile: { facts: [{ id: 'f1', kind: 'food', text: 'no dairy', quote: "I don't eat dairy", saidOn: '2026-10-01' }] },
   });
   const t = await templateService.createTemplate({ name: 'Push', exercises: [] } as any);
   await scheduleService.scheduleWorkout('2026-10-06', t.id);
@@ -159,6 +160,9 @@ test('bad, old and too-new files are rejected without touching data', async () =
     ['lift goal without weight', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'lift', exerciseId: 'bench', unit: 'lbs' }] }; return g; })()), /damaged/],
     ['lift goal with bad unit', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'lift', exerciseId: 'bench', weight: 225, unit: 'stone' }] }; return g; })()), /damaged/],
     ['often goal without per week', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.goals = { muscles: [], custom: [{ id: 'x', kind: 'often', exerciseId: 'bench' }] }; return g; })()), /damaged/],
+    ['coach facts without a list', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.profile = { facts: 'no dairy' }; return g; })()), /damaged/],
+    ['coach fact of an unknown kind', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.profile = { facts: [{ id: 'f', kind: 'mood', text: 'tired', quote: 'tired', saidOn: '2026-10-01' }] }; return g; })()), /damaged/],
+    ['coach fact missing its words', JSON.stringify((() => { const g = good(); g.data['@training-tracker/storage'].state.settings.profile = { facts: [{ id: 'f', kind: 'food', saidOn: '2026-10-01' }] }; return g; })()), /damaged/],
     ['bad templates', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'] = 'x'; return g; })()), /damaged/],
     ['null template', JSON.stringify((() => { const g = good(); g.data['@training-tracker/templates'].push(null); return g; })()), /damaged/],
     ['schedule without template', JSON.stringify((() => { const g = good(); delete g.data['@training-tracker/schedule'][0].templateId; return g; })()), /damaged/],

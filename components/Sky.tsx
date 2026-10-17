@@ -94,19 +94,22 @@ export function SectionLabel({ children, style }: { children: React.ReactNode; s
   );
 }
 
-// The large rounded title at the top of a screen, with an optional subtitle
-export function LargeTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+// The large rounded title at the top of a screen, with an optional subtitle and a small control on the right
+export function LargeTitle({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
   const { colors } = useTheme();
   return (
-    <View style={styles.titleBlock} accessibilityRole="header">
-      <Text variant="headlineLarge" style={{ color: colors.text }}>
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text variant="bodyMedium" style={{ color: colors.textSecondary, fontWeight: '500' }}>
-          {subtitle}
+    <View style={[styles.titleBlock, right ? styles.titleRow : undefined]}>
+      <View style={styles.fill} accessibilityRole="header">
+        <Text variant="headlineLarge" style={{ color: colors.text }}>
+          {title}
         </Text>
-      ) : null}
+        {subtitle ? (
+          <Text variant="bodyMedium" style={{ color: colors.textSecondary, fontWeight: '500' }}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {right}
     </View>
   );
 }
@@ -154,5 +157,10 @@ const styles = StyleSheet.create({
   titleBlock: {
     marginTop: spacing.gap,
     marginBottom: spacing.md,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
 });

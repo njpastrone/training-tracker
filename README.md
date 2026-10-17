@@ -10,8 +10,9 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Progress** - When you last did each exercise and how often, PRs where you logged numbers, days since each muscle group, and a box to add a workout you forgot ("did legs six days ago")
 - **Goals** - Set goals on Progress (each muscle 1-3× a week, minimum sets per muscle, days a week, a weight to lift or an exercise to do often) and see them against your last 7 days; the planner aims at them
+- **Ask the coach** - Tap **Ask** on Progress (or type a question into the Log or Progress box) to ask about your own training and food ("I've taken a few days off, what should I start with?", "what did I squat last Tuesday?"); it answers from a summary of your last 4 weeks and looks up the rest in your log, suggests a workout or meals you save with one tap, and offers to remember things you tell it (no dairy, a home gym), which you can see and forget in Settings
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group
-- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days).
+- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, the things you asked it to remember and what the question needs (one exercise's history, a day's meals), never the whole log. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days).
 
 ## Screenshots
 
@@ -67,9 +68,17 @@ A mobile workout tracking app built with Expo (React Native) that lets you log w
 
 ## API Server
 
-The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model (`claude-haiku-4-5-20251001`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 20, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 450). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
+The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model and effort per request (one per path in `server/src/`: Haiku 5.5 for workout and food logs, see `server/src/parse.ts` and `food.ts`; the app's own prompts such as the planner and the template parser go to `PASSTHROUGH` in `server/src/index.ts`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 20, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 300). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
 
-The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks. The install id is made up by the app too, so someone with the password can rotate ids to get past the per-install cap; the global cap still bounds the bill, but they can use it up for everyone (App Attest is the planned fix before a public launch).
+The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks. The install id is made up by the app too, so someone with the password can rotate ids to get past the per-install cap; the global cap still bounds the bill, but they can use it up for everyone. App Attest (below) is the lock: with it enforced, only a genuine copy of the app on a real iPhone gets served, and the per-device cap is keyed on a key Apple attested instead of the install id.
+
+### App Attest
+
+Apple's [App Attest](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity) proves a request comes from a genuine copy of LiftText. Once per install the app makes a key in the Secure Enclave (`@expo/app-integrity`), has Apple attest it over a challenge from the Worker, and registers it (`POST /attest/register`). Every AI request then carries `x-attest-key-id`, `x-attest-challenge` (a fresh one from `POST /attest/challenge`) and `x-attest-assertion`: the request body signed with that key. The Worker (`server/src/attest.ts`) checks the attestation against Apple's root certificate, the challenge, the key id, the App ID and the counter, keeps the key in KV (`attest:<key id>`), and on each request checks the signature and that the counter went up. Challenges are signed timestamps (5 minutes), so they need no storage.
+
+App Attest is on once the `APP_ATTEST_APP_ID` and `APP_ATTEST_CHALLENGE_SECRET` secrets are both set; until then the Worker skips it (no checks, no KV reads or writes for it), answers `/attest/*` with 503, and the app sends requests unsigned without making a key. `APP_ATTEST_MODE` in `server/wrangler.jsonc` rolls it out: `log-only` (the default) checks and logs every request but refuses none, so installs from before App Attest keep working; `enforce` refuses requests without a valid assertion (403, shown in the app). On a 403 the app retries once with a fresh assertion, and if that is refused too it attests a new key on the next request. Watch the Worker logs (`npx wrangler tail`, lines starting `attest`) until no current build is logged unsigned, then switch to `enforce` and deploy.
+
+App Attest needs native code, so it ships in an EAS build (TestFlight or App Store), not an OTA update, and does not run in Expo Go or the simulator: there the app sends requests unsigned, which `enforce` refuses. The `com.apple.developer.devicecheck.appattest-environment` entitlement in `app.json` turns on the App Attest capability (EAS Build syncs it to the App ID; check it under Identifiers in the Apple Developer account if attestation fails).
 
 ### Deploy (one time)
 
@@ -80,8 +89,12 @@ npx wrangler login                        # opens the browser to your Cloudflare
 npx wrangler kv namespace create USAGE    # copy the printed id into wrangler.jsonc (kv_namespaces[0].id)
 npx wrangler secret put ANTHROPIC_API_KEY # paste your Anthropic API key
 npx wrangler secret put APP_PASSWORD      # choose a password to share with the app
+npx wrangler secret put APP_ATTEST_APP_ID           # <Team ID>.com.njpastrone.trainingtracker (Team ID: Apple Developer account, Membership details)
+npx wrangler secret put APP_ATTEST_CHALLENGE_SECRET  # any long random string, e.g. `openssl rand -base64 32`
 npx wrangler deploy                       # prints the Worker URL
 ```
+
+Leave `APP_ATTEST_MODE` on `log-only` until the app build with App Attest is what everyone runs (see App Attest above).
 
 Then put the printed URL and the same password in `.env.local` at the repo root:
 
@@ -90,13 +103,15 @@ EXPO_PUBLIC_API_URL=https://training-tracker-api.<your-subdomain>.workers.dev
 EXPO_PUBLIC_APP_PASSWORD=<the password you chose>
 ```
 
-Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 500: each request is two KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
+Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 330: each request is three KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
 
 Server tests (Node 22.18+): `cd server && npm test`
 
 Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 
 Nothing is saved until you review the parsed workout. A typed fix in the chat bar while the review card is open ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, exercises, draft, fix } }`: correction mode returns the whole draft with the fix applied, plus a short `reply` when the fix is a question ("is pec deck machine flys?"), which the app shows on the card; a fix that changes nothing and asks nothing says so instead of doing nothing. When the question shows you call an exercise something else, the reply offers "Call it 'Machine flys' from now on", which saves your words as its name and alias, and cards then show "Machine flys · Pec Deck". A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
+
+Questions to the coach use the prompt and tool schemas in `server/src/coach.ts` (Claude Sonnet 5.5). The app sends `{ coach: { date, unit, pack, messages, turnId } }`, where `pack` is the summary of the last 4 weeks built on the phone by `services/coachPack.ts` (including the things you asked the coach to remember). The phone drives a short loop (`services/ask.ts`): when the model asks for a tool (one exercise's history, a span of workouts or meals, sets per muscle, your usual meals, USDA numbers for a meal), the phone runs it over its own log (`services/coachTools.ts`) and sends the results back; the next call answers, and the Worker turns tools off for it. One question is one slot of the daily cap however many calls it takes (the Worker counts them under `turnId`, at most three). A suggested workout or meals come back as cards (`services/coachCards.ts`): exercises resolve to the catalog, a weight or a sentence in a card's notes with a number the model was never given is dropped, meal numbers are recomputed from the USDA table, and nothing is saved until you tap Plan or Log (planning over a day that already has a plan asks before replacing it). A "Remember '…'?" chip appears only when its quote is something you typed, and stores the fact only on a tap; Settings › What LiftText knows lists and forgets them. A Worker deployed before Phase 1 answers from the pack alone. Before changing the prompt, run the coach eval (`npm run eval:coach`, see `evals/coach/README.md`).
 
 ## Project Structure
 
@@ -109,6 +124,7 @@ training-tracker/
 │   │   ├── history.tsx     # History & calendar
 │   │   ├── progress.tsx    # Progress: goals, exercises, days since, corrections
 │   │   └── settings.tsx    # App settings
+│   ├── ask.tsx             # Ask the coach (opened from Progress)
 │   ├── goals.tsx           # Set your goals
 │   └── _layout.tsx         # Root layout
 ├── components/             # Reusable UI components

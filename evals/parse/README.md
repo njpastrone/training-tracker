@@ -16,6 +16,7 @@ npm run eval:parse -- --compat                      # what a Worker deployed bef
 npm run eval:parse -- --set corrections             # typed fixes and questions about a draft (correction mode)
 npm run eval:parse -- --cli                         # no API key: the model through `claude -p` (see evals/food/README.md)
 npm run eval:parse -- --against evals/parse/results/<earlier run>.json   # list regressions
+npx tsx evals/parse/compare.ts <parserA> <modelA> - <parserB> <modelB> -   # 30 messy logs side by side, no scoring
 node --test evals/parse/score.test.ts               # scorer self-check
 node --test evals/parse/recall.test.ts              # offline, free: is the right exercise a candidate?
 ```
@@ -186,3 +187,111 @@ A Worker deployed before parse mode, which drops `temperature: 0`, scores 0.995 
 Cost: a full 100-case run is about $0.20 with the eval's prompt caching, or $0.57 uncached. A live
 parse costs about $0.0058 (4.9k input tokens), against $0.0032 for the old, shorter prompt. At the
 Worker's global cap of 450 requests a day, that's at most about $2.60 a day.
+
+## Haiku 5.5 is the parser (2026-10-14, 3 runs averaged, `--cli`)
+
+Haiku 4.5 is still active on Anthropic's model deprecations page, but its retirement commitment
+("not sooner than October 15, 2026") ends the day after this was measured and the models overview
+already lists it under legacy models, so the parser had to come off it. Gate: every set equal or
+better than Haiku 4.5, 0 silent mismatches. Haiku 5.5 at its default effort (medium) with the
+rules below passes it; Haiku 5.5 at effort low and Sonnet 5.5 don't.
+
+| set | Haiku 4.5, old prompt | **Haiku 5.5 medium (shipped)** | Haiku 5.5 low | Sonnet 5.5 low (1 run) |
+|---|---|---|---|---|
+| main (114) | 0.990 (105 perfect) | **0.998** (110) | 0.992 (100) | 0.999 (113) |
+| identity (54) | 1.000 (54) | **1.000** (54) | 0.997 (53) | 1.000 (54) |
+| corrections (19) | 0.998 (18) | **1.000** (19) | 0.998 (17), 1 silent mismatch | 0.995 (17) |
+| holdout (20) | 0.993 (18) | **1.000** (20) | 0.992 (19) | 1.000 (20) |
+| silent mismatches | 0 | **0** | 1 | 0 |
+| $ per live parse, uncached | $0.0052 | **$0.0010** | $0.0008 | $0.0139 |
+| $ per live parse, cache hit | n/a | **$0.0005** | $0.0004 | $0.0044 |
+| p50 latency | 1.7 s (API) | 5.7 s | 5.0 s | 4.2 s |
+
+Latencies are through `claude -p`, which adds its own overhead; the API is faster.
+
+What changed for Haiku 5.5, each rule aimed at a failure it had with the old prompt (identity 0.979):
+- "60s" after a lift's sets and reps is the dumbbell weight, never seconds or rest; "21s" on curls
+  is the 21-rep scheme. Before: five identity cases lost their weight to "60s rest".
+- A plate count is a weight, never a set count ("2 plates for 5" was 2 sets).
+- Food, drinks and shakes never go in notes: the food parser logs them. Before: 3 of 5 mixed logs.
+- Laps and lengths are not sets or reps. Split and place labels ("chest day", "on the track") and
+  hedges ("mainly") are not notes. Technical details stay on the exercise, not in workout notes.
+- `alt` only when a word really fits two listed exercises: a typo of one name, or a word that fits
+  one of "Yours", is that exercise alone. Before: "bench" with Dumbbell Bench Press in the library
+  and "dumbell bentch press" came back `unsure`.
+- A single timed hold is sets 1; "skipped rope" is Jump Rope (Sonnet read it as skipped); a failed
+  attempt is its own entry; sets listed after a body part with no exercise named are that part's
+  main lift (hand-compare misses, below).
+- A correction with no exercise named applies to the exercise just asked about, and a question
+  with a fix still gets its reply.
+- The reply is asked for as bare JSON (Haiku 5.5 wrapped it in markdown fences, which parsed fine
+  but cost tokens).
+- In code, whatever the model writes: a weight equal to a "stack N" or "pin N" in the exercise
+  notes is dropped (Haiku 5.5 at low effort put the pin number in both).
+
+The request also changed: no `temperature` (5.x models take only their default), `max_tokens` 8192
+because thinking counts toward it (median 280 thinking tokens on identity, up to about 1,700 on long
+logs; only tokens used are billed), `output_config.effort: medium`, and the Worker caches the system
+prompt like the food one. Effort low skipped thinking altogether (median 0) and was worse on every
+set: names-only logs got `sets: 1`, body-part logs lost their muscle groups, "forgot to log" became a
+note, and one rename came back as the wrong exercise.
+
+Haiku 5.5 then Sonnet 5.5 when unsure (the food parser's scheme) was simulated from these runs:
+sending to Sonnet every reply with confidence under 0.8 or any `unsure` exercise escalates 10 to
+34% of logs and changes no set's score, so the parser stays single-model.
+
+Still missed, across models: Kettlebell Swings and Deadlift muscle groups (judgement calls), one
+clock time rounded (24:10 as 24.1 rather than 24.17), and `callIt` quoting "pec deck machine flys"
+rather than "machine flys" (Haiku 4.5 does the same).
+
+Hand-reading 30 messy logs (`evals/parse/compare.ts`: voice-style run-ons, "5 5 4" rep lists,
+plates, 21s, stacks, laps, supersets, food, several days, an injection attempt) side by side with
+Haiku 4.5 on the old prompt: Haiku 5.5 was better on 7 (split "185 for 5 5 4" into 2x5 + 1x4, no
+invented set count on "3 plates a side x12", food kept out of notes, the user's own Dumbbell Bench
+Press picked over a catalog Bench Press, "plank 3x60s" as 1 minute not 0.5, every group on an
+"upper body" entry, sure of a bench after an injection attempt) and worse on 3 before the last three
+rules above ("curls 21s" as 21 lbs, an unnamed "chest day: 225x5..." list dropped, a failed attempt
+folded into notes); equal on the rest.
+
+These runs went through `claude -p` (no eval API key was available; costs are from measured token
+counts at list prices, $0 of the eval budget spent). The API-key run `npm run eval:parse -- --repeat 3`
+on all four sets must pass the gate above before the Worker is deployed. The Worker returns a 502
+for a parse or correction reply cut off at `max_tokens` rather than passing on truncated JSON.
+
+The Worker's pass-through path (a request with no parse, food or coach mode, used by the planner in
+`services/planner.ts` and by app builds from before parse mode) is `PASSTHROUGH` in
+`server/src/index.ts`; see `evals/planner/README.md` for how it was chosen.
+
+## Haiku 5.5 and Sonnet 5.5 with the old prompt (2026-10-13, 3 runs averaged, `--cli`)
+
+Tried to cut the cost per parse by moving to a 5.x model with the system prompt cached (Haiku 4.5
+can't cache it: the parse prompt is about 3,360 tokens and the correction prompt about 3,850, under
+its 4,096-token minimum). Gate: every set equal or better, 0 silent mismatches. Both lost, so the
+parser stays on Haiku 4.5.
+
+| set | Haiku 4.5 (kept) | Haiku 5.5, effort low | Sonnet 5.5, effort low |
+|---|---|---|---|
+| main (114) | 0.990 (105 perfect) | 0.993 (106) | 0.997 (109) |
+| identity (54) | 1.000 (54) | **0.979** (47) | **0.998** (53) |
+| corrections (19) | 0.998 (18) | 0.998 (17) | 0.999 (18) |
+| holdout (20) | 0.993 (18) | 0.995 (18) | **0.975** (19) |
+| silent mismatches | 0 | 0 | 0 |
+| $ per live parse, uncached | $0.0052 | $0.0008 | $0.0124 |
+| $ per live parse, cache hit | n/a | $0.0004 | $0.0044 (cache write $0.0146) |
+
+What got worse, and held across all 3 runs:
+- Haiku 5.5 drops the weight when it is written as "60s" ("incline DB bench 3x10 60s" became 60s
+  rest, and the same with "30s", "40s" and "60s" in four more cases), counts "benched 2 plates for 5" as 2 sets,
+  puts food into the workout notes in 3 of 5 mixed logs, and marks a known exercise "unsure".
+  Effort medium didn't fix it (identity 0.983).
+- Sonnet 5.5 reads "skipped rope 3x2min" as not having done it, losing the exercise, and marks
+  the same known exercise "unsure". On a cache miss it also costs about 3 times what Haiku 4.5 does.
+
+Hand-reading 30 cases side by side (slang, supersets, units, per-set weights, new and look-alike
+exercises, corrections and questions): Haiku 5.5 was worse on 2 (the "60s" weight and "2 plates
+for 5"). Sonnet 5.5 was worse on 1 (it added "Skipped tricep pushdowns" to the notes when told to
+drop them).
+
+These runs went through `claude -p` (no API key was available), which can't pin Haiku 4.5's
+`temperature: 0` and adds its own context; costs are from the measured token counts at list prices.
+Haiku 5.5 may well pass with a prompt tuned for it, as the food prompt did; that's the next step.

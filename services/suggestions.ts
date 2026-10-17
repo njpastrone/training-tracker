@@ -106,6 +106,26 @@ const MEALS = [
 ];
 const mealAt = (hour: number) => MEALS.find(m => hour >= m.from && hour < m.to);
 
+// What you most often logged in each meal slot on at least 2 of the last 14 days (before today): the
+// latest entry of that kind, with how many days it was logged. For the chat bar and the coach's pack.
+export function usualMeals(food: FoodEntry[], now: Date = new Date()): { slot: string; entry: FoodEntry; days: number }[] {
+  const today = ymd(now);
+  const since = ymd(subDays(now, 14));
+  return MEALS.flatMap(meal => {
+    const byKind = new Map<string, FoodEntry[]>();
+    for (const e of food) {
+      if (e.date >= today || e.date < since || mealAt(new Date(e.createdAt).getHours()) !== meal) continue;
+      const kind = e.items.map(i => i.foodId ?? i.name.toLowerCase()).sort().join();
+      byKind.set(kind, [...(byKind.get(kind) ?? []), e]);
+    }
+    const days = (es: FoodEntry[]) => new Set(es.map(e => e.date)).size;
+    const best = [...byKind.values()].filter(es => days(es) >= 2).sort((a, b) => days(b) - days(a))[0];
+    if (!best) return [];
+    const latest = [...best].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    return [{ slot: meal.name, entry: latest, days: days(best) }];
+  });
+}
+
 // "Usual breakfast · eggs, oatmeal +1": what you most often logged around this time of day, on at
 // least 2 of the last 14 days, while nothing is logged for that meal today. A tap puts your own
 // words for it in the box.
@@ -113,20 +133,10 @@ export function usualMeal(food: FoodEntry[], now: Date = new Date()): Chip[] {
   const meal = mealAt(now.getHours());
   if (!meal) return [];
   const today = ymd(now);
-  const since = ymd(subDays(now, 14));
-  const inMeal = (e: FoodEntry) => mealAt(new Date(e.createdAt).getHours()) === meal;
-  if (food.some(e => e.date === today && inMeal(e))) return [];
-  const byKind = new Map<string, FoodEntry[]>();
-  for (const e of food) {
-    if (e.date >= today || e.date < since || !inMeal(e)) continue;
-    const kind = e.items.map(i => i.foodId ?? i.name.toLowerCase()).sort().join();
-    byKind.set(kind, [...(byKind.get(kind) ?? []), e]);
-  }
-  const days = (es: FoodEntry[]) => new Set(es.map(e => e.date)).size;
-  const best = [...byKind.values()].filter(es => days(es) >= 2).sort((a, b) => days(b) - days(a))[0];
-  if (!best) return [];
-  const latest = [...best].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  const names = latest.items.map(i => i.name.toLowerCase());
+  if (food.some(e => e.date === today && mealAt(new Date(e.createdAt).getHours()) === meal)) return [];
+  const usual = usualMeals(food, now).find(u => u.slot === meal.name);
+  if (!usual) return [];
+  const names = usual.entry.items.map(i => i.name.toLowerCase());
   const short = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ');
-  return [chip(`Usual ${meal.name} · ${short}`, latest.items.map(i => i.said ?? i.name).join(', '))];
+  return [chip(`Usual ${meal.name} · ${short}`, usual.entry.items.map(i => i.said ?? i.name).join(', '))];
 }

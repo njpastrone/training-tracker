@@ -3,19 +3,26 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "vars": {
-    // Max Claude requests per UTC day across all users. Each request is two KV writes (this count
-    // and the device's), and the free plan allows 1000 writes/day, so keep this under 500.
-    // 450 / 20 per device means it takes 23 devices at their limit to block everyone else.
-    "DAILY_REQUEST_CAP": "450",
+    // Max Claude requests per UTC day across all users. Each request is three KV writes (this count,
+    // the device's, and the App Attest counter), and the free plan allows 1000 writes/day, so keep
+    // this under 330. 300 / 20 per device means it takes 15 devices at their limit to block everyone else.
+    "DAILY_REQUEST_CAP": "300",
     // Max Claude requests per UTC day from one app install (the app's x-install-id header).
     "DEVICE_DAILY_CAP": "20",
     // Max Claude requests per UTC day shared by all app builds that send no x-install-id.
-    "LEGACY_DAILY_CAP": "30"
+    "LEGACY_DAILY_CAP": "30",
+    // App Attest (see README): "log-only" (check and log, never refuse) or "enforce" (refuse requests
+    // that are not signed by a key Apple attested). Keep log-only until the logs show every current
+    // build attesting. Skipped entirely until both App Attest secrets below are set.
+    "APP_ATTEST_MODE": "log-only"
   },
   "observability": { "enabled": true },
   "kv_namespaces": [
     // Replace the id with the one printed by `npx wrangler kv namespace create USAGE`.
     { "binding": "USAGE", "id": "63744af387654f9181642103b84c06be" }
   ]
-  // Secrets (never in this file): ANTHROPIC_API_KEY, APP_PASSWORD via `npx wrangler secret put`.
+  // Secrets (never in this file), via `npx wrangler secret put`: ANTHROPIC_API_KEY, APP_PASSWORD,
+  // APP_ATTEST_APP_ID ("<Apple Team ID>.com.njpastrone.trainingtracker", the App ID Apple attests keys for;
+  // Team ID: developer.apple.com > Membership) and APP_ATTEST_CHALLENGE_SECRET (any long random string; it
+  // signs the challenges the Worker hands out).
 }
