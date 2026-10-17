@@ -53,7 +53,7 @@ beforeEach(() => {
   calls = [];
   challengeStatus = 200;
   brokenKey = null;
-  useWorkoutStore.getState().updateSettings({ aiConsent: 'granted' });
+  useWorkoutStore.getState().updateSettings({ aiConsent: 'granted', aiConsentVersion: 2 });
 });
 
 test('the first request attests a new key and registers it, then signs the request body', async () => {

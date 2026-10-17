@@ -49,6 +49,7 @@ export const SAM_SETTINGS: UserSettings = {
     food: { kind: 'protein', target: 160 },
   },
   aiConsent: 'granted',
+  aiConsentVersion: 2,
 };
 
 export const SAM: PackInput = { workouts: USERS.sam, foodEntries: FOOD, settings: SAM_SETTINGS, library: emptyLibrary() };
