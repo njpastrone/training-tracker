@@ -1,0 +1,22 @@
+Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Deadlift (Barbell)",W,135.0,5.0,0,0.0,"","Felt strong, slept 8h",
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Deadlift (Barbell)",1,225.0,5.0,0,0.0,"Belt, mixed grip",,8
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Deadlift (Barbell)",Rest Timer,0,0.0,0,180.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Deadlift (Barbell)",2,225.0,5.0,0,0.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Deadlift (Barbell)",Rest Timer,0,0.0,0,180.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Deadlift (Barbell)",3,245.0,3.0,0,0.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Bicep Curl (Dumbbell)",1,30.0,10.0,0,0.0,"",,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Bicep Curl (Dumbbell)",2,30.0,10.0,0,0.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Pull Up",1,0.0,8.0,0,0.0,"",,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Pull Up",2,0.0,7.0,0,0.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Plank",1,0.0,0.0,0,60.0,"",,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Plank",2,0.0,0.0,0,45.0,,,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Zercher Carry Thing",1,95.0,0.0,0,30.0,"",,
+2026-01-30 05:20:49,"Pull Day",1h 5m,"Face Pull (Cable)",1,0.0,0.0,0,0.0,"",,
+2026-02-01 07:02:10,"Run",32m,"Running (Treadmill)",1,0,0,3.1,1920,"","Easy pace
+then strides",
+2026-02-01 07:02:10,"Run",32m,"",1,0,0,1.0,300,"","",
+2026-02-03 18:00:00,"Push Day",58m,"Bench Press (Barbell)",1,185,abc,0,0,"",,
+2026-02-31 18:00:00,"Push Day",58m,"Bench Press (Barbell)",1,185,5,0,0,"",,
+2026-02-03 18:00:00,"Push Day",58m,"Bench Press (Barbell)",1,185
+2026-02-03 18:00:00,"Push Day",58m,"Bench Press (Barbell)",2,185,5,0,0,"",,
