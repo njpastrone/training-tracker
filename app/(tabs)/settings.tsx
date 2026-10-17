@@ -2,7 +2,7 @@ import { StyleSheet, Alert, ScrollView, ActionSheetIOS, View } from 'react-nativ
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
-import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { SkyScreen, SkyCard, SkySheet, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill, Segmented } from '../../components/Glass';
 import Row from '../../components/Row';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -94,6 +94,7 @@ export default function SettingsScreen() {
     <SkyScreen>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LargeTitle title="Settings" subtitle={lastWeekly ? `Backed up ${format(parseISO(lastWeekly), 'MMM d')}` : 'Not backed up yet'} />
+        <SkySheet>
 
         <SectionLabel style={styles.label}>Preferences</SectionLabel>
         <SkyCard style={styles.card}>
@@ -189,6 +190,7 @@ export default function SettingsScreen() {
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
           <Row icon="lock.shield" title="Privacy" subtitle="Workouts are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server. Our server keeps only daily request counts (per phone, using a random ID, deleted after 2 days)." />
         </SkyCard>
+        </SkySheet>
       </ScrollView>
     </SkyScreen>
   );
@@ -197,7 +199,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.lg,
+    flexGrow: 1, // so the SkySheet reaches the bottom
   },
   label: {
     marginLeft: spacing.xs,

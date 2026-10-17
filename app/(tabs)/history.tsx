@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { SkyCard, SkySheet, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
@@ -106,6 +106,7 @@ export default function HistoryScreen() {
       overlay={<UndoToast />}
     >
       <LargeTitle title="History" subtitle={thisWeek} />
+      <SkySheet>
 
       {/* The goal is asked once planning starts, then remembered (Settings can change it) */}
       {(planning || !!planner.text.trim()) && !settings.goal && (
@@ -174,6 +175,7 @@ export default function HistoryScreen() {
           )}
         </>
       )}
+      </SkySheet>
     </ChatScreen>
   );
 }

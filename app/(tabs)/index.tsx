@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { format } from 'date-fns';
-import { SkyCard, LargeTitle } from '../../components/Sky';
+import { SkyCard, SkySheet, LargeTitle } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
@@ -150,6 +150,7 @@ export default function LogScreen() {
     <ChatScreen bar={logBar(log, "What'd you do or eat today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
       <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
       {!reviewing && lifts && <SunArc />}
+      <SkySheet>
 
       {firstRun && !todaysSchedule ? (
         !reviewing && (
@@ -263,6 +264,7 @@ export default function LogScreen() {
       {!reviewing && lifts && next && <UpNext date={next.date} today={today} template={getTemplate(next.templateId)} />}
 
       {!reviewing && <RecentDays workouts={workouts} food={food} goal={foodGoal} today={today} />}
+      </SkySheet>
     </ChatScreen>
   );
 }

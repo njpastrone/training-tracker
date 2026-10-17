@@ -93,7 +93,7 @@ export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) 
           <ScrollView
             ref={scrollRef}
             style={styles.fill}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, styles.grow]}
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => follow && scrollRef.current?.scrollToEnd({ animated: true })}
           >
@@ -113,7 +113,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.lg,
+  },
+  grow: {
+    flexGrow: 1, // so a tab's SkySheet reaches the bottom
   },
   bar: {
     paddingHorizontal: spacing.md,

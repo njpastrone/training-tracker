@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import Svg, { Polyline } from 'react-native-svg';
-import { SkyCard, LargeTitle, SectionLabel } from '../../components/Sky';
+import { SkyCard, SkySheet, Hero, LargeTitle, SectionLabel } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
@@ -83,7 +83,15 @@ export default function ProgressScreen() {
       }
     >
       {/* tt-progress-next: the Ask pill goes in the title's right slot */}
-      <LargeTitle title="Progress" subtitle={subtitle} />
+      {workouts.length > 0 ? (
+        <>
+          <LargeTitle title="Progress" />
+          <Hero value={`${sky.done}`} of={`of ${sky.target}`} note={sky.done >= sky.target ? 'goal met ✓' : undefined} sub="training days in the last 7" />
+        </>
+      ) : (
+        <LargeTitle title="Progress" subtitle={subtitle} />
+      )}
+      <SkySheet>
 
       {/* Corrections: a missed workout in plain words goes to its own day */}
       {log.sent && <UserBubble text={log.sent} />}
@@ -236,6 +244,7 @@ export default function ProgressScreen() {
           )}
         </>
       )}
+      </SkySheet>
     </ChatScreen>
   );
 }
