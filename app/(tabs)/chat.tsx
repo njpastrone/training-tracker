@@ -23,7 +23,7 @@ import { getPlans } from '../../services/planner';
 import { templateService } from '../../services/templates';
 import { digest } from '../../services/insights';
 import { needsStamp } from '../../services/thread';
-import { pickOpener } from '../../services/opener';
+import { openerChips, pickOpener } from '../../services/opener';
 import { askChips, toChips } from '../../services/suggestions';
 import { spacing } from '../../constants/theme';
 import type { TrainingPlan } from '../../types/plan';
@@ -82,7 +82,9 @@ export default function ChatScreenTab() {
 
   const trends = useMemo(() => new Map(digest(workouts, exerciseLibrary, settings.weightUnit).liftTrends.map(t => [t.id, t])), [workouts, exerciseLibrary, settings.weightUnit]);
   const opener = pickOpener({ workouts, schedule, templates, library: exerciseLibrary, unit: settings.weightUnit, threadEmpty: items.length === 0, skippedOpener }, now);
-  const starters = useMemo(() => askChips(workouts, exerciseLibrary, settings.weightUnit, settings.goals?.food?.kind === 'protein'), [workouts, exerciseLibrary, settings.weightUnit, settings.goals?.food?.kind]);
+  const comebackChips = openerChips(opener);
+  const askStarters = useMemo(() => askChips(workouts, exerciseLibrary, settings.weightUnit, settings.goals?.food?.kind === 'protein'), [workouts, exerciseLibrary, settings.weightUnit, settings.goals?.food?.kind]);
+  const starters = comebackChips.length ? toChips(comebackChips) : askStarters;
 
   const shown = items.slice(-PAGE * pages);
   const reviewing = !!log.sent || !!log.draft || !!log.food;

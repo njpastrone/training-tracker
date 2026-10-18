@@ -1,6 +1,8 @@
 import { differenceInMinutes, isSameDay, parseISO } from 'date-fns';
 import { MAX_ANSWER_CHARS, MAX_QUESTION_CHARS, type CoachMessage } from '../server/src/coach';
 import type { ChatItem } from '../stores/chatStore';
+import { workoutName } from './format';
+import type { MuscleGroup } from '../types/workout';
 
 // Pure helpers for the Chat tab's thread (stores/chatStore.ts)
 
@@ -44,3 +46,7 @@ export function chartFor(question: string, trends: { id: string; lift: string }[
   const hits = trends.filter((t) => names(q, t.lift) || names(q, liftWord(t.lift)));
   return hits.length === 1 ? hits[0].id : undefined;
 }
+
+// A logged card's name: the template's, else History's workout name ("Push"), else "Food"
+export const loggedName = (template: string | undefined, groups: MuscleGroup[], hasWorkouts: boolean) =>
+  template ?? (hasWorkouts ? workoutName(groups) : 'Food');
