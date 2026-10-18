@@ -4,6 +4,7 @@ import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, ne
 import { buildCoachRequest, COACH_BETA, MAX_CALLS_PER_QUESTION, MAX_PACK_CHARS, validThread } from './coach.ts';
 import { checkChallenge, issueChallenge, verifyAssertion, verifyAttestation } from './attest.ts';
 import { legalPage } from './legal.ts';
+import { homePage, joinWaitlist } from './site.ts';
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
@@ -136,18 +137,22 @@ export async function takeCoachSlot(kv: KVNamespace, cap: number, now: Date, dev
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // The privacy policy and terms are public pages: no password, no cap
+    const url = new URL(request.url);
+    if (url.hostname === 'www.lifttextapp.com') return Response.redirect(`https://lifttextapp.com${url.pathname}`, 301);
+    // The home page, the waitlist, the privacy policy and terms are public: no password, no AI cap
     if (request.method === 'GET') {
-      const legal = legalPage(new URL(request.url).pathname, env.CONTACT_EMAIL);
+      if (url.pathname === '/') return homePage();
+      const legal = legalPage(url.pathname, env.CONTACT_EMAIL);
       if (legal) return legal;
     }
+    if (request.method === 'POST' && url.pathname === '/waitlist') return joinWaitlist(request, env.USAGE, new Date());
     if (request.method !== 'POST') return json(405, { error: 'Method not allowed.' });
 
     if (!env.APP_PASSWORD || request.headers.get('x-app-password') !== env.APP_PASSWORD) {
       return json(401, { error: 'Invalid app password.' });
     }
 
-    const path = new URL(request.url).pathname;
+    const path = url.pathname;
     if (path === '/attest/challenge') {
       if (!attestConfigured(env)) return json(503, { error: 'App Attest is not configured.' });
       return json(200, { challenge: await issueChallenge(env.APP_ATTEST_CHALLENGE_SECRET) });
