@@ -1,6 +1,6 @@
 # LiftText
 
-A mobile workout tracking app built with Expo (React Native) that lets you log workouts using natural language. Powered by Claude AI for intelligent workout parsing.
+A mobile workout and food log built with Expo (React Native) that lets you log workouts and meals in natural language. Powered by Claude AI for workout and food parsing.
 
 ## Features
 

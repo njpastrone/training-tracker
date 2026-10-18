@@ -39,8 +39,8 @@ const page = (state: Form) => `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>LiftText: log workouts by typing</title>
-<meta name="description" content="LiftText is a workout log for iPhone. Type what you did in plain English and it becomes sets, reps and weights. Now in beta.">
+<title>LiftText: log workouts and meals by typing</title>
+<meta name="description" content="LiftText is a workout and food log for iPhone. Type what you did and what you ate in plain English and it becomes sets, reps, weights and macros. Now in beta.">
 <style>
   :root { color-scheme: light dark; --text: #0E1430; --text2: #3E4766; --text3: #5F6889; --card: rgba(255,255,255,0.62); --line: rgba(255,255,255,0.8); --dim: rgba(14,20,48,0.06); --sunrise: #D2441C; --on-sunrise: #FFFFFF; --cobalt: #3560F0; --error: #D70015; --base: #F6F5FF;
     --sky: linear-gradient(#8AA8FF, #BCC9FF 18%, #E0E3FF 32%, #F6F5FF 45%); }
@@ -50,11 +50,12 @@ const page = (state: Form) => `<!doctype html>
   body { margin: 0; min-height: 100vh; background: var(--sky) no-repeat, var(--base); color: var(--text); font: 17px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   main, footer { max-width: 640px; margin: 0 auto; padding: 0 16px; }
   main { padding-top: 48px; }
-  h1, h2, h3, label, button, .badge { font-family: ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  h1, h2, h3, label, button, .badge, .tagline { font-family: ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   h1 { font-size: 40px; line-height: 1.12; font-weight: 800; margin: 12px 0; }
   h2 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
   h3 { font-size: 17px; font-weight: 700; margin: 0 0 2px; }
   p { margin: 0 0 12px; }
+  .tagline { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
   .lede { font-size: 19px; color: var(--text2); }
   .badge { display: inline-block; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 26px; padding: 20px; margin: 24px 0; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
@@ -83,8 +84,9 @@ const page = (state: Form) => `<!doctype html>
 <body>
 <main>
 <span class="badge">iPhone · In beta</span>
-<h1>Log your workout by typing it.</h1>
-<p class="lede">LiftText is a workout log for iPhone. Write what you did the way you'd text a friend, and it turns into exercises, sets, reps and weights. No forms, no scrolling through exercise pickers.</p>
+<h1>Log your workouts and meals by typing them.</h1>
+<p class="tagline">Type it like a text. We'll log it.</p>
+<p class="lede">LiftText is a workout and food log for iPhone. Write what you did and what you ate the way you'd text a friend, and it turns into exercises, sets, reps, weights and macros. No forms, no exercise pickers, no food database to search.</p>
 ${formBlock(state)}
 <div class="card demo" aria-label="Example">
 <p class="hint">You type</p>
@@ -94,11 +96,19 @@ ${formBlock(state)}
 <li><h3>Pull-ups</h3><span>3 × 10</span></li>
 </ul>
 </div>
+<div class="card demo" aria-label="Example meal">
+<p class="hint">You type</p>
+<p class="typed">“3 eggs and 2 slices of sourdough”</p>
+<ul class="sets">
+<li><h3>Egg</h3><span>3 · 233 kcal · 19 g protein</span></li>
+<li><h3>Sourdough</h3><span>2 slices · 169 kcal · 7 g protein</span></li>
+</ul>
+</div>
 <ul class="features">
-<li><h3>Typed, then checked by you</h3><p>AI reads what you type. You review the card before it's saved, and fix anything by typing “actually 3x10”.</p></li>
+<li><h3>Workouts, typed</h3><p>AI reads what you type into exercises, sets, reps and weights. You review the card before it's saved, and fix anything by typing “actually 3x10”.</p></li>
+<li><h3>Meals, typed</h3><p>Write what you ate and get calories, protein, carbs and fat. Everyday foods use USDA nutrition data; brands and restaurant meals are estimates. Fix anything the same way: “it was 2 eggs, not 3”.</p></li>
 <li><h3>Your history and progress</h3><p>A calendar of every day you trained, personal records, weekly goals, and how long since you last worked each muscle.</p></li>
-<li><h3>Ask about your training</h3><p>Questions like “what did I bench last week?” get answered from your own log.</p></li>
-<li><h3>Food too</h3><p>Log meals the same way, in plain words.</p></li>
+<li><h3>Ask about your training and food</h3><p>Questions like “what did I bench last week?” or “how much protein did I eat yesterday?” get answered from your own log.</p></li>
 <li><h3>Stays on your phone</h3><p>No account. Your log is saved on your iPhone. AI is optional and only for people 18 and older; with it off, LiftText still works.</p></li>
 </ul>
 <p>LiftText is in a free TestFlight beta in the United States. Join the waitlist and we'll send you an invite.</p>
