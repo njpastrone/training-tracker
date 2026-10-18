@@ -13,7 +13,7 @@ LiftText is iOS-26-native: content sits on a soft sky, Liquid Glass is used for 
 
 `services/sky.ts` maps the last 7 days (a rolling window ending today, see `services/pace.ts`) to a sky. It is pure and unit-tested (`services/sky.test.mts`).
 
-- **Target:** the days a week picked in setup, Settings or Goals. With none picked, distinct planned days in the last 7 days from the schedule, else the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history). In a new user's first 7 days after setup (unless a plan sets the target), the target is capped at the days since setup, so day one is dawn and logging that day is full daylight.
+- **Target:** the days a week picked in setup, Settings or Goals. With none picked and a plan in the last 7 days, the plan's week: distinct planned days in the 7 days from its first planned day in the last 7 (or the days trained, if more); else the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history). In a new user's first 7 days after setup (unless a plan sets the target), the target is capped at the days since setup, so day one is dawn and logging that day is full daylight.
 - **Done:** distinct days with a logged workout in the last 7 days.
 - **Phase:**
   - `day` when done ≥ target;
