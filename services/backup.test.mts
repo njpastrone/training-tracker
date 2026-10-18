@@ -57,6 +57,7 @@ const { useWorkoutStore } = await import('../stores/workoutStore');
 const { templateService } = await import('./templates');
 const { scheduleService } = await import('./schedule');
 const { savePlan } = await import('./planner');
+const { useChatStore } = await import('../stores/chatStore');
 
 const workout = (id: string, date: string) => ({
   id, date, rawInput: 'bench 3x5 185', muscleGroups: ['chest'], createdAt: `${date}T10:00:00.000Z`, updatedAt: `${date}T10:00:00.000Z`,
@@ -84,6 +85,7 @@ async function seed() {
     sessions: [{ date: format(addDays(new Date(), 1), 'yyyy-MM-dd'), day: 'UA' }],
     repeatWeeks: 1,
   } as any, 'plan a week', 'lbs');
+  useChatStore.getState().add({ kind: 'you', text: 'bench 3x5 185' }, { kind: 'logged', workoutIds: ['w1'], foodEntryIds: [], day: '2026-10-01' });
   await new Promise((r) => setTimeout(r, 10)); // let the store's async persist land
 }
 
@@ -92,6 +94,7 @@ beforeEach(async () => {
   shared.length = 0;
   fs.rmSync(path.join(root, 'doc'), { recursive: true, force: true });
   useWorkoutStore.setState({ workouts: [], templates: [], schedule: [] });
+  useChatStore.setState({ items: [], skippedOpener: undefined });
   useWorkoutStore.persist.setOptions({ version: 0, migrate: undefined });
   mem.clear();
 });
@@ -116,7 +119,7 @@ test('export → import restores identical data and takes a safety backup', asyn
   const diverged = snapshot();
 
   const { backup: b, summary } = backup.parseBackup(exported);
-  assert.deepEqual({ ...summary, createdAt: undefined }, { workouts: 2, templates: 2, plans: 1, createdAt: undefined });
+  assert.deepEqual({ ...summary, createdAt: undefined }, { workouts: 2, templates: 2, plans: 1, messages: 2, createdAt: undefined });
   const safety = await backup.restoreBackup(b);
 
   assert.deepEqual(snapshot(), before);
@@ -237,4 +240,31 @@ test('food is backed up and restored; a backup from before food logging restores
 
   await backup.restoreBackup(backup.parseBackup(JSON.stringify(old)).backup);
   assert.deepEqual(useWorkoutStore.getState().foodEntries, []);
+});
+
+test('the chat thread is backed up and restored; a backup from before Chat restores with an empty thread', async () => {
+  await seed();
+  const withChat = await backup.createBackup();
+  const old: any = structuredClone(withChat);
+  delete old.data['@training-tracker/chat'];
+
+  useChatStore.getState().clear();
+  await backup.restoreBackup(backup.parseBackup(JSON.stringify(withChat)).backup);
+  assert.deepEqual(useChatStore.getState().items.map((i) => i.kind), ['you', 'logged']);
+
+  await backup.restoreBackup(backup.parseBackup(JSON.stringify(old)).backup);
+  assert.deepEqual(useChatStore.getState().items, []);
+
+  const damaged: any = structuredClone(withChat);
+  damaged.data['@training-tracker/chat'].state.items[0] = { text: 'no id' };
+  assert.throws(() => backup.parseBackup(JSON.stringify(damaged)), /damaged/);
+  // An answer without its reply would crash the Chat tab on every render
+  damaged.data['@training-tracker/chat'].state.items[0] = { id: 'x', at: 'now', kind: 'answer', question: 'q', turn: { raw: 'r' } };
+  assert.throws(() => backup.parseBackup(JSON.stringify(damaged)), /damaged/);
+});
+
+test('clear all data empties the chat thread', async () => {
+  await seed();
+  await useWorkoutStore.getState().clearAllData();
+  assert.deepEqual(useChatStore.getState().items, []);
 });

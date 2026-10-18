@@ -7,7 +7,7 @@ import { muscleGroupColors, spacing } from '../constants/theme';
 import { macroLine } from '../services/foods';
 import type { CoachCards, CoachReply } from '../services/ask';
 import type { MealCard, WorkoutCard } from '../services/coachCards';
-import type { CoachTurn } from '../hooks/useCoach';
+import type { CoachTurnState } from '../stores/chatStore';
 import { SkyCard, SectionLabel } from './Sky';
 import { Pill } from './Glass';
 import FoodRows from './FoodRows';
@@ -16,7 +16,8 @@ import LogoMark from './LogoMark';
 interface Props {
   reply: CoachReply;
   cards?: CoachCards;
-  turn?: Pick<CoachTurn, 'planned' | 'logged' | 'remembered'>;
+  turn?: Pick<CoachTurnState, 'planned' | 'logged' | 'remembered'>;
+  chart?: React.ReactNode; // drawn from the log, below the answer
   onPlan?: (workout: WorkoutCard) => void;
   onLogMeal?: (meal: MealCard, index: number) => void;
   onRemember?: (yes: boolean) => void;
@@ -24,7 +25,7 @@ interface Props {
 
 // The coach's answer: headline, the answer, then any card it carries (a workout to plan, meals to log,
 // a thing to remember), and the facts from your log it rests on. Cards save only on a tap.
-export default function CoachCard({ reply, cards, turn, onPlan, onLogMeal, onRemember }: Props) {
+export default function CoachCard({ reply, cards, turn, chart, onPlan, onLogMeal, onRemember }: Props) {
   const { colors } = useTheme();
   return (
     <Animated.View entering={FadeInDown.springify().damping(17)}>
@@ -36,6 +37,7 @@ export default function CoachCard({ reply, cards, turn, onPlan, onLogMeal, onRem
           ) : null}
         </View>
         <Text variant="bodyLarge" style={[styles.answer, { color: colors.text }]}>{reply.answer}</Text>
+        {chart}
 
         {cards?.workout && <Workout workout={cards.workout} planned={turn?.planned} onPlan={onPlan && (() => onPlan(cards.workout!))} />}
         {cards?.meals?.map((meal, k) => (

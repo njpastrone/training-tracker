@@ -2,68 +2,59 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { addDays, format } from 'date-fns';
 import { ApiError } from '../services/claude';
-import { askCoach, type CoachCards, type CoachMessage, type CoachReply } from '../services/ask';
+import { askCoach } from '../services/ask';
 import { mealEntry, rememberFact, type MealCard, type WorkoutCard } from '../services/coachCards';
 import { templateService } from '../services/templates';
 import { scheduleService } from '../services/schedule';
+import { digest } from '../services/insights';
+import { chartFor, coachThread } from '../services/thread';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { useChatStore, type ChatItem, type CoachTurnState } from '../stores/chatStore';
 
-// ponytail: 12 questions a thread keeps one sitting from draining the daily cap; the Worker refuses longer threads
-const MAX_TURNS = 12;
 const RETRY_MESSAGE = "Couldn't answer that, try again.";
 
-export interface CoachTurn {
-  question: string;
-  reply?: CoachReply; // unset while the coach thinks
-  raw?: string; // the checked reply, sent back with the next question
-  cards?: CoachCards;
-  planned?: string; // the date a suggested workout was planned for
-  templateId?: string; // the template made from the suggested workout, reused on another tap
-  logged?: string[]; // ids of the meal entries logged from this answer, by meal index
-  remembered?: boolean | 'no'; // the remember chip's answer
-}
+type AnswerItem = Extract<ChatItem, { kind: 'answer' }>;
+const answerById = (id: string) => useChatStore.getState().items.find((i): i is AnswerItem => i.id === id && i.kind === 'answer');
 
-// Ask → the answer card → follow-ups by typing or a chip. One thread per visit of the Ask sheet.
-// Cards save only on a tap: a workout goes on the calendar, a meal into today's food, a fact into Settings.
+// Ask → the answer lands in the Chat thread → follow-ups by typing or a chip. Today's last answers go
+// back with each question (services/thread.ts). Cards save only on a tap: a workout goes on the
+// calendar, a meal into today's food, a fact into Settings; the tap is kept on the answer.
 export function useCoach() {
-  const [text, setText] = useState(''); // what's in the composer
-  const [turns, setTurns] = useState<CoachTurn[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<string | null>(null); // the question being answered
   const [error, setError] = useState<string | null>(null);
-  const patch = (i: number, change: Partial<CoachTurn>) => setTurns(prev => prev.map((t, k) => (k === i ? { ...t, ...change } : t)));
+  const items = useChatStore(s => s.items);
+  const patch = (id: string, change: Partial<CoachTurnState>) => useChatStore.getState().patch(id, change);
 
-  const ask = async (raw: string) => {
+  // False when it couldn't answer, so the caller can put the question back in its composer
+  const ask = async (raw: string): Promise<boolean> => {
     const question = raw.trim();
-    if (!question || busy) return;
-    if (turns.length >= MAX_TURNS) {
-      setError('Start over to keep asking.');
-      return;
-    }
-    const thread: CoachMessage[] = turns.flatMap(t => (t.raw ? [{ role: 'user' as const, content: t.question }, { role: 'assistant' as const, content: t.raw }] : []));
-    setBusy(true);
+    if (!question || pending) return false;
+    const now = new Date();
+    const thread = coachThread(useChatStore.getState().items, now);
+    setPending(question);
     setError(null);
-    setText('');
-    setTurns([...turns, { question }]);
     try {
-      const { reply, raw: answered, cards } = await askCoach(question, thread);
-      setTurns(prev => prev.map(t => (t === prev[prev.length - 1] ? { question, reply, raw: answered, cards } : t)));
+      const { reply, raw: answered, cards } = await askCoach(question, thread, now);
+      const { workouts, exerciseLibrary, settings } = useWorkoutStore.getState();
+      const chartExerciseId = chartFor(question, digest(workouts, exerciseLibrary, settings.weightUnit, now).liftTrends);
+      useChatStore.getState().add({ kind: 'you', text: question }, { kind: 'answer', question, turn: { reply, raw: answered, cards, chartExerciseId } });
+      return true;
     } catch (err) {
       console.error('Coach error:', err);
       setError(err instanceof ApiError ? err.message : RETRY_MESSAGE);
-      setTurns(prev => prev.slice(0, -1));
-      setText(question);
+      return false;
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   };
 
   // The suggested workout as a planned day: a template plus a calendar entry, so Log shows "Today's plan".
   // A day that already has a plan asks before replacing it.
-  const plan = async (i: number, workout: WorkoutCard) => {
+  const plan = async (id: string, workout: WorkoutCard) => {
     const date = format(addDays(new Date(), workout.when === 'tomorrow' ? 1 : 0), 'yyyy-MM-dd');
     const save = async () => {
       try {
-        let templateId = turns[i].templateId;
+        let templateId = answerById(id)?.turn.templateId;
         if (!templateId || !(await templateService.getTemplate(templateId))) {
           templateId = (
             await templateService.createTemplate({
@@ -73,12 +64,12 @@ export function useCoach() {
               muscleGroups: workout.muscleGroups,
             })
           ).id;
-          patch(i, { templateId });
+          patch(id, { templateId });
         }
         await scheduleService.scheduleWorkout(date, templateId);
         const { loadTemplates, loadSchedule } = useWorkoutStore.getState();
         await Promise.all([loadTemplates(), loadSchedule()]);
-        patch(i, { planned: date });
+        patch(id, { planned: date });
       } catch (err) {
         console.error('Error planning the suggested workout:', err);
         setError("Couldn't plan that. Try again.");
@@ -94,38 +85,33 @@ export function useCoach() {
   };
 
   // One meal into today's food log; tapping again takes it back out
-  const logMeal = (i: number, meal: MealCard, k: number) => {
+  const logMeal = (id: string, meal: MealCard, k: number) => {
     const { addFoodEntry, removeFoodItem } = useWorkoutStore.getState();
-    const turn = turns[i];
-    const logged = [...(turn.logged ?? [])];
+    const logged = [...(answerById(id)?.turn.logged ?? [])];
     if (logged[k]) {
-      const id = logged[k];
-      for (const item of useWorkoutStore.getState().foodEntries.find(e => e.id === id)?.items ?? []) removeFoodItem(id, item.id);
+      const entryId = logged[k];
+      for (const item of useWorkoutStore.getState().foodEntries.find(e => e.id === entryId)?.items ?? []) removeFoodItem(entryId, item.id);
       logged[k] = '';
     } else {
       const entry = mealEntry(meal);
       addFoodEntry(entry);
       logged[k] = entry.id;
     }
-    patch(i, { logged });
+    patch(id, { logged });
   };
 
   // The remember chip: yes stores the fact in Settings, no just closes the chip
-  const remember = (i: number, yes: boolean) => {
-    const r = turns[i].cards?.remember;
+  const remember = (id: string, yes: boolean) => {
+    const r = answerById(id)?.turn.cards?.remember;
     if (yes && r) {
       const { settings, updateSettings } = useWorkoutStore.getState();
       updateSettings(rememberFact(settings, r));
     }
-    patch(i, { remembered: yes || 'no' });
+    patch(id, { remembered: yes || 'no' });
   };
 
-  const startOver = () => {
-    setTurns([]);
-    setText('');
-    setError(null);
-  };
-
-  const last = turns[turns.length - 1];
-  return { text, setText, turns, busy, error, ask, plan, logMeal, remember, startOver, chips: last?.reply?.chips ?? [] };
+  // The newest answer's follow-ups, while it's the last thing in the thread
+  const last = items[items.length - 1];
+  const chips = last?.kind === 'answer' ? last.turn.reply.chips : [];
+  return { pending, busy: !!pending, error, clearError: () => setError(null), ask, plan, logMeal, remember, chips };
 }

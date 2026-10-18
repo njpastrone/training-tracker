@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { format, subDays } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
+import { useChatStore } from '../stores/chatStore';
 import { ApiError } from '../services/claude';
 import { planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
 import { GOALS } from '../services/onboarding';
@@ -87,6 +88,8 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
     try {
       const plan = await savePlan(draft.plan, messages[0], settings.weightUnit);
       await Promise.all([loadSchedule(), loadTemplates()]);
+      const dates = useWorkoutStore.getState().schedule.filter(s => s.planId === plan.id).map(s => s.date).sort();
+      useChatStore.getState().add(...(messages[0] ? [{ kind: 'you' as const, text: messages[0] }] : []), { kind: 'planned', dates, planId: plan.id });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       startOver();
       onPlanned(plan);

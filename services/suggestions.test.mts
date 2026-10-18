@@ -1,7 +1,8 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { logChips, planChips, missedChips, PLAN_STARTERS } from './suggestions';
+import { logChips, planChips, missedChips, askChips, PLAN_STARTERS, ASK_STARTERS } from './suggestions';
+import { emptyLibrary } from './exerciseIdentity';
 import type { MuscleGroup, Workout } from '../types/workout';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
 
@@ -100,4 +101,16 @@ test('usualMeal offers what you most often ate around this time, once you have a
   assert.equal(logChips([], null, new Date(2026, 9, 8, 13), habit).some(c => c.label.startsWith('Usual')), false); // lunch isn't a habit
   // Already had breakfast today
   assert.equal(logChips([], null, now, [...habit, entry('2026-10-08', 7, [['egg', 'egg']])]).some(c => c.label.startsWith('Usual')), false);
+});
+
+test('askChips: starters for new users, your own lift only when it has numbers', () => {
+  assert.deepEqual(askChips([], emptyLibrary(), 'lbs', false, now), ASK_STARTERS);
+  // Names only: no "stuck" question
+  assert.deepEqual(askChips([push, back], emptyLibrary(), 'lbs', true, now).map(c => c.label), ['What should I train tomorrow?', "How's my protein?"]);
+  const bench = (date: string, weight: number): Workout => ({
+    ...workout(date, ['chest'], ['Bench Press']),
+    exercises: [{ id: '0', name: 'Bench Press', muscleGroup: 'chest', sets: 3, reps: 8, weight, unit: 'lbs' }],
+  });
+  const labels = askChips([bench('2026-10-01', 175), bench('2026-10-06', 180)], emptyLibrary(), 'lbs', false, now).map(c => c.label);
+  assert.deepEqual(labels, ['Is my bench stuck?', 'What should I train tomorrow?']);
 });

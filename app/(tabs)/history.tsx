@@ -9,6 +9,7 @@ import { ChatScreen } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import PlanCard from '../../components/PlanCard';
 import { usePlanner } from '../../hooks/usePlanner';
+import { readsAsQuestion } from '../../services/ask';
 import { GOALS } from '../../services/onboarding';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -25,6 +26,7 @@ import { TrainingPlan } from '../../types/plan';
 // Chat bar chips: a new plan from your own week (services/suggestions.ts), an open plan from its own tweaks
 const DEFAULT_TWEAKS = ['Easier', 'Harder', '45 min max', 'Different days', 'Add cardio'];
 const MONTHS_PER_PAGE = 3;
+const PLAN_WORDS = /\b(plan|schedule|week|split|days?)\b/i;
 
 // The record: the calendar, then every day by month (its training, and its food for people who log it).
 // How it's going lives on Progress.
@@ -94,7 +96,13 @@ export default function HistoryScreen() {
       bar={{
         value: planner.text,
         onChangeText: planner.setText,
-        onSend: () => planner.send(planner.text),
+        onSend: () => {
+          // A question goes to Chat, where questions are answered; anything else plans, including a
+          // plan asked as a question ("can you plan my week?", "should I do 4 days?")
+          if (planner.draft || !readsAsQuestion(planner.text) || PLAN_WORDS.test(planner.text)) return planner.send(planner.text);
+          router.navigate({ pathname: '/(tabs)/chat', params: { question: planner.text.trim() } });
+          planner.setText('');
+        },
         placeholder: planner.draft ? 'Fix or ask…' : 'Plan your week…',
         chips: planner.draft ? toChips(planner.draft.chips.length ? planner.draft.chips : DEFAULT_TWEAKS) : planner.text.trim() ? [] : starters,
         onChip: planner.send,

@@ -9,6 +9,7 @@ import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
 import { emptyLibrary, migrateToV1, rememberName, withIdentity } from '../services/exerciseIdentity';
 import { withFoodGoal } from '../services/goals';
+import { useChatStore } from './chatStore';
 import { format } from 'date-fns';
 
 // Undo payload: the deleted workouts and the plan sessions their delete reopened
@@ -242,6 +243,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           exerciseLibrary: emptyLibrary(),
           error: null,
         });
+        useChatStore.getState().clear();
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
