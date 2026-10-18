@@ -313,14 +313,6 @@ export default function SettingsScreen() {
         <SkyCard style={styles.card}>
           <Row
             first
-            icon="trash"
-            title="Clear all data"
-            subtitle="Delete all workouts and settings"
-            destructive
-            onPress={handleClearData}
-            disabled={isClearing}
-          />
-          <Row
             icon="photo.on.rectangle"
             title="Progress photos"
             subtitle="Only on this iPhone and in no backup. Delete one or all on the Photos screen, behind Face ID."
@@ -332,6 +324,14 @@ export default function SettingsScreen() {
             subtitle="Empty the Chat thread; workouts and food stay"
             destructive
             onPress={handleClearChat}
+          />
+          <Row
+            icon="trash"
+            title="Clear all data"
+            subtitle="Delete all workouts and settings"
+            destructive
+            onPress={handleClearData}
+            disabled={isClearing}
           />
         </SkyCard>
 

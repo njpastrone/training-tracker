@@ -221,7 +221,7 @@ export default function PhotosScreen() {
               <View style={styles.pose}>
                 <Segmented value={pose} options={POSES} onChange={setPose} />
               </View>
-              <View style={styles.actions}>
+              <View style={styles.addButtons}>
                 <Pill icon="camera" label="Take photo" onPress={() => add('camera')} loading={busy} />
                 <Pill variant="glass" icon="photo.on.rectangle" label="Choose from Photos" onPress={() => add('library')} disabled={busy} />
               </View>
@@ -313,6 +313,10 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.gap,
+  },
+  addButtons: {
     gap: spacing.sm,
     marginTop: spacing.gap,
   },

@@ -193,7 +193,7 @@ export default function WorkoutEditScreen() {
     <SkyScreen edges={['bottom']}>
       <Stack.Screen
         options={{
-          title: 'Edit Workout',
+          title: '',
           headerRight: () => (
             <View style={styles.headerActions}>
               <HeaderButton icon="trash" label="Delete workout" onPress={handleDelete} />

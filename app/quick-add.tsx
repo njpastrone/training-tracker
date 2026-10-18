@@ -24,10 +24,10 @@ export default function QuickAddScreen() {
 
   return (
     <SkyScreen edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Add' }} />
+      <Stack.Screen options={{ title: '' }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <LargeTitle title={dateLabel} />
+          <LargeTitle title={dateLabel} subtitle="Add a workout or food" />
 
           {log.sent && <UserBubble text={log.sent} />}
 

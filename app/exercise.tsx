@@ -99,6 +99,8 @@ export default function ExerciseScreen() {
   const today = parseISO(d.today);
   const [day, setDay] = useState(() => (last && last < d.today ? addDays(parseISO(last), 1) : today));
   const [picking, setPicking] = useState(false);
+  // A hairline between the rows of "Also logged as", none above the first
+  const line = (n: number) => [styles.line, { borderTopColor: colors.border, borderTopWidth: n ? StyleSheet.hairlineWidth : 0 }];
   const addPast = () => router.push({ pathname: '/quick-add', params: { date: format(day, 'yyyy-MM-dd') } });
 
   return (
@@ -108,66 +110,74 @@ export default function ExerciseScreen() {
         <LargeTitle title={title} subtitle={subtitle} />
 
         {next && (
-          <SkyCard>
-            <SectionLabel>Next time</SectionLabel>
-            <Text variant="titleMedium" style={[styles.next, { color: colors.text }]}>{next.next}</Text>
-            <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
-              Last {next.last}. {next.why}
-            </Text>
-          </SkyCard>
+          <>
+            <SectionLabel style={styles.firstLabel}>Next time</SectionLabel>
+            <SkyCard>
+              <Text variant="titleMedium" style={[styles.next, { color: colors.text }]}>{next.next}</Text>
+              <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
+                Last {next.last}. {next.why}
+              </Text>
+            </SkyCard>
+          </>
         )}
 
         {trend && (
-          <SkyCard>
-            <SectionLabel>Top sets</SectionLabel>
-            <LiftChart trend={trend} />
-          </SkyCard>
+          <>
+            <SectionLabel style={styles.label}>Top sets</SectionLabel>
+            <SkyCard>
+              <LiftChart trend={trend} />
+            </SkyCard>
+          </>
         )}
 
         {records.length > 0 && (
-          <SkyCard>
-            <SectionLabel>Personal records</SectionLabel>
-            {records.map(([label, value]) => (
-              <View key={label} style={styles.record}>
-                <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>{label}</Text>
-                <Text variant="bodyLarge" style={[styles.number, { color: colors.text }]}>{value}</Text>
-              </View>
-            ))}
-          </SkyCard>
+          <>
+            <SectionLabel style={styles.label}>Personal records</SectionLabel>
+            <SkyCard>
+              {records.map(([label, value]) => (
+                <View key={label} style={styles.record}>
+                  <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>{label}</Text>
+                  <Text variant="bodyLarge" style={[styles.number, { color: colors.text }]}>{value}</Text>
+                </View>
+              ))}
+            </SkyCard>
+          </>
         )}
 
         {(written.length > 0 || aliases.length > 0 || mergedIn.length > 0) && (
-          <SkyCard>
-            <SectionLabel>Also logged as</SectionLabel>
-            {written.map(w => (
-              <View key={w.words} style={[styles.line, { borderTopColor: colors.border }]}>
-                <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>
-                  "{w.words}" <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>×{w.count}</Text>
-                </Text>
-                {written.length > 1 && <Pill variant="glass" size="small" label="Move" onPress={() => setChoosing(w)} />}
-              </View>
-            ))}
-            {aliases.map(a => (
-              <View key={a} style={[styles.line, { borderTopColor: colors.border }]}>
-                <View style={styles.fill}>
-                  <Text variant="bodyLarge" style={{ color: colors.text }}>"{a}"</Text>
-                  <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Your word for it</Text>
+          <>
+            <SectionLabel style={styles.label}>Also logged as</SectionLabel>
+            <SkyCard>
+              {written.map((w, i) => (
+                <View key={w.words} style={line(i)}>
+                  <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>
+                    "{w.words}" <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>×{w.count}</Text>
+                  </Text>
+                  {written.length > 1 && <Pill variant="glass" size="small" label="Move" onPress={() => setChoosing(w)} />}
                 </View>
-                <Pressable onPress={() => removeAlias(a)} accessibilityRole="button" accessibilityLabel={`Forget "${a}"`} hitSlop={10}>
-                  <SymbolView name="xmark.circle.fill" size={22} tintColor={colors.textTertiary} />
-                </Pressable>
-              </View>
-            ))}
-            {mergedIn.map(from => (
-              <View key={from} style={[styles.line, { borderTopColor: colors.border }]}>
-                <View style={styles.fill}>
-                  <Text variant="bodyLarge" style={{ color: colors.text }}>{ownName(from, exerciseLibrary) ?? from}</Text>
-                  <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Merged in</Text>
+              ))}
+              {aliases.map((a, i) => (
+                <View key={a} style={line(written.length + i)}>
+                  <View style={styles.fill}>
+                    <Text variant="bodyLarge" style={{ color: colors.text }}>"{a}"</Text>
+                    <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Your word for it</Text>
+                  </View>
+                  <Pressable onPress={() => removeAlias(a)} accessibilityRole="button" accessibilityLabel={`Forget "${a}"`} hitSlop={10}>
+                    <SymbolView name="xmark.circle.fill" size={22} tintColor={colors.textTertiary} />
+                  </Pressable>
                 </View>
-                <Pill variant="glass" size="small" label="Undo" onPress={() => unmergeExercise(from)} />
-              </View>
-            ))}
-          </SkyCard>
+              ))}
+              {mergedIn.map((from, i) => (
+                <View key={from} style={line(written.length + aliases.length + i)}>
+                  <View style={styles.fill}>
+                    <Text variant="bodyLarge" style={{ color: colors.text }}>{ownName(from, exerciseLibrary) ?? from}</Text>
+                    <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Merged in</Text>
+                  </View>
+                  <Pill variant="glass" size="small" label="Undo" onPress={() => unmergeExercise(from)} />
+                </View>
+              ))}
+            </SkyCard>
+          </>
         )}
 
         {id && name && (
@@ -178,24 +188,26 @@ export default function ExerciseScreen() {
         )}
 
         {goal && (
-          <SkyCard>
-            <SectionLabel>Your goals · last 7 days</SectionLabel>
-            {goal.timesGoal !== undefined && (
-              <Text variant="bodyLarge" style={[styles.goalLine, { color: colors.text }]}>Trained {goal.times} of {goal.timesGoal} times</Text>
-            )}
-            {goal.setsGoal !== undefined && (
-              <Text variant="bodyLarge" style={[styles.goalLine, { color: colors.text }]}>
-                {formatSets(goal.sets, goal.setsMissing)} of {goal.setsGoal} sets
-              </Text>
-            )}
-            {goal.setsGoal !== undefined && goal.setsMissing && (
-              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Some exercises had no set count, so only written sets count.</Text>
-            )}
-          </SkyCard>
+          <>
+            <SectionLabel style={styles.label}>Your goals · last 7 days</SectionLabel>
+            <SkyCard>
+              {goal.timesGoal !== undefined && (
+                <Text variant="bodyLarge" style={[styles.goalLine, { color: colors.text }]}>Trained {goal.times} of {goal.timesGoal} times</Text>
+              )}
+              {goal.setsGoal !== undefined && (
+                <Text variant="bodyLarge" style={[styles.goalLine, { color: colors.text }]}>
+                  {formatSets(goal.sets, goal.setsMissing)} of {goal.setsGoal} sets
+                </Text>
+              )}
+              {goal.setsGoal !== undefined && goal.setsMissing && (
+                <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Some exercises had no set count, so only written sets count.</Text>
+              )}
+            </SkyCard>
+          </>
         )}
 
+        <SectionLabel style={styles.label}>Forgot one?</SectionLabel>
         <SkyCard>
-          <SectionLabel>Forgot one?</SectionLabel>
           <View style={styles.dayRow}>
             <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>Add a session on</Text>
             {Platform.OS === 'ios' ? (
@@ -297,7 +309,6 @@ const styles = StyleSheet.create({
     gap: spacing.gap,
     minHeight: 44,
     paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
   rows: {
     paddingVertical: spacing.xs,
@@ -310,7 +321,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.gap,
   },
   label: {
-    marginTop: spacing.sm,
+    marginTop: spacing.gap, // 24 pt below the card above
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  firstLabel: {
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
   },
