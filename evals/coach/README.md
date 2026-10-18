@@ -17,7 +17,7 @@ npm run eval:coach -- --set holdout         # 19 held-out cases: report them, ne
 npm run eval:coach -- --only tools,cards,memory
 npm run eval:coach -- --model claude-opus-5-5 --effort medium
 npm run eval:coach -- --judge               # also have Opus 5.5 grade each answer 1-5
-npm run eval:coach -- --cli                 # no API key: the model through `claude -p` on your login, pack only (no tools)
+npm run eval:coach -- --cli                 # no API key: the model through `claude -p` on your login, tools through mcp.ts
 npm run eval:coach -- --verbose             # print every failed check with the answer, the tools it called and its cards
 npm run eval:coach -- --repeat 3            # average out run-to-run noise
 node --import tsx --test evals/coach/score.test.ts   # scorer self-check (also in `npm test`)
@@ -25,10 +25,10 @@ node --import tsx --test evals/coach/score.test.ts   # scorer self-check (also i
 
 It needs an Anthropic API key in `ANTHROPIC_API_KEY`, exported or in `.env.eval.local` at the repo
 root (git-ignored), except with `--cli` (see `evals/food/README.md` for what the CLI path can't pin).
-`claude -p` cannot run the coach's tools, so `--cli` sends the request without them: the pack-only
-cases still measure the prompt, the `tools`, `cards` and `memory` categories mostly fail their tool
-checks and should be read from an API-key run. It calls Anthropic directly, never the Worker. Each run
-saves its results to `evals/coach/results/` (git-ignored).
+With `--cli`, `claude -p` runs the tool loop itself: `mcp.ts` serves the coach's tools on the fixture as
+an MCP server, logs each call for scoring, and turns away a second round of tools as the Worker does.
+The CLI adds the machine's date, so the run tells the model the fixture's date holds. It calls
+Anthropic directly, never the Worker. Each run saves its results to `evals/coach/results/` (git-ignored).
 
 ## Scoring
 

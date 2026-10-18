@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal, trainedLine } from './goals';
+import { goalProgress, goalProgressLines, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal, trainedLine } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -184,4 +184,17 @@ test('Progress shows the food goal and the food week for someone with food but n
   assert.equal(progressSections(false, undefined, 0).food, false);
   const both = progressSections(true, goalProgress(goals, WORKOUTS, lib, FOOD, NOW), 3);
   assert.ok(both.goals!.muscles.length > 0 && both.goals!.food);
+});
+
+test('goal progress as plain lines for the coach and the planner, without food', () => {
+  const lines = goalProgressLines(goalProgress({ ...GOALS, food: { kind: 'protein', target: 160 } }, WORKOUTS, lib, [], NOW));
+  assert.deepEqual(lines, [
+    'chest: 2/2 days, 8/8 sets in the last 7 days, met',
+    'back: 2/2 days, 5.5+/10 sets in the last 7 days',
+    'biceps: 1/2 days, 5+/8 sets in the last 7 days',
+    'triceps: 1/2 days, 7/8 sets in the last 7 days',
+    'quads: 1/2 days, 4/8 sets in the last 7 days',
+    'Bench Press: 220.5 of 225 lbs',
+    'Running: 2 of 3 days a week',
+  ]);
 });

@@ -6,7 +6,7 @@ import { useChatStore } from '../stores/chatStore';
 import { ApiError } from '../services/claude';
 import { planWorkouts, previewPlan, savePlan, summarizeHistory } from '../services/planner';
 import { GOALS } from '../services/onboarding';
-import { goalLines } from '../services/goals';
+import { goalLines, goalProgress, goalProgressLines } from '../services/goals';
 import { PlannerResponse, TrainingPlan } from '../types/plan';
 
 // ponytail: ~8 AI turns per planning session keeps one user from draining the shared daily cap
@@ -33,6 +33,7 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
       daysPerWeek: settings.weeklyTarget,
       goal: settings.goal,
       goals: settings.goals && goalLines(settings.goals, exerciseLibrary),
+      goalsThisWeek: settings.goals && goalProgressLines(goalProgress(settings.goals, workouts, exerciseLibrary)),
     }),
     [workouts, schedule, plans, settings.weightUnit, settings.weeklyTarget, settings.goal, settings.goals, exerciseLibrary]
   );
