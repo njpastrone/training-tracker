@@ -124,7 +124,7 @@ Questions to the coach use the prompt and tool schemas in `server/src/coach.ts` 
 
 ```
 training-tracker/
-├── server/                 # Cloudflare Worker that proxies Claude calls
+├── server/                 # Cloudflare Worker that proxies Claude calls and serves lifttextapp.com
 ├── app/                    # Expo Router pages
 │   ├── (tabs)/             # Tab navigation screens
 │   │   ├── index.tsx       # Log tab (home)
