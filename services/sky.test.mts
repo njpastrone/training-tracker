@@ -66,9 +66,18 @@ test('with a plan the target is the planned days in the last 7, and missing one 
   assert.equal(weekSky([], [...PLAN, ...w('2026-10-01', '2026-10-09')], THU).target, 4);
 });
 
-test('a picked weekly target wins over the usual count', () => {
+test('a picked weekly target wins over the usual count and over a plan', () => {
   assert.equal(weekSky(USUAL, [], THU, { weeklyTarget: 5 }).target, 5);
-  assert.equal(weekSky(USUAL, PLAN, THU, { weeklyTarget: 5 }).target, 4); // a plan still wins
+  assert.equal(weekSky(USUAL, PLAN, THU, { weeklyTarget: 5 }).target, 5);
+});
+
+test('days a week set to 4, a plan made today, one day trained: 1 of 4, not met', () => {
+  // The planner never writes sessions before today, so a new plan has at most today in the last 7
+  const plan = w('2026-10-08', '2026-10-10', '2026-10-12', '2026-10-14');
+  const sky = weekSky(w('2026-10-08'), plan, THU, { weeklyTarget: 4 });
+  assert.equal(sky.done, 1);
+  assert.equal(sky.target, 4);
+  assert.notEqual(sky.phase, 'day');
 });
 
 test('a new user is never behind in their first 7 days, and the target is only the days they have been here', () => {

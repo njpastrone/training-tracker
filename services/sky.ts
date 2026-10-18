@@ -37,7 +37,9 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
   const win = trainingWindow(dates, 7, now);
   const done = win.trained.size;
   const plannedDates = [...new Set(schedule.map(s => s.date))].filter(d => d >= win.first && d <= win.last);
-  const planned = plannedDates.length > 0;
+  // A plan sets the target only when no days a week were picked: plans never start before today,
+  // so the planned days so far are often just today, and any one workout would read as goal met
+  const planned = plannedDates.length > 0 && prefs.weeklyTarget === undefined;
   // A new user's first 7 days only ask for the days they've been here, and pace never fails them:
   // day one is dawn, and logging that day is full daylight
   const daysHere = prefs.startedAt ? Math.max(1, differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1) : Infinity;

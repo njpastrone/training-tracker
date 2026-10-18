@@ -13,11 +13,11 @@ LiftText is iOS-26-native: content sits on a soft sky, Liquid Glass is used for 
 
 `services/sky.ts` maps the last 7 days (a rolling window ending today, see `services/pace.ts`) to a sky. It is pure and unit-tested (`services/sky.test.mts`).
 
-- **Target:** distinct planned days in the last 7 days from the schedule. With no plan, the days a week picked in setup or Settings, else the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history). In a new user's first 7 days after setup (no plan), the target is capped at the days since setup, so day one is dawn and logging that day is full daylight.
+- **Target:** the days a week picked in setup, Settings or Goals. With none picked, distinct planned days in the last 7 days from the schedule, else the usual weekly count: distinct training days in the 4 weeks before the last 7 days, divided by 4 and rounded (1–7; 3 with no recent history). In a new user's first 7 days after setup (unless a plan sets the target), the target is capped at the days since setup, so day one is dawn and logging that day is full daylight.
 - **Done:** distinct days with a logged workout in the last 7 days.
 - **Phase:**
   - `day` when done ≥ target;
-  - `dusk` when behind pace: with a plan, fewer done than planned days already gone by; without one (and never in a new user's first 7 days), fewer than the weekly target expects for the days counted so far (today counts once trained, days before your first workout never count);
+  - `dusk` when behind pace: with a plan and no days a week picked, fewer done than planned days already gone by; otherwise (and never in a new user's first 7 days), fewer than the weekly target expects for the days counted so far (today counts once trained, days before your first workout never count);
   - otherwise `dawn`, blended toward day by `done / target`.
 - **Gradients (palette G, top → middle → low → base):** dawn `#FFB4A0 → #F9CFE0 → #E8E0FA → #F8F6FF`, day `#8AA8FF → #BCC9FF → #E0E3FF → #F6F5FF`, dusk `#FF9F7E → #E7A6CF → #C9BDF2 → #F3F1FF`, night `#0D0B2A → #1A1640 → #2A1F52 → #1E1A44`. The gradient reaches the base at 45% of the screen and the base fills below it. A glow at the top right in every phase: warm white by day, `#2A2766` at night. Title and subtitle text on every stop meets 4.5:1 (`services/sky.test.mts`).
 - The sky is static per visit: it changes when data changes or the app returns on a new day. No ambient animation.
