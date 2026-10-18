@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, parseISO } from 'date-fns';
+import { addDays, differenceInCalendarDays, getISODay, parseISO } from 'date-fns';
 import { trainingWindow, usualPerWeek, onPace, perWeekRate, ymd } from './pace';
 
 // The Daylight sky tracks the last 7 days of training, not the clock: dawn when nothing's in,
@@ -45,12 +45,13 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
   const weekStart = plannedDates.reduce((a, b) => (b < a ? b : a), win.last);
   const weekEnd = ymd(addDays(parseISO(weekStart), 6));
   const planWeek = allPlanned.filter(d => d >= weekStart && d <= weekEnd).length;
-  // A new user's first 7 days only ask for the days they've been here, and pace never fails them:
-  // day one is dawn, and logging that day is full daylight
+  // A new user's first 7 days only ask for the days they've been here (with days a week picked, the days
+  // left in their setup week, Monday to Sunday), and pace never fails them
   const daysHere = prefs.startedAt ? Math.max(1, differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1) : Infinity;
   const firstWeek = !planned && daysHere <= 7;
   const usual = prefs.weeklyTarget ?? usualPerWeek(dates, now);
-  const target = planned ? Math.max(planWeek, done) : firstWeek ? Math.min(usual, daysHere) : usual;
+  const firstCap = prefs.weeklyTarget !== undefined && prefs.startedAt ? 8 - getISODay(parseISO(prefs.startedAt)) : daysHere;
+  const target = planned ? Math.max(planWeek, done) : firstWeek ? Math.min(usual, firstCap) : usual;
   const progress = Math.min(1, done / target);
   const behind = planned
     ? done < plannedDates.filter(d => d < win.last).length // planned days already gone by
