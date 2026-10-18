@@ -1,6 +1,7 @@
 // The privacy policy and terms of use, served as plain pages at GET /privacy and GET /terms so the app,
 // App Store Connect and TestFlight can link one URL that ships with the Worker. DRAFT: a lawyer reads
-// both before the paid launch. The contact address comes from the CONTACT_EMAIL var (README), never this file.
+// both before the paid launch. The contact address comes from the CONTACT_EMAIL var (README); the waitlist
+// section names privacy@lifttextapp.com, the address the website's waitlist (site.ts) points to.
 // Keep what they say about data in step with what the app and this Worker actually send and keep.
 
 const UPDATED = 'October 17, 2026';
@@ -40,6 +41,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <li>If you're 18 or older and turn on AI reading, what you type is sent through our server to Anthropic's Claude AI to be read. Our server doesn't store it. Anthropic deletes it within 30 days and doesn't use it to train its AI.</li>
 <li>If you're under 18, or you choose "Not now", AI is off and nothing you type leaves your phone.</li>
 <li>We don't sell your data, show ads, track you across apps or use analytics tools.</li>
+<li>If you join the waitlist on lifttextapp.com, we keep your email address to send you a beta invite and tell you when LiftText launches.</li>
 </ul>
 
 <h2>What stays on your phone</h2>
@@ -59,10 +61,18 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <p><strong>With every AI request</strong>, the app also sends a random ID it made for this install and, on a real iPhone, a signature from a key Apple's App Attest service checked, which proves the request comes from a genuine copy of LiftText. Neither is linked to who you are. We use them to limit how many AI requests each phone makes a day and to stop abuse of our server.</p>
 <p><strong>Always:</strong> the app checks for updates with Expo (our update service), which sees your phone's OS, the app version and a random update ID. Apple collects crash and usage data from TestFlight and the App Store as your iPhone's settings allow, under Apple's privacy policy.</p>
 
+<h2>The waitlist on lifttextapp.com</h2>
+<p>The website has no cookies, analytics or trackers. If you join the waitlist we keep:</p>
+<ul>
+<li><strong>Your email address and when you signed up.</strong> We use it only to email you a TestFlight beta invite and to tell you when LiftText is on the App Store. We don't send anything else, sell it or share it, and it isn't linked to anything you log in the app.</li>
+<li><strong>A hashed form of your IP address</strong>, used only for rate limiting and deleted within 2 days.</li>
+</ul>
+<p>We keep your email until you ask us to remove it, and delete the whole list within 12 months after LiftText launches on the App Store. To be removed, email <a href="mailto:privacy@lifttextapp.com">privacy@lifttextapp.com</a> from that address and we'll delete it within 45 days, usually much sooner. Cloudflare stores the list for us and sees your IP address and request details when you visit.</p>
+
 <h2>Who receives it</h2>
 <ul>
 <li><strong>Anthropic</strong> runs the Claude AI. Under its commercial terms it acts as our processor, may not train its models on this data, and deletes it within 30 days. If its safety systems flag a request as breaking its usage policy, it may keep that request for up to 2 years.</li>
-<li><strong>Cloudflare</strong> runs our server. It sees your IP address and request details for each AI request.</li>
+<li><strong>Cloudflare</strong> runs our server and website and stores the waitlist. It sees your IP address and request details for each AI request and website visit.</li>
 <li><strong>Expo</strong> delivers app updates.</li>
 <li><strong>Apple</strong> distributes the app and runs App Attest.</li>
 </ul>
@@ -74,6 +84,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <li>For App Attest it keeps the public half of your phone's App Attest key and a counter until the key is replaced or you ask us to delete it. It identifies the key, not you.</li>
 <li>Server logs record the time, the random ID or key ID, which AI model answered and how much text it read and wrote (counts, not the text), plus the request details Cloudflare logs. They're deleted after 7 days.</li>
 <li>Anthropic: up to 30 days, or up to 2 years if flagged, as above.</li>
+<li>Waitlist emails: until you ask us to remove yours, and no later than 12 months after the App Store launch, as above.</li>
 </ul>
 
 <h2>Your choices</h2>

@@ -2,10 +2,18 @@
   "name": "training-tracker-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  // The website (src/site.ts) on lifttextapp.com; www redirects there. workers_dev stays on so the
+  // app's workers.dev URL (EXPO_PUBLIC_API_URL) keeps working.
+  "routes": [
+    { "pattern": "lifttextapp.com", "custom_domain": true },
+    { "pattern": "www.lifttextapp.com", "custom_domain": true }
+  ],
+  "workers_dev": true,
   "vars": {
     // Max Claude requests per UTC day across all users. Each request is three KV writes (this count,
     // the device's, and the App Attest counter), and the free plan allows 1000 writes/day, so keep
     // this under 330. 300 / 20 per device means it takes 15 devices at their limit to block everyone else.
+    // Website waitlist sign-ups take up to 75 more a day (DAILY_SIGNUPS in src/site.ts).
     "DAILY_REQUEST_CAP": "300",
     // Max Claude requests per UTC day from one app install (the app's x-install-id header).
     "DEVICE_DAILY_CAP": "20",

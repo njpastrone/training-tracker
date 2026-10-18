@@ -1,6 +1,6 @@
 # LiftText
 
-A mobile workout tracking app built with Expo (React Native) that lets you log workouts using natural language. Powered by Claude AI for intelligent workout parsing.
+A mobile workout and food log built with Expo (React Native) that lets you log workouts and meals in natural language. Powered by Claude AI for workout and food parsing.
 
 ## Features
 
@@ -112,6 +112,8 @@ Server tests (Node 22.18+): `cd server && npm test`
 
 The Worker serves the privacy policy and terms of use as plain pages at `GET /privacy` and `GET /terms` (`server/src/legal.ts`), with no password or cap, so they live at the same URL as the API and ship with each Worker deploy. Settings › About and the AI consent sheet link them; put `<Worker URL>/privacy` in App Store Connect (App Privacy) and the TestFlight test information. Both are marked DRAFT until a lawyer has read them. The contact address comes from the `CONTACT_EMAIL` secret, which is required: until it is set both pages answer 503 instead of a policy with no contact. When the app starts sending or keeping something new, update the policy in the same change.
 
+The same Worker serves the website at lifttextapp.com (`server/src/site.ts`, custom domains in `server/wrangler.jsonc`; www redirects to the apex, and the workers.dev URL the app uses keeps working): a home page at `GET /` and a beta waitlist form that posts to `POST /waitlist`. Sign-ups are stored in the `USAGE` KV namespace as `waitlist:<email>` (value: sign-up time), capped at 25 a day and 5 per IP address a day (counted under a hash of the address). List them with `npx wrangler kv key list --binding USAGE --prefix waitlist: --remote`; remove one with `npx wrangler kv key delete --binding USAGE --remote waitlist:<email>`.
+
 Workout logs are parsed with the prompt in `server/src/parse.ts`. The app sends `{ parse: { input, date, unit, exercises } }` (`exercises`: the candidate list from `server/src/identity.ts`), and the Worker builds the Claude request itself, so a prompt fix goes live with `npx wrangler deploy` and no app rebuild. Before changing the prompt, run the parsing eval (`npm run eval:parse`, see `evals/parse/README.md`).
 
 Nothing is saved until you review the parsed workout. A typed fix in the chat bar while the review card is open ("actually 3x10, not 3x8"), or on a saved workout's screen, sends `{ parse: { input, date, unit, exercises, draft, fix } }`: correction mode returns the whole draft with the fix applied, plus a short `reply` when the fix is a question ("is pec deck machine flys?"), which the app shows on the card; a fix that changes nothing and asks nothing says so instead of doing nothing. When the question shows you call an exercise something else, the reply offers "Call it 'Machine flys' from now on", which saves your words as its name and alias, and cards then show "Machine flys · Pec Deck". A Worker deployed before correction mode ignores `draft` and `fix` and re-parses `input` (the draft written back as a log, plus the fix), so the app works with either; deploy the Worker (`cd server && npx wrangler deploy`) to get correction mode.
@@ -122,7 +124,7 @@ Questions to the coach use the prompt and tool schemas in `server/src/coach.ts` 
 
 ```
 training-tracker/
-├── server/                 # Cloudflare Worker that proxies Claude calls
+├── server/                 # Cloudflare Worker that proxies Claude calls and serves lifttextapp.com
 ├── app/                    # Expo Router pages
 │   ├── (tabs)/             # Tab navigation screens
 │   │   ├── index.tsx       # Log tab (home)
