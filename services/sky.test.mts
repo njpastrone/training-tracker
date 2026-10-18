@@ -98,7 +98,7 @@ test('a new user is never behind in their first 7 days, and the target is only t
   for (const weeklyTarget of [3, 4, 5]) {
     for (let start = 0; start < 7; start++) {
       const startedAt = `2026-10-0${2 + start}`; // Fri Oct 2 .. Thu Oct 8 (today)
-      const daysLeftInWeek = [3, 2, 1, 7, 6, 5, 4][start]; // through Sunday
+      const daysLeftInWeek = [Infinity, Infinity, Infinity, 7, 6, 5, 4][start]; // through Sunday; Fri-Sun starts are last week
       const before = weekSky([], [], THU, { weeklyTarget, startedAt });
       assert.notEqual(before.phase, 'dusk');
       assert.equal(before.target, Math.min(weeklyTarget, daysLeftInWeek));
@@ -113,6 +113,13 @@ test('days a week picked on a Monday, one workout: 1 of 4, not met', () => {
   assert.equal(sky.done, 1);
   assert.equal(sky.target, 4);
   assert.notEqual(sky.phase, 'day');
+});
+
+test('days a week picked on a Saturday, trained Sat and Sun, checked the next Thursday: 2 of 4, not met', () => {
+  const sky = weekSky(w('2026-10-10', '2026-10-11'), [], new Date(2026, 9, 15, 9), { weeklyTarget: 4, startedAt: '2026-10-10' });
+  assert.equal(sky.target, 4);
+  assert.notEqual(sky.phase, 'day');
+  assert.notEqual(sky.phase, 'dusk');
 });
 
 test('days a week picked on a Saturday: the target is capped at 2 (Saturday and Sunday)', () => {
