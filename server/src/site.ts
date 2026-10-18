@@ -149,8 +149,8 @@ export async function joinWaitlist(request: Request, kv: KVNamespace, now: Date)
     const n = Number(await kv.get(dayKey)) || 0;
     if (n >= DAILY_SIGNUPS) return html(429, page({ kind: 'busy' }));
     const ttl = { expirationTtl: 2 * 24 * 60 * 60 };
-    if (await kv.get(`waitlist:${email}`)) await kv.put(addressKey, String(m + 1), ttl);
-    else await Promise.all([kv.put(`waitlist:${email}`, now.toISOString()), kv.put(dayKey, String(n + 1), ttl), kv.put(addressKey, String(m + 1), ttl)]);
+    const isNew = !(await kv.get(`waitlist:${email}`));
+    await Promise.all([kv.put(dayKey, String(n + 1), ttl), kv.put(addressKey, String(m + 1), ttl), isNew && kv.put(`waitlist:${email}`, now.toISOString())]);
   } catch (err) {
     console.error('waitlist error', err);
     return html(503, page({ kind: 'form', error: 'Something went wrong on our side. Please try again in a minute.' }));

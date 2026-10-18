@@ -44,7 +44,7 @@ test('the waitlist stores a valid email once, lowercased, and says thanks', asyn
   assert.equal(again.status, 200);
   assert.equal(await again.text(), await (await join(env, 'email=new%40example.com')).text());
   store.delete('waitlist:new@example.com');
-  assert.equal(store.get(`waitlist-count:${new Date().toISOString().slice(0, 10)}`), '2');
+  assert.equal(store.get(`waitlist-count:${new Date().toISOString().slice(0, 10)}`), '3');
   // The IP is kept only as a hash
   assert.ok(![...store.keys()].some((k) => k.includes('1.2.3.4')));
 });
@@ -80,6 +80,14 @@ test('repeat sign-ups count toward the per-address limit, and a refused request 
   assert.equal((await join(env, 'email=other%40x.com')).status, 429);
   assert.equal(reads.length, 1);
   assert.ok(reads[0].startsWith('waitlist-ip:'));
+  assert.deepEqual(emails(store), ['waitlist:me@x.com']);
+});
+
+test('repeat sign-ups count toward the daily limit', async () => {
+  const { env, store } = makeEnv();
+  for (let i = 0; i < 25; i++) assert.equal((await join(env, 'email=me%40x.com', `10.0.0.${i}`)).status, 200);
+  assert.equal((await join(env, 'email=me%40x.com', '10.0.1.1')).status, 429);
+  assert.equal((await join(env, 'email=new%40x.com', '10.0.1.2')).status, 429);
   assert.deepEqual(emails(store), ['waitlist:me@x.com']);
 });
 
