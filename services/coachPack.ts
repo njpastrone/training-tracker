@@ -1,7 +1,7 @@
 import { format, parseISO, subDays } from 'date-fns';
 import { analyzeWeeklyVolume } from './coach';
 import { digest, target } from './insights';
-import { goalLines, goalProgress } from './goals';
+import { goalLines, goalProgress, goalProgressLines } from './goals';
 import { foodByDay, foodWeek } from './progress';
 import { usualMeals } from './suggestions';
 import { itemFor, usualPortions } from './foods';
@@ -105,12 +105,8 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
   });
 
   const goals = settings.goals && goalProgress(settings.goals, workouts, library, foodEntries, now);
-  const goalProgressLines = goals
-    ? [
-        ...goals.muscles.map(m => `${m.group}: ${m.times}${m.timesGoal !== undefined ? `/${m.timesGoal}` : ''} days, ${m.sets}${m.setsMissing ? '+' : ''}${m.setsGoal !== undefined ? `/${m.setsGoal}` : ''} sets in the last 7 days${m.met ? ', met' : ''}`),
-        ...goals.custom.map(c => `${c.name}: ${c.now} of ${c.target}${c.goal.kind === 'lift' ? ` ${c.goal.unit}` : ' days a week'}${c.met ? ', met' : ''}`),
-        ...(goals.food ? [`food goal: ${goals.food.hit} of ${goals.food.logged} logged days met`] : []),
-      ]
+  const goalLinesNow = goals
+    ? [...goalProgressLines(goals), ...(goals.food ? [`food goal: ${goals.food.hit} of ${goals.food.logged} logged days met`] : [])]
     : [];
 
   const plannedAhead = schedule
@@ -132,7 +128,7 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
     lastSessions,
     exercises: d.exercises.slice(0, EXERCISES).map(e => `${e.name}: last ${e.lastDoneDaysAgo} days ago, ${e.timesLast28Days}x in 4 weeks`),
     lifts: lifts.length ? lifts : undefined,
-    goals: goalProgressLines.length ? goalProgressLines : undefined,
+    goals: goalLinesNow.length ? goalLinesNow : undefined,
     plannedAhead: plannedAhead.length ? plannedAhead : undefined,
     loggingStyle: d.loggingStyle,
   });

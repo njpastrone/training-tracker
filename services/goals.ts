@@ -147,6 +147,13 @@ export function trainedLine(days: number | undefined, now: Date = new Date()): s
 
 export const muscleName = (g: MuscleGroup) => (g === 'full_body' ? 'Full body' : g.charAt(0).toUpperCase() + g.slice(1));
 
+// Each workout goal against the last 7 days in plain words, for the coach and the planner. No food line:
+// the coach adds its own, and the planner gets no food.
+export const goalProgressLines = (p: ReturnType<typeof goalProgress>): string[] => [
+  ...p.muscles.map(m => `${m.group}: ${m.times}${m.timesGoal !== undefined ? `/${m.timesGoal}` : ''} days, ${m.sets}${m.setsMissing ? '+' : ''}${m.setsGoal !== undefined ? `/${m.setsGoal}` : ''} sets in the last 7 days${m.met ? ', met' : ''}`),
+  ...p.custom.map(c => `${c.name}: ${c.now} of ${c.target}${c.goal.kind === 'lift' ? ` ${c.goal.unit}` : ' days a week'}${c.met ? ', met' : ''}`),
+];
+
 // The goals in plain words, for the planner
 export function goalLines(goals: Goals, library: ExerciseLibrary): string[] {
   const list = goals.muscles.join(', ');

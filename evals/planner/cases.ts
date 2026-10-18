@@ -77,6 +77,18 @@ const kgUser: PlannerHistory = {
 // Setup answers and goals ride along with the history
 const withGoals: PlannerHistory = { ...sam, daysPerWeek: 3, goal: 'strength', goals: ['Squat twice a week', 'Deadlift 315 by December'] };
 
+// Upper body already met this week (Mon and Tue); legs are behind (services/goals.ts goalProgressLines)
+const legsBehind: PlannerHistory = {
+  ...sam,
+  goals: ['Each of chest, back, quads, hamstrings on at least 2 days a week'],
+  goalsThisWeek: [
+    'chest: 2/2 days, 12 sets in the last 7 days, met',
+    'back: 2/2 days, 14 sets in the last 7 days, met',
+    'quads: 0/2 days, 0 sets in the last 7 days',
+    'hamstrings: 0/2 days, 0 sets in the last 7 days',
+  ],
+};
+
 // The draft under review in the tweak cases: Sam's 4-day upper/lower
 const draft: PlanDraft = {
   name: 'Upper/Lower 4 day',
@@ -165,6 +177,14 @@ export const cases: Case[] = [
     squatTwice: r.plan.sessions.filter(s => r.plan.days[s.day].exercises.some(e => /squat/i.test(e.name))).length >= 2,
     deadliftIn: byName(r, /deadlift/i).length >= 1,
   }) }),
+
+  plan({ id: 'usual-goals-behind', category: 'usual', history: legsBehind, request: 'plan my week', checks: r => {
+    const first = r.plan.days[r.plan.sessions[0].day].exercises;
+    return {
+      legsFirst: first.some(e => e.muscleGroup === 'quads' || e.muscleGroup === 'hamstrings'),
+      legsTwice: r.plan.sessions.filter(s => r.plan.days[s.day].exercises.some(e => e.muscleGroup === 'quads')).length >= 2,
+    };
+  } }),
 
   // Comeback: lighter after time off
   plan({ id: 'comeback-ease-in', category: 'comeback', history: comeback, request: 'been out 3 weeks, ease me back in', checks: r => ({

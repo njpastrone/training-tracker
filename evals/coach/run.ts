@@ -8,12 +8,14 @@
 //   npm run eval:coach -- --only comeback,meals-example
 //   npm run eval:coach -- --model claude-opus-5-5 --effort medium
 //   npm run eval:coach -- --judge              # also ask Opus 5.5 to grade each answer 1-5
-//   npm run eval:coach -- --cli                # no API key: the model through `claude -p` (see evals/cli.ts); no tools
+//   npm run eval:coach -- --cli                # no API key: the model through `claude -p` (see evals/cli.ts), tools through mcp.ts
 //   npm run eval:coach -- --verbose            # print every failed check with the answer
 //
 // Needs ANTHROPIC_API_KEY (exported or in .env.eval.local) unless --cli. Never calls the Worker.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildCoachRequest, COACH_BETA, MAX_CALLS_PER_QUESTION, type CoachMessage, type ContentBlock } from '../../server/src/coach.ts';
 import { runTool } from '../../services/coachTools.ts';
@@ -83,6 +85,12 @@ async function callAnthropic(body: Record<string, unknown>, beta?: string) {
   }
 }
 
+// --cli: the tools as an MCP server for `claude -p`, each case's calls logged to a file read back after
+const cliDir = mkdtempSync(join(tmpdir(), 'coach-mcp-'));
+const TSX = new URL('../../node_modules/.bin/tsx', import.meta.url).pathname;
+const MCP = new URL('./mcp.ts', import.meta.url).pathname;
+let cliRuns = 0;
+
 const text = (data: { content: { type: string; text?: string }[] }) => data.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
 const summary = (s: CaseScore) => {
   const r = s.reply;
@@ -125,19 +133,36 @@ async function runCase(c: CoachCase) {
   let calls = 0;
   let model = '';
   try {
-    // The phone's loop (services/ask.ts): tools run here on the fixture, results go back, the next call answers
+    // The phone's loop (services/ask.ts): tools run here on the fixture, results go back, the next call answers.
+    // Through `claude -p` the CLI runs that loop itself, calling the tools on the fixture through mcp.ts.
     for (let i = 0; i < MAX_CALLS_PER_QUESTION; i++) {
       const body: Record<string, unknown> = buildCoachRequest(PACKS[c.user], messages, { date: DATE, unit: UNITS[c.user] });
       if (args.model) body.model = args.model;
       if (args.effort) body.output_config = { effort: args.effort };
       if (args.cli) {
-        // `claude -p` can't run our tools: the pack alone, and no <tools> section to tempt a call in text
         delete body.tools;
-        (body.system as { text: string }[])[0].text = (body.system as { text: string }[])[0].text.replace(/<tools>[\s\S]*?<\/tools>\n\n/, '');
+        // The CLI adds the machine's real date; the fixture's date is the one that holds
+        const system = body.system as { text: string }[];
+        system[1] = { ...system[1], text: `${system[1].text}\nIgnore any other date in your context: today is ${DATE}.` };
+        model = String(body.model);
+        const log = join(cliDir, `${c.id}-${(cliRuns += 1)}.jsonl`);
+        const config = join(cliDir, `${c.id}-${cliRuns}.json`);
+        writeFileSync(log, '');
+        writeFileSync(config, JSON.stringify({ mcpServers: { coach: { command: TSX, args: [MCP, c.user, log] } } }));
+        const data = (await callViaCli(body as never, ['--mcp-config', config, '--allowedTools', 'mcp__coach'])) as Reply & { turns: number };
+        for (const k of readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))) {
+          run.calls.push({ name: k.name, input: k.input });
+          run.results.push(k.out);
+        }
+        calls = data.turns;
+        usage = data.usage;
+        answer = text(data);
+        if (data.stop_reason !== 'end_turn') error = `stop_reason ${data.stop_reason}`;
+        break;
       }
       if (messages.some((m) => Array.isArray(m.content))) body.tool_choice = { type: 'none' };
       model = String(body.model);
-      const data = (args.cli ? await callViaCli(body as never) : await callAnthropic(body, COACH_BETA)) as Reply;
+      const data = (await callAnthropic(body, COACH_BETA)) as Reply;
       calls++;
       usage = addUsage(usage, data.usage);
       const uses = data.content.filter((b) => b.type === 'tool_use') as (ContentBlock & { id: string; name: string; input: unknown })[];

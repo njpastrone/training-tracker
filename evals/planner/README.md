@@ -28,11 +28,11 @@ Every run saves its results to `evals/planner/results/` (git-ignored).
 
 Each planner case is a request the Plan screen would send, with the history summary the app builds
 (`summarizeHistory`: usual days, recent lifts with their top set, days off, how the last plan went,
-units, goals), and for tweaks the draft under review. The reply goes through the app's own reader
+units, goals and each goal against the last 7 days), and for tweaks the draft under review. The reply goes through the app's own reader
 (`parsePlannerText`), so an unusable plan scores 0. A usable one runs the fixed checks: reply at most
 two sentences, 3-5 chips, only the first week of sessions, no absurd weight (over 700 lbs or 320 kg);
 plus the case's own: sessions on the days asked for or the user's usual days, the number of days asked
-for, lighter weights after three weeks off, the user's own workouts kept exactly and marked `mine`, a
+for, legs first and twice when only the leg goals are unmet this week, lighter weights after three weeks off, the user's own workouts kept exactly and marked `mine`, a
 tweak changing only what was asked (same dates, same lifts), kg numbers for a kg user, at most 5
 exercises when 45 minutes is the cap, no barbell lifts with dumbbells only. A template case lists the
 exercises its description should give, scored field by field (name, sets, reps, weight, unit).
@@ -87,3 +87,9 @@ those builds get the current JS over the air. At medium, twenty cases were lower
 are nearly all chattier workout notes ("Unit not specified; assumed lbs."), not wrong numbers. Those builds existed for a few hours on
 TestFlight on 2026-10-04, and every build gets the current JS over the air on launch when its native
 fingerprint still matches, so they aren't routed through the parse prompt.
+
+Goals this week (2026-10-18): the history now carries each goal against the last 7 days
+(`goalsThisWeek`), with one prompt line. Haiku 5.5 low through `--cli`, 3 runs: 0.965 (18/25 perfect,
+1 unusable reply in 75) on the old prompt without it, 0.968 (20/25, 2 unusable) with it; the new
+`usual-goals-behind` case went 0.95 → 1.00 (legs on the first day every run). The extra unusable reply
+was a fresh user, who has no goals to send.

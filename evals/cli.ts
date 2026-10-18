@@ -26,10 +26,10 @@ function systemFile(system: string) {
 
 type CliUsage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number; output_tokens_details?: { thinking_tokens?: number } };
 
-function run(model: string, system: string, user: string, effort?: string): Promise<{ result: string; usage: CliUsage; stop_reason: string; is_error: boolean }> {
+function run(model: string, system: string, user: string, effort?: string, extra: string[] = []): Promise<{ result: string; usage: CliUsage; stop_reason: string; is_error: boolean; num_turns?: number }> {
   return new Promise((resolve, reject) => {
     const args = ['-p', '--model', model, '--system-prompt-file', systemFile(system), '--output-format', 'json',
-      '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--no-session-persistence', ...(effort ? ['--effort', effort] : [])];
+      '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--no-session-persistence', ...(effort ? ['--effort', effort] : []), ...extra];
     // No API key in the child: the CLI runs on the login and never bills a key. MAX_THINKING_TOKENS=0
     // matches the Worker's Haiku 4.5 requests; 5.x models think anyway, as they do from the Worker.
     const { ANTHROPIC_API_KEY: _key, ...env } = process.env;
@@ -60,17 +60,19 @@ export const cliOverhead = (model: string) => {
 };
 
 // The Anthropic response shape the eval runners read: content, usage (the CLI's own context
-// subtracted, so costs read like the Worker's) and stop_reason
-export async function callViaCli(body: Body) {
+// subtracted, so costs read like the Worker's), stop_reason and the CLI's model calls (turns).
+// `flags` adds CLI flags, such as an MCP server with tools (evals/coach/mcp.ts).
+export async function callViaCli(body: Body, flags: string[] = []) {
   const system = typeof body.system === 'string' ? body.system : (body.system ?? []).map((b) => b.text).join('\n');
   for (let attempt = 0; ; attempt++) {
     try {
-      const [r, extra] = await Promise.all([run(body.model, system, body.messages[0].content, body.output_config?.effort), cliOverhead(body.model)]);
+      const [r, extra] = await Promise.all([run(body.model, system, body.messages[0].content, body.output_config?.effort, flags), cliOverhead(body.model)]);
       if (r.is_error) throw new Error(`claude -p error: ${r.result}`.slice(0, 300));
       return {
         content: [{ type: 'text', text: r.result }],
         usage: { input_tokens: Math.max(0, allInput(r.usage) - extra), output_tokens: r.usage.output_tokens, thinking_tokens: r.usage.output_tokens_details?.thinking_tokens ?? 0 },
         stop_reason: r.stop_reason,
+        turns: r.num_turns ?? 1,
       };
     } catch (e) {
       if (attempt >= 2) throw e;
