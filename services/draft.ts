@@ -25,13 +25,16 @@ export function pickInDraft(draft: Draft, index: number, pick: { exerciseId: str
   };
 }
 
-// Undo of pickInDraft: the entry is put back as it was and flagged again, if it still holds the pick
+// Undo of pickInDraft: the entry gets its earlier exercise back and is flagged again, if it still holds
+// the pick. Numbers edited since stay.
 export function unpickInDraft(draft: Draft, index: number, before: Draft['exercises'][number], exerciseId: string): Draft {
   if (draft.exercises[index]?.exerciseId !== exerciseId) return draft;
+  const { name, exerciseId: id, muscleGroup, match, alt } = before;
+  const unsure = draft.unsure ?? [];
   return {
     ...draft,
-    exercises: draft.exercises.map((e, i) => (i === index ? before : e)),
-    unsure: [...(draft.unsure ?? []), { exercise: index, field: 'name' }],
+    exercises: draft.exercises.map((e, i) => (i === index ? { ...e, name, exerciseId: id, muscleGroup, match, alt } : e)),
+    unsure: unsure.some(u => u.exercise === index && u.field === 'name') ? unsure : [...unsure, { exercise: index, field: 'name' }],
   };
 }
 

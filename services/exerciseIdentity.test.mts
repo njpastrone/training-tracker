@@ -189,7 +189,7 @@ test('"Call it Machine flys" names a catalog exercise in the user\'s words and c
 test('a pick from the picker is remembered for the user\'s words and Undo forgets it', async () => {
   const { likelyExercises, pickWords, rememberPick, forgetPick } = await import('./exerciseIdentity');
   const { resolvePick } = await import('../server/src/identity');
-  const { pickInDraft, unpickInDraft } = await import('./draft');
+  const { editDraft, pickInDraft, unpickInDraft } = await import('./draft');
   const lib = emptyLibrary();
 
   // "rows" can mean several exercises: the guess, its second choice, then the one you log most
@@ -221,4 +221,8 @@ test('a pick from the picker is remembered for the user\'s words and Undo forget
   assert.deepEqual(picked.unsure, []);
   assert.deepEqual(unpickInDraft(picked, 0, row, 'seated-cable-row'), draft);
   assert.equal(unpickInDraft(draft, 0, row, 'seated-cable-row'), draft); // the entry changed since: left alone
+
+  // Undo puts back only which exercise it is: numbers edited after the pick stay
+  const edited = editDraft(picked, 0, 'sets', 4);
+  assert.deepEqual(unpickInDraft(edited, 0, row, 'seated-cable-row'), { ...draft, exercises: [{ ...row, sets: 4 }] });
 });
