@@ -46,7 +46,7 @@ export default function ExerciseScreen() {
       : null
   );
   const entries = useMemo(() => (id && name ? entriesFor(workouts, id, exerciseLibrary) : []), [workouts, id, name, exerciseLibrary]);
-  const records = id && name ? recordLines(personalRecords(entries, metricFor(id, exerciseLibrary), settings.weightUnit), settings.weightUnit) : [];
+  const records = id && name ? recordLines(personalRecords(entries.filter(e => e.date <= d.today), metricFor(id, exerciseLibrary), settings.weightUnit), settings.weightUnit) : [];
   const written = id && name ? wordings(workouts, id, exerciseLibrary) : [];
   const aliases = id && name ? aliasesOf(id, exerciseLibrary) : [];
   const mergedIn = id && name ? mergedInto(id, exerciseLibrary) : [];
