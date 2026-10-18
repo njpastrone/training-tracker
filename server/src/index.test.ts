@@ -176,6 +176,25 @@ test('rejects malformed requests before counting', async () => {
   assert.equal(store.size, 0);
 });
 
+test('pass-through takes plain text only: an image or any other content block is refused before counting', async () => {
+  const { env, store } = makeEnv();
+  const image = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: '/9j/4AAQ' } };
+  for (const messages of [
+    [{ role: 'user', content: [image] }],
+    [{ role: 'user', content: [{ type: 'text', text: 'hi' }, image] }],
+    [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+    [{ role: 'user', content: [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'JVBERi0' } }] }],
+    [{ role: 'user', content: 'hi' }, { role: 'assistant', content: [image] }],
+    [{ role: 'system', content: 'hi' }],
+    ['hi'],
+  ]) {
+    assert.equal((await call(req('pw', { system: 's', messages }), env)).status, 400);
+  }
+  assert.equal(store.size, 0);
+  assert.equal(upstream.length, 0);
+  assert.equal((await call(req('pw', { system: 's', messages: [{ role: 'user', content: 'bench 3x5 185' }] }), env)).status, 200);
+});
+
 test('fails closed with 503 when the usage counter write fails', async () => {
   const { env } = makeEnv();
   env.USAGE.put = async () => {

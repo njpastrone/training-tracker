@@ -89,6 +89,12 @@ export interface UserSettings {
   aiConsentVersion?: number; // which version of that question was answered; older (or unset) = asked again
   goalsPromptDismissed?: boolean; // "Not now" on Progress's set-a-goal prompt: it doesn't come back
   profile?: { facts: Fact[] }; // things you told the coach to remember (services/ask.ts); shown and deletable in Settings
+  appleHealth?: AppleHealthSettings; // Settings › Apple Health; what Health holds is never stored here (services/health.ts)
+}
+
+export interface AppleHealthSettings {
+  connected?: boolean; // Progress shows workouts from other apps and body weight from Apple Health
+  saveSince?: string; // ISO time "Save workouts to Apple Health" was turned on; unset = off. Older workouts aren't saved
 }
 
 // One thing you told the coach ("no dairy", "home gym, dumbbells to 50 lb", "left knee"), kept in your

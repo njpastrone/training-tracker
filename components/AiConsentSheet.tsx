@@ -18,7 +18,7 @@ const SENT = [
   'When you ask the coach: a summary of your last 4 weeks of training and food (the numbers on Progress), your goals, the things you asked it to remember, your question, your earlier questions to it that day with its answers, and what the question needs (one exercise\'s history, a day\'s meals)',
   'A random ID for this phone',
 ];
-const NOT_SENT = ['Your full workout or food history: only a summary and what a question needs', 'Who you are', 'Photos', 'Apple Health data'];
+const NOT_SENT = ['Your full workout or food history: only a summary and what a question needs', 'Who you are', 'Your progress photos', 'Anything from Apple Health (workouts, body weight)'];
 
 // Asks once, before the first AI call, whether typed text may go to Anthropic, and whether the user is
 // 18 or older (AI is 18+; under 18 it stays off). Settings opens it again.

@@ -17,11 +17,15 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.njpastrone.trainingtracker",
       "entitlements": {
-        "com.apple.developer.devicecheck.appattest-environment": "production"
+        "com.apple.developer.devicecheck.appattest-environment": "production",
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "RCTAsyncStorageExcludeFromBackup": false
+        "RCTAsyncStorageExcludeFromBackup": false,
+        "NSHealthShareUsageDescription": "LiftText shows the workouts other apps saved and your body weight on Progress. They stay on this iPhone and are never sent to our server or the AI.",
+        "NSHealthUpdateUsageDescription": "LiftText saves the workouts you log to Apple Health, only if you turn that on in Settings."
       },
       "icon": {
         "light": "./assets/icon.png",
@@ -62,7 +66,21 @@
           "supportsOpeningDocumentsInPlace": true
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a progress photo. LiftText copies only the photo you pick and keeps it on this iPhone.",
+          "cameraPermission": "Take progress photos. They stay on this iPhone and never go to your camera roll.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Lock your progress photos with Face ID."
+        }
+      ]
     ],
     "extra": {
       "router": {},

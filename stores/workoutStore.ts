@@ -108,6 +108,14 @@ async function backupV0() {
 // Plan relinks run one at a time, so a move and its Undo don't race on the stored schedule
 let relinking = Promise.resolve();
 
+// Hears about each workout logged, changed, deleted or brought back by Undo here (services/health.ts saves
+// them to Apple Health); imports, backup restores and Clear all data don't call it
+export type WorkoutChange = { saved?: Workout[]; removed?: string[] };
+let workoutListener: ((change: WorkoutChange) => void) | null = null;
+export function setWorkoutListener(fn: ((change: WorkoutChange) => void) | null) {
+  workoutListener = fn;
+}
+
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
 };
@@ -135,6 +143,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           exerciseLibrary: library,
           error: null,
         }));
+        workoutListener?.({ saved: [workout] });
         // Logging on a planned day completes that plan session
         scheduleService
           .linkLoggedWorkout(workout.date, workout.id)
@@ -164,6 +173,8 @@ export const useWorkoutStore = create<WorkoutState>()(
         });
         // A new date moves it: Log's Recent and the Select list read the order as is
         set({ workouts: workouts.sort((a, b) => b.date.localeCompare(a.date)), exerciseLibrary: library });
+        const updated = workouts.find((w) => w.id === id);
+        if (updated) workoutListener?.({ saved: [updated] });
         // The plan follows: the old day's session it completed reopens, the new day's planned session completes
         if (before && updates.date && updates.date !== before.date) {
           const date = updates.date;
@@ -186,6 +197,7 @@ export const useWorkoutStore = create<WorkoutState>()(
         set((state) => ({
           workouts: state.workouts.filter((w) => !remove.has(w.id)),
         }));
+        if (removed.length) workoutListener?.({ removed: removed.map((w) => w.id) });
         const sessions = scheduleService
           .unlinkDeletedWorkouts(removed.map((w) => w.id))
           .then(links => {
@@ -207,14 +219,14 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       // Undo for deleteWorkouts. Stats, PRs and streaks derive from workouts, so they follow.
       restoreWorkouts: ({ workouts: restored, sessions }) => {
-        set((state) => {
-          const present = new Set(state.workouts.map((w) => w.id));
-          return {
-            workouts: [...state.workouts, ...restored.filter((w) => !present.has(w.id))].sort((a, b) =>
-              b.date.localeCompare(a.date)
-            ),
-          };
-        });
+        const present = new Set(get().workouts.map((w) => w.id));
+        const back = restored.filter((w) => !present.has(w.id));
+        set((state) => ({
+          workouts: [...state.workouts, ...back].sort((a, b) =>
+            b.date.localeCompare(a.date)
+          ),
+        }));
+        if (back.length) workoutListener?.({ saved: back });
         sessions
           .then(async (links) => {
             if (!links.length) return;

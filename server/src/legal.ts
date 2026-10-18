@@ -4,7 +4,7 @@
 // section names privacy@lifttextapp.com, the address the website's waitlist (site.ts) points to.
 // Keep what they say about data in step with what the app and this Worker actually send and keep.
 
-const UPDATED = 'October 17, 2026';
+const UPDATED = 'October 18, 2026';
 
 const page = (title: string, body: string) => `<!doctype html>
 <html lang="en">
@@ -38,6 +38,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <h2>The short version</h2>
 <ul>
 <li>There's no account. Your workouts, food, plans and settings are saved only on your phone.</li>
+<li>Progress photos and anything LiftText reads from Apple Health stay on your phone too. They're never sent to us or the AI, and progress photos are in no backup.</li>
 <li>If you're 18 or older and turn on AI reading, what you type is sent through our server to Anthropic's Claude AI to be read. Our server doesn't store it. Anthropic deletes it within 30 days and doesn't use it to train its AI.</li>
 <li>If you're under 18, or you choose "Not now", AI is off and nothing you type leaves your phone.</li>
 <li>We don't sell your data, show ads, track you across apps or use analytics tools.</li>
@@ -45,8 +46,10 @@ const privacy = (contact: string) => page('Privacy Policy', `
 </ul>
 
 <h2>What stays on your phone</h2>
-<p>Everything you log or set up: workouts, food, plans, templates, your schedule, goals, settings, your Chat history, and the things you asked the coach to remember. Backups you export, and the weekly backup, are files in the Files app (On My iPhone › LiftText › Backups) that only you can share. If iCloud Backup is on for your iPhone, Apple includes LiftText's data in your iPhone's backup, under Apple's privacy policy.</p>
-<p>LiftText doesn't read or write Apple Health data, and it doesn't use your photos, contacts or location.</p>
+<p>Everything you log or set up: workouts, food, plans, templates, your schedule, goals, settings, your Chat history, and the things you asked the coach to remember. Backups you export, and the weekly backup, are files in the Files app (On My iPhone › LiftText › Backups) that only you can share. If iCloud Backup is on for your iPhone, Apple includes LiftText's data, except progress photos, in your iPhone's backup, under Apple's privacy policy.</p>
+<p><strong>Progress photos.</strong> Photos you take or choose on the Progress photos screen are kept in a private folder inside LiftText that opens only with Face ID or your iPhone passcode, and they can't be read while your iPhone is locked. They're left out of LiftText's backups and of your iPhone's iCloud and computer backups, so they're lost if your iPhone is lost, replaced or erased. Photos you take aren't saved to your camera roll. When you choose one from Photos, LiftText gets a copy of only that photo, and the original stays in Photos. LiftText uses the camera only to take these photos.</p>
+<p><strong>Apple Health</strong>, only if you turn it on in Settings › Apple Health. LiftText reads the workouts other apps and devices saved and your body weight, shows them on Progress, and doesn't keep what it reads. If you turn on Save workouts to Apple Health, each workout you log from then on is saved to Apple Health (its date, a start and end time, and whether it was strength or cardio), and changed or deleted there when you change or delete it in LiftText. What's in Apple Health is under Apple's Health settings and privacy policy, including Health's own iCloud sync if you use it. You choose what LiftText may read and save on Apple's Health permission screen, and can change it anytime in the Health app (your profile › Apps › LiftText).</p>
+<p>LiftText doesn't use your contacts or location.</p>
 
 <h2>What leaves your phone, and why</h2>
 <p><strong>Only with AI reading on.</strong> When you log, fix a card, plan a week or ask the coach, LiftText sends to our server, which passes it to Anthropic:</p>
@@ -57,7 +60,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <li>when you plan a week: a summary of your recent training and your goals</li>
 <li>when you ask the coach: a summary of your last 4 weeks of training and food, your goals, the things you asked it to remember, your question, your earlier questions to it that day with its answers, and what the question needs (for example one exercise's history or a day's meals)</li>
 </ul>
-<p>Your full history, your name and your photos are never sent. We use this only to turn what you type into a workout or food log, plan your week and answer your questions.</p>
+<p>Your full history, your name, your progress photos and anything from Apple Health are never sent. We use this only to turn what you type into a workout or food log, plan your week and answer your questions.</p>
 <p><strong>With every AI request</strong>, the app also sends a random ID it made for this install and, on a real iPhone, a signature from a key Apple's App Attest service checked, which proves the request comes from a genuine copy of LiftText. Neither is linked to who you are. We use them to limit how many AI requests each phone makes a day and to stop abuse of our server.</p>
 <p><strong>Always:</strong> the app checks for updates with Expo (our update service), which sees your phone's OS, the app version and a random update ID. Apple collects crash and usage data from TestFlight and the App Store as your iPhone's settings allow, under Apple's privacy policy.</p>
 
@@ -90,7 +93,8 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <h2>Your choices</h2>
 <ul>
 <li><strong>Turn AI off</strong> anytime: Settings › AI reading › Not now. LiftText keeps working on your phone: each line or comma you type becomes an exercise you fill in by hand, and common foods are looked up on the phone.</li>
-<li><strong>Delete your data</strong>: Settings › Clear all data deletes your workouts, food and settings. It leaves templates, your schedule, saved plans and backup files, so delete those in the app or in the Files app. It also keeps the random install ID and the App Attest key ID, which the daily limits per phone rely on. Deleting LiftText removes everything it saved on the phone.</li>
+<li><strong>Delete your data</strong>: Settings › Clear all data deletes your workouts, food and settings. It leaves templates, your schedule, saved plans, backup files and progress photos, so delete those in the app or in the Files app (progress photos one at a time or all at once on the Progress photos screen). It also keeps the random install ID and the App Attest key ID, which the daily limits per phone rely on. Deleting LiftText removes everything it saved on the phone, except workouts it saved to Apple Health, which stay there until you delete them in the Health app.</li>
+<li><strong>Apple Health</strong>: turn reading or saving off anytime in Settings › Apple Health; workouts already saved stay in Apple Health until you delete them there.</li>
 <li>We can't find your requests by your name because we never have it. Email us with your request and we'll answer within 45 days.</li>
 </ul>
 
@@ -100,7 +104,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <h2>Consumer health data (Washington, Nevada, Connecticut and other states)</h2>
 <p>This section is our consumer health data privacy policy under Washington's My Health My Data Act and similar laws.</p>
 <ul>
-<li><strong>What we collect:</strong> only with AI reading on, the health-related things you choose to type, such as exercise, food, pain or injuries, sleep, mood and body weight, and the training and food summary described above. It comes from you.</li>
+<li><strong>What we collect:</strong> only with AI reading on, the health-related things you choose to type, such as exercise, food, pain or injuries, sleep, mood and body weight, and the training and food summary described above. It comes from you. Apple Health data and progress photos never leave your phone, so we never collect them.</li>
 <li><strong>Why:</strong> to read your logs, plan your training and answer your questions. Nothing else.</li>
 <li><strong>Who receives it:</strong> Anthropic and Cloudflare, as our processors, only to do that. We don't sell it or share it with anyone else.</li>
 <li><strong>Consent:</strong> nothing is collected until you agree on the AI reading screen. You can withdraw consent anytime in Settings › AI reading.</li>
@@ -108,7 +112,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 </ul>
 
 <h2>Security</h2>
-<p>Everything sent to our server is encrypted in transit (HTTPS). The AI service key stays on our server and never ships in the app.</p>
+<p>Everything sent to our server is encrypted in transit (HTTPS). The AI service key stays on our server and never ships in the app. Progress photos are protected by iOS file encryption while your iPhone is locked.</p>
 
 <h2>Where LiftText is offered</h2>
 <p>LiftText is offered in the United States only.</p>
@@ -143,10 +147,10 @@ const terms = (contact: string) => page('Terms of Use', `
 <p>During the TestFlight beta LiftText is free, and the beta runs on these DRAFT terms. Features may change, break or go away, and the AI has a daily limit per phone. Before any paid launch, these terms will be completed with governing law and subscription terms (price, renewal, trials and cancellation), and the app will show them before you buy.</p>
 
 <h2>Your data</h2>
-<p>What you log is yours. Our <a href="privacy">Privacy Policy</a> says what's collected and how to delete it.</p>
+<p>What you log is yours, and so are your progress photos and Apple Health data, which stay on your phone. Our <a href="privacy">Privacy Policy</a> says what's collected and how to delete it.</p>
 
 <h2>No warranty</h2>
-<p>LiftText is provided "as is" and "as available". As far as the law allows, we make no promises that it will be accurate, uninterrupted or free of errors, and we aren't responsible for data lost on your phone: keep backups.</p>
+<p>LiftText is provided "as is" and "as available". As far as the law allows, we make no promises that it will be accurate, uninterrupted or free of errors, and we aren't responsible for data lost on your phone: keep backups. Progress photos are never backed up, so they're lost if your iPhone is lost, replaced or erased.</p>
 
 <h2>Limit of liability</h2>
 <p>As far as the law allows, we aren't liable for indirect, incidental or consequential damages, or for injury from exercise or diet choices you make, and our total liability is limited to the amount you paid for LiftText in the last 12 months (or $50 if that's more). Some states don't allow these limits, so they may not all apply to you.</p>

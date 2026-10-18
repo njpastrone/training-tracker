@@ -11,8 +11,10 @@ A mobile workout and food log built with Expo (React Native) that lets you log w
 - **Progress** - A weekly check-in on top (the week in one line, training days against your usual, the one thing to watch; tap for wins and the next 7 days), when you last did each exercise and how often, PRs where you logged numbers, days since each muscle group, and a box to add a workout you forgot ("did legs six days ago")
 - **Goals** - Set goals on Progress (each muscle 1-3× a week, minimum sets per muscle, days a week, a weight to lift or an exercise to do often) and see them against your last 7 days; the planner aims at them
 - **Chat** - The fourth tab is your log as one thread: everything you type into any box lands there with what came of it ("Logged · Push" with Open), kept on your phone and in backups. It opens on something timely (today's plan with Start / Not today, or a comeback line after a few days off) and its chips are questions from your own log. Ask the coach there, or type a question into any tab's box and Chat answers it: ask about your own training and food ("I've taken a few days off, what should I start with?", "what did I squat last Tuesday?"); it answers from a summary of your last 4 weeks and looks up the rest in your log, suggests a workout or meals you save with one tap, and offers to remember things you tell it (no dairy, a home gym), which you can see and forget in Settings
+- **Progress Photos** - Private photos on Progress (Front, Side, Back), taken with the camera or picked from Photos, by month and two side by side with what your log says happened in between. Face ID or the passcode opens them and they lock again when you leave; they stay on the phone, never in the camera roll, any backup or anything sent to the AI
+- **Apple Health** - Optional (Settings › Apple Health): workouts other apps saved and your body weight show on Progress, read fresh each visit and never stored or sent; and each workout you log can be saved to Apple Health
 - **100+ Exercises** - Built-in database of common exercises organized by muscle group; **Settings › Exercises** lists what you have logged, and lets you rename an exercise, merge two (with Undo) or split off logs you wrote differently
-- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, the things you asked it to remember and what the question needs (one exercise's history, a day's meals), never the whole log. Our server never stores what you type: it keeps daily request counts per phone (using a random ID, deleted after 2 days) and request logs without your text for 7 days. AI is for 18 and older; under 18 it stays off and nothing you type leaves the phone. The [privacy policy and terms](#privacy-policy-and-terms) say the rest.
+- **Local Storage** - Workouts are saved only on your phone, with export/restore backups (see [Backing Up](#backing-up)). With AI reading on, what you type goes to Anthropic through the Worker; a question to the coach also sends a summary of your last 4 weeks, the things you asked it to remember and what the question needs (one exercise's history, a day's meals), never the whole log. Our server never stores what you type: it keeps daily request counts per phone (using a random ID, deleted after 2 days) and request logs without your text for 7 days. AI is for 18 and older; under 18 it stays off and nothing you type leaves the phone. Progress photos and anything read from Apple Health never leave the phone. The [privacy policy and terms](#privacy-policy-and-terms) say the rest.
 
 ## Screenshots
 
@@ -78,7 +80,7 @@ Apple's [App Attest](https://developer.apple.com/documentation/devicecheck/estab
 
 App Attest is on once the `APP_ATTEST_APP_ID` and `APP_ATTEST_CHALLENGE_SECRET` secrets are both set; until then the Worker skips it (no checks, no KV reads or writes for it), answers `/attest/*` with 503, and the app sends requests unsigned without making a key. `APP_ATTEST_MODE` in `server/wrangler.jsonc` rolls it out: `log-only` (the default) checks and logs every request but refuses none, so installs from before App Attest keep working; `enforce` refuses requests without a valid assertion (403, shown in the app). On a 403 the app retries once with a fresh assertion, and if that is refused too it attests a new key on the next request. Watch the Worker logs (`npx wrangler tail`, lines starting `attest`) until no current build is logged unsigned, then switch to `enforce` and deploy.
 
-App Attest needs native code, so it ships in an EAS build (TestFlight or App Store), not an OTA update, and does not run in Expo Go or the simulator: there the app sends requests unsigned, which `enforce` refuses. The `com.apple.developer.devicecheck.appattest-environment` entitlement in `app.json` turns on the App Attest capability (EAS Build syncs it to the App ID; check it under Identifiers in the Apple Developer account if attestation fails).
+App Attest needs native code, so it ships in an EAS build (TestFlight or App Store), not an OTA update, and does not run in Expo Go or the simulator: there the app sends requests unsigned, which `enforce` refuses. The `com.apple.developer.devicecheck.appattest-environment` entitlement in `app.json` turns on the App Attest capability, which must also be ticked on the App ID (see [Releasing to TestFlight](#releasing-to-testflight)).
 
 ### Deploy (one time)
 
@@ -133,7 +135,9 @@ training-tracker/
 │   │   └── chat.tsx        # Chat: your log as one thread, and the coach
 │   ├── settings.tsx        # Settings (the gear on Chat)
 │   ├── goals.tsx           # Set your goals
+│   ├── photos.tsx          # Progress photos (Face ID)
 │   └── _layout.tsx         # Root layout
+├── modules/                # Local native modules: photo-privacy (backup exclusion), health (HealthKit)
 ├── components/             # Reusable UI components
 ├── services/               # API integrations
 ├── stores/                 # Zustand state management
@@ -182,11 +186,19 @@ Tap any day on the calendar to open it: its workouts, or its planned workout (**
 
 ### Backing Up
 
-All data lives on the phone, the Chat thread too. It is included in the iPhone's normal iCloud device backup, and **Settings › Backup** adds:
+All data lives on the phone, the Chat thread too. It is included in the iPhone's normal iCloud device backup, except progress photos, which are left out of every backup (see [Progress photos and Apple Health](#progress-photos-and-apple-health)), and **Settings › Backup** adds:
 - **Export backup** - saves workouts, food, plans, templates and schedule as one `.json` file via the share sheet (Files, iCloud Drive, AirDrop, ...)
 - **Restore from backup** - picks a LiftText backup file and replaces the data on this phone. The current data is saved first as a safety file.
 - **Import from Strong or Hevy** - picks the CSV export from either app, shows how many workouts, the date range and any skipped rows, then adds the workouts to History (asking kg or lb when the file doesn't say). Workouts already imported are not added again.
 - **Weekly backup** - on app launch, saves a file at most once a week to Files › On My iPhone › LiftText › Backups (keeps the last 8). This folder is on the phone, not in iCloud Drive; it leaves the phone only through the iCloud device backup.
+
+### Progress photos and Apple Health
+
+**Photos.** `services/photos.ts` is the only code that touches photo files. Photos live in `Library/Application Support/ProgressPhotos` (not `Documents`, which the Files app shows), named `<date>_<pose>_<id>.jpg`, so the folder is the list and nothing about photos goes into the store that backups and the AI read. The local native module `modules/photo-privacy` sets `isExcludedFromBackup` and complete file protection on the folder and each photo; without it (Expo Go) no photo is saved. The camera never saves to the camera roll, and the photo picker needs no library permission. `app/photos.tsx` opens with Face ID or the passcode (`expo-local-authentication`) and locks again on leaving the screen or the app, with a cover while the app is inactive. `services/photos.test.mts` fails if `photos.ts` or the screens that may import it (`app/photos.tsx`, `components/PhotosCard.tsx`) import network, AI, backup or sharing code, or if `expo-media-library` appears. The Worker refuses any pass-through message that isn't plain text, so not even an app bug can send an image to the AI.
+
+**Apple Health.** `modules/health` is a local native module over HealthKit; `services/health.ts` uses it. Reading (Settings › Apple Health › Show on Progress) shows workouts other apps saved in the last 7 days and body weight in `components/HealthCard.tsx`, read on each visit and held only in that screen. Saving (Save workouts to Apple Health) copies each workout logged after it's turned on as Traditional Strength Training (Mixed Cardio when every exercise is cardio), tagged with its log id, and replaces or deletes it when the workout is changed, moved or deleted (`setWorkoutListener` in `stores/workoutStore.ts`); imports, restores and Clear all data don't touch Health. A log has no times, so the workout ends when it was logged (or starts at noon on a past day) and lasts the logged cardio minutes, else an hour. `services/health.test.mts` checks which files may import it.
+
+**App Store Connect › App Privacy:** photos and Apple Health data never leave the phone, so they stay "Data Not Collected". HealthKit apps need the privacy policy URL, which is already set.
 
 ## Releasing to TestFlight
 
@@ -196,6 +208,8 @@ Config lives in `app.json` (bundle ID `com.njpastrone.trainingtracker`) and `eas
 
 - **App-code-only change** (same fingerprint as an existing production build): publishes an over-the-air update to the `production` channel. Free, no build spent; installed apps pick it up on their next launch or two.
 - **Native change** (new dependency with native code, `app.json`/plugin change, icon, permissions, SDK upgrade): builds the production iOS app and submits it to TestFlight, where it reaches the internal `Team (Expo)` group.
+
+A new entitlement (App Attest, HealthKit) needs two manual steps before the build, or the build fails: tick the capability on the App ID (developer.apple.com › Certificates, Identifiers & Profiles › Identifiers › `com.njpastrone.trainingtracker`), then delete the EAS provisioning profile (`npx eas-cli credentials -p ios` › production › delete the provisioning profile) so the build makes a new one with the capability. EAS doesn't add the capability itself.
 
 OTA updates only carry JavaScript and assets. They can't change native code, the app icon, permissions or anything else baked into the binary — those always need a build, and the fingerprint check triggers one automatically.
 

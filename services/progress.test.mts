@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entriesFor, metricFor, personalRecords } from './progress';
+import { entriesFor, metricFor, personalRecords, photoSpan } from './progress';
 import { emptyLibrary } from './exerciseIdentity';
 import type { Exercise, Workout } from '../types/workout';
 
@@ -46,4 +46,23 @@ test('pace records go to the largest distance band each run covers', () => {
 
 test('sessions have no records', () => {
   assert.deepEqual(personalRecords([], metricFor('basketball', emptyLibrary()), 'lbs'), {});
+});
+
+test('between two photos: training days a week and the heaviest weight before against since, from the log alone', () => {
+  const log = [
+    workout('a', '2026-09-01', { exerciseId: 'bench-press', name: 'Bench Press', weight: 185, unit: 'lbs' }, { exerciseId: 'squat', name: 'Squat', weight: 100, unit: 'kg' }),
+    workout('b', '2026-09-10', { exerciseId: 'bench-press', name: 'Bench Press', weight: 195, unit: 'lbs' }),
+    workout('c', '2026-09-20', { exerciseId: 'bench-press', name: 'Bench Press', weight: 205, unit: 'lbs' }, { exerciseId: 'squat', name: 'Squat', weight: 230, unit: 'lbs' }),
+    workout('d', '2026-09-20', { exerciseId: 'deadlift', name: 'Deadlift', weight: 315, unit: 'lbs' }), // not done before: no change to show
+    workout('e', '2026-09-25', { exerciseId: 'bench-press', name: 'Bench Press', weight: 225, unit: 'lbs', match: 'unsure' }),
+  ];
+  // Either order of photos; the first photo's own day counts as before
+  for (const [from, to] of [['2026-09-01', '2026-09-29'], ['2026-09-29', '2026-09-01']]) {
+    assert.deepEqual(photoSpan(log, from, to, emptyLibrary(), 'lbs'), {
+      days: 3, // Sep 10, 20, 25
+      perWeek: 0.8, // 3 days over 4 weeks
+      lifts: [{ name: 'Bench Press', from: 185, to: 205 }, { name: 'Squat', from: 220, to: 230 }],
+    });
+  }
+  assert.deepEqual(photoSpan(log, '2026-10-01', '2026-10-02', emptyLibrary(), 'lbs'), { days: 0, perWeek: 0, lifts: [] });
 });
