@@ -11,6 +11,8 @@ import { UserBubble } from '../../components/Chat';
 import ParsedCard from '../../components/ParsedCard';
 import { GoalsHeader, LIST_AT_FONT_SCALE, MuscleSetsCard, OtherGoalsCard, WeekGrid } from '../../components/GoalsCard';
 import FoodBreakdown from '../../components/FoodBreakdown';
+import PhotosCard from '../../components/PhotosCard';
+import HealthCard from '../../components/HealthCard';
 import { Toast } from '../../components/SelectableWorkoutList';
 import { dayLabel } from '../../components/WorkoutCard';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -250,6 +252,10 @@ export default function ProgressScreen() {
               )}
             </>
           )}
+
+          {/* Apple Health and photos stay on the phone: read in their cards, never in the store or sent anywhere */}
+          <HealthCard />
+          <PhotosCard />
         </>
       )}
       </SkySheet>

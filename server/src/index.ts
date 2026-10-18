@@ -227,7 +227,10 @@ export default {
         upstream = buildParseRequest(input, { date, unit, exercises: candidates });
       }
     } else {
-      if (!Array.isArray(messages) || messages.length === 0 || (system !== undefined && typeof system !== 'string')) {
+      // Plain text only: an image, file or any other content block is refused, so not even a future app bug can
+      // send a progress photo to the AI (parse, food and coach modes build or check their own messages)
+      const textOnly = (m: unknown) => typeof m === 'object' && m !== null && ['user', 'assistant'].includes((m as { role?: unknown }).role as string) && typeof (m as { content?: unknown }).content === 'string';
+      if (!Array.isArray(messages) || messages.length === 0 || !messages.every(textOnly) || (system !== undefined && typeof system !== 'string')) {
         return json(400, { error: 'Invalid request.' });
       }
       // The app's own max_tokens is ignored: it was set for a model that did not think

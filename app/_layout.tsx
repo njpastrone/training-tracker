@@ -10,11 +10,15 @@ import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { BACKUP_KEYS, runWeeklyBackup } from '../services/backup';
 import { isFreshInstall } from '../services/onboarding';
+import { startHealthSync } from '../services/health';
 import AiConsentSheet from '../components/AiConsentSheet';
 
 // The store hydrates from AsyncStorage after the first render, so the splash stays up until
 // it has, and until we know whether this is a fresh install. Otherwise setup would flash.
 SplashScreen.preventAutoHideAsync();
+
+// Saves logged workouts to Apple Health once that's on in Settings
+startHealthSync();
 
 // A failed hydration never finishes, so give up waiting after a few seconds rather than hang on the splash
 const hydrated = new Promise<void>(resolve => {

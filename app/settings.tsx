@@ -1,4 +1,4 @@
-import { StyleSheet, Alert, ScrollView, ActionSheetIOS, Linking, Pressable, View } from 'react-native';
+import { StyleSheet, Alert, ScrollView, ActionSheetIOS, Linking, Pressable, Switch, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Text } from 'react-native-paper';
@@ -16,6 +16,7 @@ import { askAiConsent, currentAiConsent, legalUrl } from '../services/aiConsent'
 import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBackup } from '../services/backup';
 import { forgetFact } from '../services/coachCards';
 import { importSummary, pickExport, plural, readExport } from '../services/importHistory';
+import { healthAvailable, requestHealthAccess } from '../services/health';
 import type { WeightUnit } from '../types/workout';
 
 export default function SettingsScreen() {
@@ -104,7 +105,7 @@ export default function SettingsScreen() {
   const handleClearData = () => {
     Alert.alert(
       'Clear all data?',
-      "This deletes your workouts and settings on this phone. It can't be undone.",
+      "This deletes your workouts and settings on this phone. It can't be undone. Progress photos stay; delete them on the Photos screen.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -131,6 +132,31 @@ export default function SettingsScreen() {
     updateSettings({
       weightUnit: settings.weightUnit === 'lbs' ? 'kg' : 'lbs',
     });
+  };
+
+  // Apple Health: reading shows on Progress only; saving copies each workout you log from now on
+  const health = settings.appleHealth ?? {};
+  const toggleHealthRead = async (on: boolean) => {
+    if (on) await requestHealthAccess(false).catch(error => console.error('Apple Health access failed:', error));
+    updateSettings({ appleHealth: { ...health, connected: on } });
+  };
+  const toggleHealthSave = (on: boolean) => {
+    if (!on) return updateSettings({ appleHealth: { ...health, saveSince: undefined } });
+    Alert.alert(
+      'Save workouts to Apple Health?',
+      "Each workout you log from now on is saved as Traditional Strength Training (Mixed Cardio when it's all cardio), and changed or deleted there when you change or delete it here. A workout without logged minutes counts as an hour. Past workouts aren't copied.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Turn on',
+          onPress: async () => {
+            const allowed = await requestHealthAccess(true).catch(() => false);
+            if (allowed) updateSettings({ appleHealth: { ...useWorkoutStore.getState().settings.appleHealth, saveSince: new Date().toISOString() } });
+            else Alert.alert('Saving is off in Apple Health', 'To turn it on, open the Health app, tap your profile, then Apps › LiftText, and allow Workouts.');
+          },
+        },
+      ]
+    );
   };
 
   const pickGoal = () =>
@@ -233,6 +259,27 @@ export default function SettingsScreen() {
           />
         </SkyCard>
 
+        {healthAvailable() && (
+          <>
+            <SectionLabel style={styles.label}>Apple Health</SectionLabel>
+            <SkyCard style={styles.card}>
+              <Row
+                first
+                icon="heart.text.square"
+                title="Show on Progress"
+                subtitle="Workouts from other apps and your body weight. They stay on this iPhone and are never sent to our server or the AI."
+                right={<Switch value={!!health.connected} onValueChange={toggleHealthRead} trackColor={{ true: colors.sunrise }} accessibilityLabel="Show Apple Health on Progress" />}
+              />
+              <Row
+                icon="square.and.arrow.down.on.square"
+                title="Save workouts to Apple Health"
+                subtitle={health.saveSince ? `Each workout logged since ${format(parseISO(health.saveSince), 'MMM d')}` : 'Off'}
+                right={<Switch value={!!health.saveSince} onValueChange={toggleHealthSave} trackColor={{ true: colors.sunrise }} accessibilityLabel="Save workouts to Apple Health" />}
+              />
+            </SkyCard>
+          </>
+        )}
+
         <SectionLabel style={styles.label}>Backup</SectionLabel>
         <SkyCard style={styles.card}>
           <Row
@@ -274,6 +321,12 @@ export default function SettingsScreen() {
             disabled={isClearing}
           />
           <Row
+            icon="photo.on.rectangle"
+            title="Progress photos"
+            subtitle="Only on this iPhone and in no backup. Delete one or all on the Photos screen, behind Face ID."
+            onPress={() => router.push('/photos')}
+          />
+          <Row
             icon="bubble.left.and.bubble.right"
             title="Clear chat"
             subtitle="Empty the Chat thread; workouts and food stay"
@@ -285,7 +338,7 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
-          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts and chat history are saved only on this phone. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
+          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts, chat history and progress photos are saved only on this phone, and nothing from Apple Health is ever sent. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
           <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving" onPress={() => Linking.openURL(legalUrl('terms'))} />
         </SkyCard>
         </SkySheet>

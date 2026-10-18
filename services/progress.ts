@@ -2,7 +2,7 @@
 
 import { catalogById, type Metric } from '../data/catalog';
 import { displayName, resolveId } from './exerciseIdentity';
-import { format, subDays } from 'date-fns';
+import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
 import type { Exercise, ExerciseLibrary, WeightUnit, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 
@@ -194,4 +194,32 @@ export function foodWeek(entries: FoodEntry[], now: Date = new Date()) {
     fat: avg(sum('fat')),
     top,
   };
+}
+
+// What happened between two progress photos, from the log alone (no AI): training days and how many a week,
+// and for up to 3 of your most-done lifts the heaviest weight up to the first photo against the heaviest since
+export function photoSpan(workouts: Workout[], from: string, to: string, library: ExerciseLibrary, unit: WeightUnit) {
+  const [a, b] = from <= to ? [from, to] : [to, from];
+  const between = workouts.filter((w) => w.date > a && w.date <= b);
+  const days = new Set(between.map((w) => w.date)).size;
+  const weeks = Math.max(1, differenceInCalendarDays(parseISO(b), parseISO(a)) / 7);
+  const heaviest = (list: Workout[]) => {
+    const top = new Map<string, { name: string; weight: number; times: number }>();
+    for (const w of list) {
+      for (const e of w.exercises) {
+        if (!e.exerciseId || !e.weight || e.match === 'unsure') continue;
+        const id = resolveId(e.exerciseId, library);
+        const t = top.get(id);
+        top.set(id, { name: t?.name ?? e.name, weight: Math.max(t?.weight ?? 0, inUnit(e.weight, e.unit, unit)), times: (t?.times ?? 0) + 1 });
+      }
+    }
+    return top;
+  };
+  const before = heaviest(workouts.filter((w) => w.date <= a));
+  const lifts = [...heaviest(between)]
+    .filter(([id]) => before.has(id))
+    .sort((x, y) => y[1].times - x[1].times)
+    .slice(0, 3)
+    .map(([id, t]) => ({ name: t.name, from: Math.round(before.get(id)!.weight), to: Math.round(t.weight) }));
+  return { days, perWeek: Math.round((days / weeks) * 10) / 10, lifts };
 }
