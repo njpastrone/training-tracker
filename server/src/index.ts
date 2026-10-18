@@ -138,7 +138,7 @@ export async function takeCoachSlot(kv: KVNamespace, cap: number, now: Date, dev
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.hostname === 'www.lifttextapp.com') return Response.redirect(`https://lifttextapp.com${url.pathname}`, 301);
+    if (url.hostname === 'www.lifttextapp.com') return Response.redirect(`https://lifttextapp.com${url.pathname}${url.search}`, 301);
     // The home page, the waitlist, the privacy policy and terms are public: no password, no AI cap
     if (request.method === 'GET') {
       if (url.pathname === '/') return homePage();

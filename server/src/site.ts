@@ -10,7 +10,7 @@ const MAX_EMAIL = 254;
 const DAILY_SIGNUPS = 25;
 const SIGNUPS_PER_ADDRESS = 5;
 
-type Form = { kind: 'form'; error?: string } | { kind: 'done'; already: boolean } | { kind: 'busy' };
+type Form = { kind: 'form'; error?: string } | { kind: 'done' } | { kind: 'busy' };
 
 const html = (status: number, body: string, cache = 'no-store') =>
   new Response(body, { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': cache } });
@@ -18,7 +18,7 @@ const html = (status: number, body: string, cache = 'no-store') =>
 function formBlock(state: Form): string {
   if (state.kind === 'done') {
     return `<div class="card" role="status">
-<h2>${state.already ? "You're already on the list" : "You're on the list"}</h2>
+<h2>You're on the list</h2>
 <p>We'll email you when there's a spot in the TestFlight beta, and again when LiftText is on the App Store. Nothing else. To be taken off the list, email <a href="mailto:privacy@lifttextapp.com">privacy@lifttextapp.com</a>.</p>
 </div>`;
   }
@@ -123,7 +123,7 @@ export async function joinWaitlist(request: Request, kv: KVNamespace, now: Date)
   if (text.length > MAX_BODY) return html(413, page({ kind: 'form', error: 'That was too long. Please enter just your email.' }));
   const form = new URLSearchParams(text);
   // A bot that fills the hidden field gets the thank-you page and nothing is stored
-  if (form.get('website')) return html(200, page({ kind: 'done', already: false }));
+  if (form.get('website')) return html(200, page({ kind: 'done' }));
   const email = (form.get('email') ?? '').trim().toLowerCase();
   if (email.length > MAX_EMAIL || !/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>".]{2,}$/.test(email)) {
     return html(400, page({ kind: 'form', error: "That doesn't look like an email address. Please check it and try again." }));
@@ -134,16 +134,16 @@ export async function joinWaitlist(request: Request, kv: KVNamespace, now: Date)
   // The address is kept only as a hash, and only for the day
   const addressKey = `waitlist-ip:${await sha256(request.headers.get('cf-connecting-ip') ?? 'unknown')}:${day}`;
   try {
-    const [existing, count, fromAddress] = await Promise.all([kv.get(`waitlist:${email}`), kv.get(dayKey), kv.get(addressKey)]);
-    if (existing) return html(200, page({ kind: 'done', already: true }));
-    const n = Number(count) || 0;
-    const m = Number(fromAddress) || 0;
-    if (n >= DAILY_SIGNUPS || m >= SIGNUPS_PER_ADDRESS) return html(429, page({ kind: 'busy' }));
+    const m = Number(await kv.get(addressKey)) || 0;
+    if (m >= SIGNUPS_PER_ADDRESS) return html(429, page({ kind: 'busy' }));
+    const n = Number(await kv.get(dayKey)) || 0;
+    if (n >= DAILY_SIGNUPS) return html(429, page({ kind: 'busy' }));
     const ttl = { expirationTtl: 2 * 24 * 60 * 60 };
-    await Promise.all([kv.put(`waitlist:${email}`, now.toISOString()), kv.put(dayKey, String(n + 1), ttl), kv.put(addressKey, String(m + 1), ttl)]);
+    if (await kv.get(`waitlist:${email}`)) await kv.put(addressKey, String(m + 1), ttl);
+    else await Promise.all([kv.put(`waitlist:${email}`, now.toISOString()), kv.put(dayKey, String(n + 1), ttl), kv.put(addressKey, String(m + 1), ttl)]);
   } catch (err) {
     console.error('waitlist error', err);
     return html(503, page({ kind: 'form', error: 'Something went wrong on our side. Please try again in a minute.' }));
   }
-  return html(200, page({ kind: 'done', already: false }));
+  return html(200, page({ kind: 'done' }));
 }

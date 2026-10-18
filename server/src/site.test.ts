@@ -4,9 +4,10 @@ import worker, { type Env } from './index.ts';
 
 function makeEnv() {
   const store = new Map<string, string>();
-  const USAGE = { get: async (k: string) => store.get(k) ?? null, put: async (k: string, v: string) => void store.set(k, v) } as unknown as KVNamespace;
+  const reads: string[] = [];
+  const USAGE = { get: async (k: string) => (reads.push(k), store.get(k) ?? null), put: async (k: string, v: string) => void store.set(k, v) } as unknown as KVNamespace;
   const env = { APP_PASSWORD: 'pw', DAILY_REQUEST_CAP: '2', DEVICE_DAILY_CAP: '2', LEGACY_DAILY_CAP: '2', USAGE } as Env;
-  return { env, store };
+  return { env, store, reads };
 }
 const join = (env: Env, body: string, ip = '1.2.3.4') =>
   worker.fetch(new Request('https://lifttextapp.com/waitlist', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': ip }, body }), env);
@@ -27,9 +28,9 @@ test('serves the home page to anyone, with the waitlist form and links to the po
 });
 
 test('www redirects to the apex domain', async () => {
-  const res = await worker.fetch(new Request('https://www.lifttextapp.com/privacy'), makeEnv().env);
+  const res = await worker.fetch(new Request('https://www.lifttextapp.com/privacy?utm_source=x'), makeEnv().env);
   assert.equal(res.status, 301);
-  assert.equal(res.headers.get('location'), 'https://lifttextapp.com/privacy');
+  assert.equal(res.headers.get('location'), 'https://lifttextapp.com/privacy?utm_source=x');
 });
 
 test('the waitlist stores a valid email once, lowercased, and says thanks', async () => {
@@ -40,8 +41,10 @@ test('the waitlist stores a valid email once, lowercased, and says thanks', asyn
   assert.deepEqual(emails(store), ['waitlist:me@example.com']);
   assert.ok(!isNaN(Date.parse(store.get('waitlist:me@example.com')!)));
   const again = await join(env, 'email=me%40example.com');
-  assert.match(await again.text(), /already on the list/);
-  assert.equal(store.get(`waitlist-count:${new Date().toISOString().slice(0, 10)}`), '1');
+  assert.equal(again.status, 200);
+  assert.equal(await again.text(), await (await join(env, 'email=new%40example.com')).text());
+  store.delete('waitlist:new@example.com');
+  assert.equal(store.get(`waitlist-count:${new Date().toISOString().slice(0, 10)}`), '2');
   // The IP is kept only as a hash
   assert.ok(![...store.keys()].some((k) => k.includes('1.2.3.4')));
 });
@@ -68,6 +71,16 @@ test('the waitlist limits sign-ups per address and per day', async () => {
   for (let i = 5; i < 25; i++) assert.equal((await join(env, `email=a${i}%40x.com`, `10.0.0.${i}`)).status, 200);
   assert.equal((await join(env, 'email=late%40x.com', '10.0.1.1')).status, 429);
   assert.equal(emails(store).length, 25);
+});
+
+test('repeat sign-ups count toward the per-address limit, and a refused request reads only the address counter', async () => {
+  const { env, store, reads } = makeEnv();
+  for (let i = 0; i < 5; i++) assert.equal((await join(env, 'email=me%40x.com')).status, 200);
+  reads.length = 0;
+  assert.equal((await join(env, 'email=other%40x.com')).status, 429);
+  assert.equal(reads.length, 1);
+  assert.ok(reads[0].startsWith('waitlist-ip:'));
+  assert.deepEqual(emails(store), ['waitlist:me@x.com']);
 });
 
 test('a storage failure is a friendly error, not a crash', async () => {

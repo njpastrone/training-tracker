@@ -65,7 +65,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <p>The website has no cookies, analytics or trackers. If you join the waitlist we keep:</p>
 <ul>
 <li><strong>Your email address and when you signed up.</strong> We use it only to email you a TestFlight beta invite and to tell you when LiftText is on the App Store. We don't send anything else, sell it or share it, and it isn't linked to anything you log in the app.</li>
-<li><strong>A one-way hash of your IP address</strong>, deleted after 2 days, to limit how many sign-ups come from one place.</li>
+<li><strong>A hashed form of your IP address</strong>, used only for rate limiting and deleted within 2 days.</li>
 </ul>
 <p>We keep your email until you ask us to remove it, and delete the whole list within 12 months after LiftText launches on the App Store. To be removed, email <a href="mailto:privacy@lifttextapp.com">privacy@lifttextapp.com</a> from that address and we'll delete it within 45 days, usually much sooner. Cloudflare stores the list for us and sees your IP address and request details when you visit.</p>
 
