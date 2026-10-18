@@ -27,6 +27,33 @@ test('serves the home page to anyone, with the waitlist form and links to the po
   assert.equal(store.size, 0);
 });
 
+test('the home page is one small self-contained file that works in light, dark and reduced motion', async () => {
+  const html = await (await worker.fetch(new Request('https://lifttextapp.com/'), makeEnv().env)).text();
+  assert.ok(new TextEncoder().encode(html).length < 100_000);
+  // Nothing loaded from anywhere else: no scripts, stylesheets, fonts, images or trackers
+  assert.doesNotMatch(html, /<link|<img|src=|@import|url\(|href="https?:/);
+  assert.match(html, /prefers-color-scheme: dark/);
+  // Motion only runs when the visitor hasn't asked for less
+  const [beforeMotion, motion] = html.split('@media (prefers-reduced-motion: no-preference)');
+  assert.ok(motion);
+  assert.doesNotMatch(beforeMotion, /animation:/);
+  // The phone mockup is one labelled picture, so screen readers don't read the fake screen line by line
+  assert.match(html, /<figure class="phone" role="img" aria-label="[^"]*bench 3x5 185, then 2 eggs and toast[^"]*">\n<div class="screen" aria-hidden="true">/);
+  // Every "join" link lands on the form
+  assert.match(html, /<div id="join"><form/);
+  assert.equal(html.match(/href="#join"/g)?.length, 2);
+});
+
+test('the home page makes no claims the app does not ship and shows no made-up social proof', async () => {
+  const html = await (await worker.fetch(new Request('https://lifttextapp.com/'), makeEnv().env)).text();
+  assert.doesNotMatch(html, /Apple Health|HealthKit|Watch|Android|sync|calories burned|voice|photo|camera|review(s|ed by)|rating|★|downloads|users/i);
+});
+
+test('the thank-you page keeps the join anchor', async () => {
+  const res = await join(makeEnv().env, 'email=me%40example.com');
+  assert.match(await res.text(), /<div id="join"><div class="card" role="status">/);
+});
+
 test('www redirects to the apex domain', async () => {
   const res = await worker.fetch(new Request('https://www.lifttextapp.com/privacy?utm_source=x'), makeEnv().env);
   assert.equal(res.status, 301);
