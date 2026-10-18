@@ -21,6 +21,7 @@ import { daysAgo, lastDoneLine, paceLine } from '../../services/format';
 import { foodWeek } from '../../services/progress';
 import { DEFAULT_MUSCLES, NO_GOALS, goalProgress, muscleName, progressSections } from '../../services/goals';
 import { missedChips } from '../../services/suggestions';
+import { checkIn, type CheckIn } from '../../services/checkin';
 import { fonts, muscleGroupColors, spacing } from '../../constants/theme';
 import type { MuscleGroup, Workout } from '../../types/workout';
 
@@ -41,6 +42,10 @@ export default function ProgressScreen() {
   const food = useMemo(() => foodWeek(foodEntries), [foodEntries]);
   const show = progressSections(workouts.length > 0, goals, food.logged);
   const chips = useMemo(() => missedChips(workouts, schedule, templates), [workouts, schedule, templates]);
+  const check = useMemo(
+    () => checkIn({ workouts, digest: d, goals, schedule, templates, library: exerciseLibrary }),
+    [workouts, d, goals, schedule, templates, exerciseLibrary],
+  );
   const [showAll, setShowAll] = useState(false);
   const [logged, setLogged] = useState<Workout[] | null>(null);
 
@@ -133,7 +138,7 @@ export default function ProgressScreen() {
             </SkyCard>
           )}
 
-          {/* tt-progress-next: the weekly check-in card goes here, above the grid */}
+          {check && <CheckInCard check={check} />}
 
           {/* Goals lead the page; until there are some, a prompt to set them (it stays gone after Not now) */}
           {(timesGoals.length > 0 || foodGoal) && (
@@ -258,6 +263,47 @@ const loggedOn = (date: string) => {
   return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
 };
 
+// The weekly check-in: the headline, training days against your usual and the one thing to watch;
+// a tap opens the wins, the watch and the next 7 days
+function CheckInCard({ check }: { check: CheckIn }) {
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
+  const part = (label: string, lines: string[], color: string) =>
+    lines.length > 0 && (
+      <View style={styles.part}>
+        <SectionLabel>{label}</SectionLabel>
+        {lines.map(line => (
+          <Text key={line} variant="bodyMedium" style={{ color }}>{line}</Text>
+        ))}
+      </View>
+    );
+  return (
+    <SkyCard>
+      <Pressable
+        onPress={() => setOpen(!open)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityHint="Shows wins and the next 7 days"
+        style={({ pressed }) => [styles.checkTop, pressed && styles.pressed]}
+      >
+        <View style={styles.fill}>
+          <Text variant="titleMedium" style={{ color: colors.text }}>{check.headline}</Text>
+          <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{check.days}</Text>
+          {check.watch && !open && <Text variant="bodySmall" style={[styles.watch, { color: colors.warning }]}>● {check.watch}</Text>}
+        </View>
+        <SymbolView name={open ? 'chevron.up' : 'chevron.down'} size={13} weight="semibold" tintColor={colors.textTertiary} />
+      </Pressable>
+      {open && (
+        <>
+          {part('Wins', check.wins, colors.text)}
+          {part('Watch', check.watch ? [check.watch] : [], colors.warning)}
+          {part('Next 7 days', check.next.length ? check.next : ['Nothing planned'], colors.textSecondary)}
+        </>
+      )}
+    </SkyCard>
+  );
+}
+
 // The first-use prompt for goals: the owner's own goal in one tap, your own on the Goals screen
 function GoalsPrompt({ onPreset, onOwn, onNotNow }: { onPreset: () => void; onOwn: () => void; onNotNow: () => void }) {
   const { colors } = useTheme();
@@ -354,6 +400,19 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
     marginTop: spacing.gap, // 24 pt below the card above
     marginBottom: spacing.sm,
+  },
+  checkTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.gap,
+    minHeight: 44,
+  },
+  watch: {
+    marginTop: 2,
+  },
+  part: {
+    gap: 2,
+    marginTop: spacing.md,
   },
   promptTop: {
     flexDirection: 'row',
