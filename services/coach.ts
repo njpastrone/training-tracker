@@ -1,5 +1,6 @@
-import { Workout, MuscleGroup } from '../types/workout';
+import { Workout, MuscleGroup, ExerciseLibrary } from '../types/workout';
 import { catalogById } from '../data/catalog';
+import { resolveId } from './exerciseIdentity';
 import { parseISO } from 'date-fns';
 import type { TrainingWindow } from './pace';
 
@@ -15,7 +16,7 @@ export interface WeeklyMuscleData {
   daysRestBetweenSessions: number[];
 }
 
-export function analyzeWeeklyVolume(workouts: Workout[], win: TrainingWindow): Record<MuscleGroup, WeeklyMuscleData> {
+export function analyzeWeeklyVolume(workouts: Workout[], win: TrainingWindow, library: ExerciseLibrary): Record<MuscleGroup, WeeklyMuscleData> {
   const weeklyData: Record<MuscleGroup, WeeklyMuscleData> = {} as Record<MuscleGroup, WeeklyMuscleData>;
   
   // Initialize all muscle groups
@@ -53,7 +54,7 @@ export function analyzeWeeklyVolume(workouts: Workout[], win: TrainingWindow): R
     // A set counts 1 for the exercise's primary muscle and ½ for each secondary (fractional volume).
     // Exercises without a catalog id count toward their stored muscle group only.
     workout.exercises.forEach(exercise => {
-      const entry = exercise.exerciseId ? catalogById.get(exercise.exerciseId) : undefined;
+      const entry = exercise.exerciseId ? catalogById.get(resolveId(exercise.exerciseId, library)) : undefined;
       const sets = exercise.sets || 0;
       const primary = weeklyData[entry?.primary ?? exercise.muscleGroup];
       primary.totalSets += sets;

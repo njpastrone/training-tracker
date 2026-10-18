@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeWeeklyVolume } from './coach';
 import { trainingWindow } from './pace';
+import { emptyLibrary } from './exerciseIdentity';
 import type { Exercise, Workout } from '../types/workout';
 
 const workout = (date: string, ...exercises: Partial<Exercise>[]): Workout => ({
@@ -17,7 +18,7 @@ test('a set counts 1 for the primary muscle and ½ for each secondary', () => {
       { exerciseId: 'close-grip-bench-press', sets: 2 }, // triceps; chest, shoulders
       { exerciseId: 'lateral-raise', sets: 3 }, // shoulders only
       { name: 'Landmine Press', muscleGroup: 'shoulders', sets: 2 }), // no catalog id: stored group only
-  ], trainingWindow(['2026-09-29'], 7, new Date('2026-09-30T12:00:00')));
+  ], trainingWindow(['2026-09-29'], 7, new Date('2026-09-30T12:00:00')), emptyLibrary());
   assert.equal(week.chest.totalSets, 4 + 1);
   assert.equal(week.triceps.totalSets, 2 + 2);
   assert.equal(week.shoulders.totalSets, 3 + 2 + 2 + 1);

@@ -188,7 +188,7 @@ test('recent lifts group by exercise id, whatever each log called the lift', () 
   });
   const summary = summarizeHistory(
     [lift('a', '2026-09-30', 'Bench', 205), lift('b', '2026-10-02', 'Bench Press', 225), lift('c', '2026-10-01', 'BB bench', 215)],
-    [], [], 'lbs', new Date('2026-10-04T12:00:00')
+    [], [], 'lbs', { custom: [], renames: {}, aliases: {}, merged: {} }, new Date('2026-10-04T12:00:00')
   );
   assert.deepEqual(summary.recentLifts, [{ name: 'Bench Press', top: '225x5', date: '2026-10-02' }]);
 });

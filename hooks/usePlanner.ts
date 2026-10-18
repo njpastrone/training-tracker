@@ -29,7 +29,7 @@ export function usePlanner({ plans, onPlanned }: { plans: TrainingPlan[]; onPlan
 
   const history = useMemo(
     () => ({
-      ...summarizeHistory(workouts, schedule, plans, settings.weightUnit),
+      ...summarizeHistory(workouts, schedule, plans, settings.weightUnit, exerciseLibrary),
       daysPerWeek: settings.weeklyTarget,
       goal: settings.goal,
       goals: settings.goals && goalLines(settings.goals, exerciseLibrary),

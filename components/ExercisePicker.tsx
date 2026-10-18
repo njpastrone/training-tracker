@@ -17,18 +17,21 @@ interface Props {
   visible: boolean;
   initialQuery?: string;
   suggestions?: PickerOption[]; // the few it most likely is, listed first until the search changes
+  title?: string;
+  exclude?: string; // an exercise not to offer (the one being merged or split)
+  newGroup?: MuscleGroup; // the muscle group a new exercise gets
   onPick: (exercise: PickedExercise) => void;
   onDismiss: () => void;
 }
 
 // Native sheet for choosing what a logged exercise is: your exercises first, then the catalog,
 // then "New exercise" with the typed name. Suggestions, when given, come first.
-export default function ExercisePicker({ visible, initialQuery = '', suggestions = [], onPick, onDismiss }: Props) {
+export default function ExercisePicker({ visible, initialQuery = '', suggestions = [], title = 'Choose exercise', exclude, newGroup = 'full_body', onPick, onDismiss }: Props) {
   const colors = useColors();
   const { workouts, exerciseLibrary, createCustomExercise } = useWorkoutStore();
   const [query, setQuery] = useState(initialQuery);
   const suggested = query === initialQuery ? suggestions : [];
-  const options = visible ? searchExercises(query, workouts, exerciseLibrary).filter(o => !suggested.some(x => x.exerciseId === o.exerciseId)) : [];
+  const options = visible ? searchExercises(query, workouts, exerciseLibrary).filter(o => o.exerciseId !== exclude && !suggested.some(x => x.exerciseId === o.exerciseId)) : [];
   const typed = query.trim();
   const exact = !!knownIdFor(typed, exerciseLibrary);
 
@@ -36,7 +39,7 @@ export default function ExercisePicker({ visible, initialQuery = '', suggestions
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onShow={() => setQuery(initialQuery)} onRequestClose={onDismiss}>
       <View style={[styles.sheet, { backgroundColor: colors.surface }]}>
         <View style={styles.header}>
-          <Text variant="titleMedium" style={{ color: colors.text }}>Choose exercise</Text>
+          <Text variant="titleMedium" style={[styles.title, { color: colors.text }]}>{title}</Text>
           <Button onPress={onDismiss}>Cancel</Button>
         </View>
         <Searchbar placeholder="Search exercises" value={query} onChangeText={setQuery} autoFocus={!suggestions.length} autoCorrect={false} />
@@ -59,7 +62,7 @@ export default function ExercisePicker({ visible, initialQuery = '', suggestions
               <List.Item
                 title={`New exercise "${typed}"`}
                 left={(props) => <List.Icon {...props} icon="plus" />}
-                onPress={() => onPick({ exerciseId: createCustomExercise(typed, 'full_body'), name: typed, muscleGroup: 'full_body' })}
+                onPress={() => onPick({ exerciseId: createCustomExercise(typed, newGroup), name: typed, muscleGroup: newGroup })}
               />
             ) : null
           }
@@ -92,6 +95,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  title: {
+    flex: 1, // a long title wraps instead of pushing Cancel off
   },
   dot: {
     width: 10,

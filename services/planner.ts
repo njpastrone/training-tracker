@@ -3,10 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { addDays, differenceInCalendarDays, format, getDay, isValid, parseISO, subDays } from 'date-fns';
 import { callClaude } from './claude';
 import { analyzeWeeklyVolume } from './coach';
+import { resolveId } from './exerciseIdentity';
 import { trainingWindow } from './pace';
 import { templateService } from './templates';
 import { scheduleService } from './schedule';
-import { Exercise, MuscleGroup, TrainingGoal, WeightUnit, Workout } from '../types/workout';
+import { Exercise, ExerciseLibrary, MuscleGroup, TrainingGoal, WeightUnit, Workout } from '../types/workout';
 import { TemplateExercise, TemplateSchedule } from '../types/template';
 import { PlanDay, PlanDraft, PlannerResponse, PlanSession, TrainingPlan } from '../types/plan';
 
@@ -47,6 +48,7 @@ export function summarizeHistory(
   schedule: TemplateSchedule[],
   plans: TrainingPlan[],
   units: WeightUnit,
+  library: ExerciseLibrary,
   now: Date = new Date()
 ) {
   const today = format(now, 'yyyy-MM-dd');
@@ -65,14 +67,14 @@ export function summarizeHistory(
 
   const setsPerMuscleLast4w: Partial<Record<MuscleGroup, number>> = {};
   const last4w = trainingWindow(workouts.map(w => w.date), 28, now);
-  for (const data of Object.values(analyzeWeeklyVolume(workouts, last4w))) {
+  for (const data of Object.values(analyzeWeeklyVolume(workouts, last4w, library))) {
     if (data.totalSets > 0) setsPerMuscleLast4w[data.muscleGroup] = data.totalSets;
   }
 
   const lastTrained: Partial<Record<MuscleGroup, string>> = {};
   const frequency = new Map<string, number>();
   // One lift = one exercise id, whatever it was called; names only for entries saved without one
-  const liftKey = (e: Exercise) => e.exerciseId ?? `name:${e.name.toLowerCase()}`;
+  const liftKey = (e: Exercise) => (e.exerciseId ? resolveId(e.exerciseId, library) : `name:${e.name.toLowerCase()}`);
   for (const w of workouts) {
     for (const g of w.muscleGroups) if (!lastTrained[g] || w.date > lastTrained[g]!) lastTrained[g] = w.date;
     for (const e of w.exercises) frequency.set(liftKey(e), (frequency.get(liftKey(e)) ?? 0) + 1);

@@ -225,6 +225,12 @@ export default function SettingsScreen() {
             subtitle={`${templates.length} templates saved`}
             onPress={() => router.push('/templates')}
           />
+          <Row
+            icon="dumbbell"
+            title="Exercises"
+            subtitle="Rename, merge or split what you've logged"
+            onPress={() => router.push('/exercises')}
+          />
         </SkyCard>
 
         <SectionLabel style={styles.label}>Backup</SectionLabel>

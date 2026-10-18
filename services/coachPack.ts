@@ -72,7 +72,7 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
   const set = setLine;
 
   // Sets per muscle over the last 4 weeks (1 for the main muscle, ½ per helper)
-  const volume = analyzeWeeklyVolume(workouts, trainingWindow(workouts.map(w => w.date), 28, now));
+  const volume = analyzeWeeklyVolume(workouts, trainingWindow(workouts.map(w => w.date), 28, now), library);
   const setsPerMuscleLast4Weeks = Object.fromEntries(
     Object.values(volume).filter(v => v.totalSets > 0).map(v => [v.muscleGroup, Math.round(v.totalSets * 2) / 2]),
   ) as Partial<Record<MuscleGroup, number>>;

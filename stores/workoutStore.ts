@@ -7,7 +7,10 @@ import { FoodEntry, FoodItem } from '../types/food';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
-import { emptyLibrary, forgetPick, migrateToV1, rememberName, rememberPick, withIdentity } from '../services/exerciseIdentity';
+import {
+  emptyLibrary, forgetPick, mergeExercise, migrateToV1, rememberName, rememberPick, removeAlias, renameExercise,
+  splitExercise, unmergeExercise, unsplitExercise, withIdentity, type Split,
+} from '../services/exerciseIdentity';
 import { withFoodGoal } from '../services/goals';
 import { useChatStore } from './chatStore';
 import type { EntryRef } from '../services/moveLog';
@@ -59,6 +62,13 @@ interface WorkoutState {
   rememberName: (exerciseId: string, words: string) => void;
   rememberPick: (words: string, exerciseId: string) => ExerciseLibrary; // returns the library before, for forgetPick
   forgetPick: (words: string, before: ExerciseLibrary) => void;
+  // The Exercises screen (services/exerciseIdentity.ts): every derived number follows the ids
+  renameExercise: (exerciseId: string, name: string) => void;
+  removeAlias: (words: string) => void;
+  mergeExercise: (from: string, into: string) => void;
+  unmergeExercise: (from: string) => void;
+  splitExercise: (from: string, words: string, into: string) => Split;
+  unsplitExercise: (split: Split) => void;
   clearAllData: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -279,6 +289,33 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       forgetPick: (words, before) => {
         set((state) => ({ exerciseLibrary: forgetPick(state.exerciseLibrary, words, before) }));
+      },
+
+      renameExercise: (exerciseId, name) => {
+        set((state) => ({ exerciseLibrary: renameExercise(state.exerciseLibrary, exerciseId, name) }));
+      },
+
+      removeAlias: (words) => {
+        set((state) => ({ exerciseLibrary: removeAlias(state.exerciseLibrary, words) }));
+      },
+
+      mergeExercise: (from, into) => {
+        set((state) => ({ exerciseLibrary: mergeExercise(state.exerciseLibrary, from, into) }));
+      },
+
+      unmergeExercise: (from) => {
+        set((state) => ({ exerciseLibrary: unmergeExercise(state.exerciseLibrary, from) }));
+      },
+
+      splitExercise: (from, words, into) => {
+        const r = splitExercise(get().workouts, get().exerciseLibrary, from, words, into);
+        set({ workouts: r.workouts, exerciseLibrary: r.library });
+        return r.split;
+      },
+
+      unsplitExercise: (split) => {
+        const r = unsplitExercise(get().workouts, get().exerciseLibrary, split);
+        set({ workouts: r.workouts, exerciseLibrary: r.library });
       },
 
       updateSettings: (newSettings) => {
