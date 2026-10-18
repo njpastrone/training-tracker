@@ -75,7 +75,7 @@ export const minSetsFor = (g: Goals, group: MuscleGroup) => g.minSets?.[group] ?
 
 export function goalProgress(goals: Goals, workouts: Workout[], library: ExerciseLibrary, food: FoodEntry[] = [], now: Date = new Date()) {
   const win = trainingWindow(workouts.map(w => w.date), 7, now);
-  const volume = analyzeWeeklyVolume(workouts, win);
+  const volume = analyzeWeeklyVolume(workouts, win, library);
 
   const muscles: MuscleProgress[] = hasMuscleGoals(goals)
     ? goals.muscles.map(group => {

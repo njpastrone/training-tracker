@@ -104,7 +104,7 @@ function muscleVolume(input: Record<string, unknown>, data: PackInput, now: Date
   const dates = data.workouts.map(w => w.date);
   const perWeek = Array.from({ length: weeks }, (_, i) => {
     const win = trainingWindow(dates, 7, subDays(now, 7 * (weeks - 1 - i)));
-    const volume = analyzeWeeklyVolume(data.workouts, win);
+    const volume = analyzeWeeklyVolume(data.workouts, win, data.library);
     const sets = Object.fromEntries(Object.values(volume).filter(v => v.totalSets > 0).map(v => [v.muscleGroup, round1(v.totalSets)])) as Partial<Record<MuscleGroup, number>>;
     return { from: win.first, to: win.last, trainingDays: win.trained.size, sets };
   });

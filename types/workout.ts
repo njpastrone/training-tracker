@@ -63,7 +63,7 @@ export interface CustomExercise {
 // derived from the ids in their workouts plus `custom`.
 export interface ExerciseLibrary {
   custom: CustomExercise[];
-  renames: Record<string, string>; // display-name overrides for catalog ids
+  renames: Record<string, string>; // display-name overrides; the id never changes
   aliases: Record<string, string>; // normalized words ("bb bench") → exerciseId; written only by explicit answers
   merged: Record<string, string>; // merged-away id → the id it now resolves to
 }

@@ -11,7 +11,7 @@ import { FoodDraft } from '../types/food';
 import { buildFoodCandidates, candidateNames, localFoodParse, mentionsFood, mentionsWorkout, resolveItems, splitLog, usualPortions } from './foods';
 import { foodById } from '../data/foods';
 import { buildCandidates } from '../server/src/identity';
-import { offersName, yourExercises } from './exerciseIdentity';
+import { liveAliases, offersName, yourExercises } from './exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { draftToText } from './format';
 import { flagGuesses, keepIdentity } from './draft';
@@ -115,7 +115,7 @@ export async function parseWorkout(input: string, options: ParseOptions, fallbac
     const req = buildParseRequest(input, { ...options, exercises });
     // `parse` makes the Worker build the request itself; Workers deployed before that read system/messages.
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { parse: { input, ...options, exercises } });
-    const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
+    const parsed = finalizeParse(text, options.unit, { input, candidates, aliases: liveAliases(exerciseLibrary) });
     return parsed ? flagGuesses(parsed, input) : fallbackParse(fallbackText);
   } catch (error) {
     // Without AI the log still works by hand: each line or comma becomes an exercise to fill in
@@ -149,7 +149,7 @@ export async function correctWorkout(draft: ParsedWorkoutResponse, fix: string, 
     const exercises = candidates.map(({ name, muscleGroup, also, yours }) => ({ name, muscleGroup, also, yours }));
     const req = buildCorrectionRequest(draft, fix, { ...options, exercises });
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { parse: { input, ...options, exercises, draft, fix } });
-    const updated = finalizeWithNames(text, options.unit, { input, candidates, aliases: exerciseLibrary.aliases });
+    const updated = finalizeWithNames(text, options.unit, { input, candidates, aliases: liveAliases(exerciseLibrary) });
     if (!updated) return null;
     const { reply, callIt } = updated;
     // A question can come back as "not a workout"; it never empties the draft

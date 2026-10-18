@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform, Alert, Pressable } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -7,24 +8,75 @@ import { addDays, format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill } from '../components/Glass';
 import WorkoutList from '../components/WorkoutList';
-import { UndoToast } from '../components/SelectableWorkoutList';
+import Row from '../components/Row';
+import ExercisePicker, { type PickedExercise } from '../components/ExercisePicker';
+import { LiftChart } from '../components/ThreadCards';
+import { Toast, UndoToast } from '../components/SelectableWorkoutList';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { digest, target } from '../services/insights';
-import { resolveId } from '../services/exerciseIdentity';
+import { aliasesOf, displayName, mergedInto, ownName, resolveId, wordings } from '../services/exerciseIdentity';
+import { entriesFor, metricFor, personalRecords, type PersonalRecords } from '../services/progress';
 import { daysAgo, lastDoneLine } from '../services/format';
+import { plural } from '../services/importHistory';
+import { catalogById } from '../data/catalog';
 import { formatSets, goalProgress, muscleName } from '../services/goals';
 import { spacing } from '../constants/theme';
-import type { MuscleGroup } from '../types/workout';
+import type { ExerciseLibrary, MuscleGroup, WeightUnit } from '../types/workout';
 
-// One exercise (id) or muscle group (group) from Progress: add a session you forgot, or see every
-// time you did it. Each workout opens its own screen, with the fix box, edit and delete.
+// One exercise (id) or muscle group (group) from Progress or Exercises: add a session you forgot, or see
+// every time you did it. Each workout opens its own screen, with the fix box, edit and delete. An
+// exercise also shows its records and what you call it, and can be renamed, merged or split.
 export default function ExerciseScreen() {
-  const { id, group } = useLocalSearchParams<{ id?: string; group?: MuscleGroup }>();
+  const params = useLocalSearchParams<{ id?: string; group?: MuscleGroup; merged?: string }>();
+  const { group } = params;
   const router = useRouter();
   const { colors } = useTheme();
-  const { workouts, exerciseLibrary, settings } = useWorkoutStore();
+  const { workouts, exerciseLibrary, settings, renameExercise, removeAlias, mergeExercise, unmergeExercise, splitExercise, unsplitExercise } = useWorkoutStore();
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
+  // An old id (merged since) opens what it is now
+  const id = params.id && resolveId(params.id, exerciseLibrary);
+  const name = id ? displayName(id, exerciseLibrary) : undefined; // none for an entry saved without an id
+
+  // What the picker is open for: merging this exercise, or moving the logs written one way
+  const [choosing, setChoosing] = useState<'merge' | { words: string; count: number } | null>(null);
+  const [toast, setToast] = useState<{ key: string; text: string; undo: () => void } | null>(() =>
+    params.merged && name
+      ? { key: params.merged, text: `Merged ${ownName(params.merged, exerciseLibrary)} into ${name}`, undo: () => unmergeExercise(params.merged!) }
+      : null
+  );
+  const entries = useMemo(() => (id && name ? entriesFor(workouts, id, exerciseLibrary) : []), [workouts, id, name, exerciseLibrary]);
+  const records = id && name ? recordLines(personalRecords(entries.filter(e => e.date <= d.today), metricFor(id, exerciseLibrary), settings.weightUnit), settings.weightUnit) : [];
+  const written = id && name ? wordings(workouts, id, exerciseLibrary) : [];
+  const aliases = id && name ? aliasesOf(id, exerciseLibrary) : [];
+  const mergedIn = id && name ? mergedInto(id, exerciseLibrary) : [];
+
+  const rename = () =>
+    Alert.prompt('Rename', 'Only the name changes. Its logs, chart and records stay.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Save', onPress: (text?: string) => renameExercise(id!, text ?? '') },
+    ], 'plain-text', name);
+
+  const pick = (p: PickedExercise) => {
+    const what = choosing;
+    setChoosing(null);
+    if (!id || !what || resolveId(p.exerciseId, exerciseLibrary) === id) return;
+    if (what === 'merge') {
+      Alert.alert(`Merge into ${p.name}?`, `${plural(entries.length, 'log')} move to ${p.name} · PRs recalculated`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Merge',
+          onPress: () => {
+            mergeExercise(id, p.exerciseId);
+            router.replace({ pathname: '/exercise', params: { id: resolveId(p.exerciseId, useWorkoutStore.getState().exerciseLibrary), merged: id } });
+          },
+        },
+      ]);
+      return;
+    }
+    const split = splitExercise(id, what.words, p.exerciseId);
+    setToast({ key: `${what.words}-${p.exerciseId}`, text: `Moved ${plural(split.moved.length, 'log')} to ${p.name}`, undo: () => unsplitExercise(split) });
+  };
 
   const exercise = id ? d.exercises.find(e => e.id === id) : undefined;
   const trend = id ? d.liftTrends.find(t => t.id === id) : undefined;
@@ -40,7 +92,7 @@ export default function ExerciseScreen() {
   ).filter(w => w.date <= d.today);
   const last = times[0]?.date; // the store keeps workouts newest first
 
-  const title = exercise?.name ?? (group ? muscleName(group) : '');
+  const title = name ?? exercise?.name ?? (group ? muscleName(group) : '');
   const subtitle = exercise ? lastDoneLine(exercise) : group && d.daysSinceGroupTrained[group] !== undefined ? `last trained ${daysAgo(d.daysSinceGroupTrained[group]!)}` : undefined;
 
   // A forgotten session most likely came after the last one you logged
@@ -62,6 +114,66 @@ export default function ExerciseScreen() {
             <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>
               Last {next.last}. {next.why}
             </Text>
+          </SkyCard>
+        )}
+
+        {trend && (
+          <SkyCard>
+            <SectionLabel>Top sets</SectionLabel>
+            <LiftChart trend={trend} />
+          </SkyCard>
+        )}
+
+        {records.length > 0 && (
+          <SkyCard>
+            <SectionLabel>Personal records</SectionLabel>
+            {records.map(([label, value]) => (
+              <View key={label} style={styles.record}>
+                <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>{label}</Text>
+                <Text variant="bodyLarge" style={[styles.number, { color: colors.text }]}>{value}</Text>
+              </View>
+            ))}
+          </SkyCard>
+        )}
+
+        {(written.length > 0 || aliases.length > 0 || mergedIn.length > 0) && (
+          <SkyCard>
+            <SectionLabel>Also logged as</SectionLabel>
+            {written.map(w => (
+              <View key={w.words} style={[styles.line, { borderTopColor: colors.border }]}>
+                <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>
+                  "{w.words}" <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>×{w.count}</Text>
+                </Text>
+                {written.length > 1 && <Pill variant="glass" size="small" label="Move" onPress={() => setChoosing(w)} />}
+              </View>
+            ))}
+            {aliases.map(a => (
+              <View key={a} style={[styles.line, { borderTopColor: colors.border }]}>
+                <View style={styles.fill}>
+                  <Text variant="bodyLarge" style={{ color: colors.text }}>"{a}"</Text>
+                  <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Your word for it</Text>
+                </View>
+                <Pressable onPress={() => removeAlias(a)} accessibilityRole="button" accessibilityLabel={`Forget "${a}"`} hitSlop={10}>
+                  <SymbolView name="xmark.circle.fill" size={22} tintColor={colors.textTertiary} />
+                </Pressable>
+              </View>
+            ))}
+            {mergedIn.map(from => (
+              <View key={from} style={[styles.line, { borderTopColor: colors.border }]}>
+                <View style={styles.fill}>
+                  <Text variant="bodyLarge" style={{ color: colors.text }}>{ownName(from, exerciseLibrary) ?? from}</Text>
+                  <Text variant="bodySmall" style={{ color: colors.textSecondary }}>Merged in</Text>
+                </View>
+                <Pill variant="glass" size="small" label="Undo" onPress={() => unmergeExercise(from)} />
+              </View>
+            ))}
+          </SkyCard>
+        )}
+
+        {id && name && (
+          <SkyCard style={styles.rows}>
+            <Row first icon="pencil" title="Rename" subtitle="Changes only the name" onPress={rename} />
+            <Row icon="arrow.triangle.merge" title="Merge into…" subtitle="Moves every log to another exercise" onPress={() => setChoosing('merge')} />
           </SkyCard>
         )}
 
@@ -124,9 +236,35 @@ export default function ExerciseScreen() {
           </>
         )}
       </ScrollView>
-      <UndoToast />
+      {toast ? <Toast key={toast.key} icon="arrow.uturn.backward" text={toast.text} onUndo={toast.undo} onClose={() => setToast(null)} /> : <UndoToast />}
+      <ExercisePicker
+        visible={!!choosing}
+        title={choosing === 'merge' ? `Merge ${name} into…` : choosing ? `Move "${choosing.words}" (${choosing.count}) to…` : ''}
+        initialQuery={choosing && choosing !== 'merge' ? choosing.words : ''}
+        exclude={id}
+        newGroup={id ? muscleOf(id, exerciseLibrary) : undefined}
+        onPick={pick}
+        onDismiss={() => setChoosing(null)}
+      />
     </SkyScreen>
   );
+}
+
+const muscleOf = (id: string, library: ExerciseLibrary): MuscleGroup | undefined =>
+  catalogById.get(id)?.primary ?? library.custom.find(c => c.id === id)?.muscleGroup;
+
+// Each record as [what, value · when]; only the ones this kind of exercise has
+function recordLines(pr: PersonalRecords, unit: WeightUnit): [string, string][] {
+  const u = (x?: WeightUnit) => ((x ?? unit) === 'kg' ? 'kg' : 'lb');
+  const on = (date: string) => ` · ${format(parseISO(date), 'MMM d')}`;
+  const lines: [string, string | undefined][] = [
+    ['Heaviest', pr.heaviest && `${pr.heaviest.exercise.weight} ${u(pr.heaviest.exercise.unit)}${pr.heaviest.exercise.reps ? ` × ${pr.heaviest.exercise.reps}` : ''}${on(pr.heaviest.date)}`],
+    ['Best estimated 1-rep max', pr.bestE1rm && `${pr.bestE1rm.value} ${u()}${on(pr.bestE1rm.entry.date)}`],
+    ['Most reps', pr.mostReps && `${pr.mostReps.exercise.reps}${on(pr.mostReps.date)}`],
+    ['Longest', pr.longest && `${pr.longest.exercise.duration} min${on(pr.longest.date)}`],
+    ['Farthest', pr.longestDistance && `${pr.longestDistance.exercise.distance} ${pr.longestDistance.exercise.distanceUnit ?? 'km'}${on(pr.longestDistance.date)}`],
+  ];
+  return lines.flatMap(([label, value]) => (value ? [[label, value] as [string, string]] : []));
 }
 
 const styles = StyleSheet.create({
@@ -143,6 +281,26 @@ const styles = StyleSheet.create({
   },
   goalLine: {
     marginTop: spacing.xs,
+  },
+  record: {
+    flexDirection: 'row',
+    flexWrap: 'wrap', // at large text the value goes under its label
+    columnGap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  number: {
+    fontVariant: ['tabular-nums'],
+  },
+  line: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.gap,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  rows: {
+    paddingVertical: spacing.xs,
   },
   dayRow: {
     flexDirection: 'row',

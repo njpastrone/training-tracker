@@ -51,9 +51,11 @@ export function resolveId(id: string, library: ExerciseLibrary): string {
   return id;
 }
 
-export function displayName(id: string, library: ExerciseLibrary): string | undefined {
-  return library.renames[id] ?? catalogById.get(id)?.name ?? library.custom.find((c) => c.id === id)?.name;
-}
+// The name an id had before any merge, for "merged in" lists
+export const ownName = (id: string, library: ExerciseLibrary): string | undefined =>
+  library.renames[id] ?? catalogById.get(id)?.name ?? library.custom.find((c) => c.id === id)?.name;
+
+export const displayName = (id: string, library: ExerciseLibrary) => ownName(resolveId(id, library), library);
 
 // The catalog id a name means on its own, if it names exactly one catalog exercise
 export const catalogIdFor = (name: string) => catalogKeys.get(exerciseKey(name));
@@ -188,7 +190,7 @@ export function searchExercises(query: string, workouts: Workout[], library: Exe
     !q || [displayName(id, library) ?? '', ...(catalogById.get(id)?.aliases ?? [])].some((w) => normalizeWords(w).includes(q));
 
   const yours = [...counts.keys()].filter(matches).sort((a, b) => counts.get(b)! - counts.get(a)!);
-  const catalog = q ? CATALOG.filter((e) => !e.replacedBy && !counts.has(e.id) && matches(e.id)).map((e) => e.id) : [];
+  const catalog = q ? CATALOG.filter((e) => !e.replacedBy && !library.merged[e.id] && !counts.has(e.id) && matches(e.id)).map((e) => e.id) : [];
   const known = knownIdFor(query, library);
   const ids = known && !yours.includes(known) && !catalog.includes(known) ? [known, ...yours, ...catalog] : [...yours, ...catalog];
   return ids.slice(0, limit).flatMap((id) => pickerOption(id, counts, library) ?? []);
@@ -263,8 +265,9 @@ export function shownName(e: Pick<Exercise, 'name' | 'exerciseId' | 'said'>, lib
   const id = e.exerciseId && resolveId(e.exerciseId, library);
   const entry = id ? catalogById.get(id) : undefined;
   const said = e.said ? exerciseWords(e.said) : '';
-  const own = id && (library.renames[id] ?? (said && aliasFor(said, library.aliases) === id ? sentenceCase(said) : undefined));
-  if (!entry || !own) return { name: e.name };
+  const own = id && (library.renames[id] ?? (said && resolveId(aliasFor(said, library.aliases) ?? '', library) === id ? sentenceCase(said) : undefined));
+  if (!entry) return { name: (id && library.renames[id]) || e.name }; // your own exercise, renamed
+  if (!own) return { name: e.name };
   return { name: own, ...(exerciseKey(own) !== exerciseKey(entry.name) ? { catalog: entry.name } : {}) };
 }
 
@@ -289,4 +292,99 @@ export function forgetPick(library: ExerciseLibrary, words: string, before: Exer
   const others = Object.entries(library.aliases).filter(([w]) => exerciseKey(w) !== key);
   const had = Object.entries(before.aliases).filter(([w]) => exerciseKey(w) === key);
   return { ...library, aliases: Object.fromEntries([...others, ...had]) };
+}
+
+// Aliases with merged ids followed, for the parser: it only knows the user's exercises by their current ids
+export const liveAliases = (library: ExerciseLibrary) =>
+  Object.fromEntries(Object.entries(library.aliases).map(([words, id]) => [words, resolveId(id, library)]));
+
+// The user's words for an exercise (an alias now means it)
+export const aliasesOf = (exerciseId: string, library: ExerciseLibrary) =>
+  Object.keys(library.aliases).filter((w) => resolveId(library.aliases[w], library) === exerciseId);
+
+export const removeAlias = (library: ExerciseLibrary, words: string): ExerciseLibrary => ({
+  ...library,
+  aliases: Object.fromEntries(Object.entries(library.aliases).filter(([w]) => w !== words)),
+});
+
+// A new display name only: the id stays, so every log, chart, PR and goal keeps it. Empty or its
+// own catalog name clears the rename.
+export function renameExercise(library: ExerciseLibrary, exerciseId: string, name: string): ExerciseLibrary {
+  const { [exerciseId]: _, ...renames } = library.renames;
+  const base = catalogById.get(exerciseId)?.name ?? library.custom.find((c) => c.id === exerciseId)?.name;
+  const keep = name.trim() && name.trim() !== base;
+  return { ...library, renames: keep ? { ...renames, [exerciseId]: name.trim() } : renames };
+}
+
+// Every log of `from` (and its aliases and anything merged into it) now resolves to `into`. Only
+// the merge is recorded, never the logs rewritten, so unmerge puts everything back.
+export function mergeExercise(library: ExerciseLibrary, from: string, into: string): ExerciseLibrary {
+  const target = resolveId(into, library);
+  if (target === from) return library;
+  return { ...library, merged: { ...library.merged, [from]: target } };
+}
+
+export function unmergeExercise(library: ExerciseLibrary, from: string): ExerciseLibrary {
+  const { [from]: _, ...merged } = library.merged;
+  return { ...library, merged };
+}
+
+// Exercises merged straight into this one, for its screen's Undo
+export const mergedInto = (exerciseId: string, library: ExerciseLibrary) =>
+  Object.keys(library.merged).filter((from) => library.merged[from] === exerciseId);
+
+// What the user wrote for one log: their words without numbers, else the name it was logged under
+const wordingOf = (e: Exercise) => (e.said && exerciseWords(e.said)) || normalizeWords(e.name);
+
+// An exercise's logs grouped by what the user wrote ("incline bench" ×5, "bench" ×40), most first
+export function wordings(workouts: Workout[], exerciseId: string, library: ExerciseLibrary): { words: string; count: number }[] {
+  const groups = new Map<string, { words: string; count: number }>();
+  for (const e of workouts.flatMap((w) => w.exercises)) {
+    if (!e.exerciseId || resolveId(e.exerciseId, library) !== exerciseId) continue;
+    const words = wordingOf(e);
+    const g = groups.get(exerciseKey(words)) ?? { words, count: 0 };
+    g.count++;
+    groups.set(exerciseKey(words), g);
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count);
+}
+
+export interface Split {
+  moved: { workoutId: string; entryId: string; exerciseId: string }[]; // each log's id before
+  words: string;
+  before: ExerciseLibrary;
+}
+
+// Moves the logs of `from` written as `words` to `into`. The words then mean `into`, unless they
+// name a catalog exercise (a split never redefines one); then an alias of theirs for `from` goes.
+export function splitExercise(workouts: Workout[], library: ExerciseLibrary, from: string, words: string, into: string) {
+  const key = exerciseKey(words);
+  const target = resolveId(into, library);
+  const hit = (e: Exercise) => target !== from && !!e.exerciseId && resolveId(e.exerciseId, library) === from && exerciseKey(wordingOf(e)) === key;
+  const moved: Split['moved'] = [];
+  const next = workouts.map((w) => {
+    if (!w.exercises.some(hit)) return w;
+    return {
+      ...w,
+      exercises: w.exercises.map((e) => {
+        if (!hit(e)) return e;
+        moved.push({ workoutId: w.id, entryId: e.id, exerciseId: e.exerciseId! });
+        return { ...e, exerciseId: target };
+      }),
+    };
+  });
+  const alias = Object.keys(library.aliases).find((w) => exerciseKey(w) === key && resolveId(library.aliases[w], library) === from);
+  const lib = !moved.length ? library : pickWords(words) ? rememberPick(library, words, target) : alias ? removeAlias(library, alias) : library;
+  return { workouts: next, library: lib, split: { moved, words, before: library } as Split };
+}
+
+// Undo of splitExercise: each moved log goes back to the id it had; the words get back their alias
+export function unsplitExercise(workouts: Workout[], library: ExerciseLibrary, { moved, words, before }: Split) {
+  const was = new Map(moved.map((m) => [`${m.workoutId}/${m.entryId}`, m.exerciseId]));
+  const next = workouts.map((w) =>
+    w.exercises.some((e) => was.has(`${w.id}/${e.id}`))
+      ? { ...w, exercises: w.exercises.map((e) => (was.has(`${w.id}/${e.id}`) ? { ...e, exerciseId: was.get(`${w.id}/${e.id}`) } : e)) }
+      : w,
+  );
+  return { workouts: next, library: forgetPick(library, words, before) };
 }

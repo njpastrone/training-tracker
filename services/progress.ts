@@ -1,7 +1,7 @@
 // Progress and personal records, keyed on exercise identity (never on names).
 
 import { catalogById, type Metric } from '../data/catalog';
-import { resolveId } from './exerciseIdentity';
+import { displayName, resolveId } from './exerciseIdentity';
 import { format, subDays } from 'date-fns';
 import type { Exercise, ExerciseLibrary, WeightUnit, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
@@ -97,6 +97,46 @@ export function personalRecords(entries: Entry[], metric: Metric, userUnit: Weig
     case 'session':
       return {};
   }
+}
+
+// A record in a few words: "225 lb × 5", "20 reps", "45 min", "5 km". Undefined without one.
+export function bestLine(pr: PersonalRecords, unit: WeightUnit): string | undefined {
+  const x = (pr.heaviest ?? pr.mostReps ?? pr.longestDistance ?? pr.longest)?.exercise;
+  if (!x) return undefined;
+  if (pr.heaviest) return `${x.weight} ${(x.unit ?? unit) === 'kg' ? 'kg' : 'lb'}${x.reps ? ` × ${x.reps}` : ''}`;
+  if (pr.mostReps) return `${x.reps} reps`;
+  if (pr.longestDistance) return `${x.distance} ${x.distanceUnit ?? 'km'}`;
+  return `${x.duration} min`;
+}
+
+export interface ExerciseOverview {
+  id: string;
+  name: string;
+  count: number; // logs, counting everything merged into it
+  lastDate?: string;
+  best?: string;
+}
+
+// Every exercise you have, A to Z: logged ones by their resolved id, plus your own not logged yet
+export function exerciseOverview(workouts: Workout[], library: ExerciseLibrary, unit: WeightUnit, now: Date = new Date()): ExerciseOverview[] {
+  const today = format(now, 'yyyy-MM-dd');
+  const byId = new Map<string, Entry[]>();
+  for (const w of workouts.filter((w) => w.date <= today)) {
+    for (const exercise of w.exercises) {
+      const id = exercise.exerciseId && resolveId(exercise.exerciseId, library);
+      if (id) byId.set(id, [...(byId.get(id) ?? []), { date: w.date, workoutId: w.id, exercise }]);
+    }
+  }
+  for (const c of library.custom) if (resolveId(c.id, library) === c.id && !byId.has(c.id)) byId.set(c.id, []);
+  return [...byId.entries()]
+    .map(([id, entries]) => ({
+      id,
+      name: displayName(id, library) ?? entries[0]?.exercise.name ?? 'Exercise',
+      count: entries.length,
+      lastDate: entries.reduce<string | undefined>((m, e) => (!m || e.date > m ? e.date : m), undefined),
+      best: bestLine(personalRecords(entries, metricFor(id, library), unit), unit),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // Each day's food: protein and calories summed (rounded once, for the day), how many foods and meals (logged messages)
