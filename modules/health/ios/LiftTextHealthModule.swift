@@ -78,7 +78,11 @@ public class LiftTextHealthModule: Module {
       return try await withCheckedThrowingContinuation { continuation in
         store.deleteObjects(of: HKObjectType.workoutType(), predicate: predicate) { _, count, error in
           if let error {
-            continuation.resume(throwing: error)
+            if (error as? HKError)?.code == .errorNoData {
+              continuation.resume(returning: 0)
+            } else {
+              continuation.resume(throwing: error)
+            }
           } else {
             continuation.resume(returning: count)
           }

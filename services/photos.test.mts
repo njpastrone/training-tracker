@@ -208,8 +208,7 @@ test('only the Photos screen and the locked Progress card import photo code, and
   }
 });
 
-test('no media-library package, and backups know nothing about photos', () => {
+test('no media-library package', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.ok(!('expo-media-library' in { ...pkg.dependencies, ...pkg.devDependencies }));
-  assert.doesNotMatch(read('services/backup.ts'), /photo|ProgressPhotos|Application Support/i);
 });

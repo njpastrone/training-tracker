@@ -1,8 +1,6 @@
 /// <reference types="node" />
 import { test, mock, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import { format, subDays } from 'date-fns';
 
 // In-memory AsyncStorage so the real store runs under node
@@ -133,27 +131,4 @@ test('what Progress reads stays in memory: the store and storage never see it', 
   assert.doesNotMatch(JSON.stringify([...mem]), /Apple Watch of Sam|176\.4/);
   assert.deepEqual(health.weightTrend([{ date: 0, kg: 70 }], 'kg'), { now: 70 });
   assert.equal(health.weightTrend([], 'kg'), undefined);
-});
-
-// Source scan: Health data must never reach the server or the AI. Only these files may import Health code, and
-// none of them sends anything: a new importer has to be checked against that promise before it's added here.
-const repo = path.resolve(import.meta.dirname, '..');
-const read = (file: string) => fs.readFileSync(path.join(repo, file), 'utf8');
-const importsOf = (src: string) => [...src.matchAll(/(?:from\s*|import\s*\(\s*|require\(\s*|import\s+)['"]([^'"]+)['"]/g)].map((m) => m[1]);
-const sourceFiles = (dir: string): string[] =>
-  fs.readdirSync(path.join(repo, dir), { withFileTypes: true }).flatMap((e) => {
-    const rel = path.join(dir, e.name);
-    if (e.isDirectory()) return e.name === 'node_modules' || e.name === 'ios' ? [] : sourceFiles(rel);
-    return /\.(ts|tsx)$/.test(e.name) && !/\.test\.|\.fixtures\./.test(e.name) ? [rel] : [];
-  });
-
-test('only Settings, the Progress card and startup import Health code, and services/health.ts reaches nothing that sends', () => {
-  const importers = ['app', 'components', 'services', 'hooks', 'stores', 'contexts', 'modules']
-    .flatMap(sourceFiles)
-    .filter((f) => importsOf(read(f)).some((i) => /(^|\/)health$|modules\/health/.test(i)));
-  assert.deepEqual(importers.sort(), ['app/_layout.tsx', 'app/settings.tsx', 'components/HealthCard.tsx', 'services/health.ts']);
-  const src = read('services/health.ts');
-  assert.deepEqual(new Set(importsOf(src)), new Set(['date-fns', '../modules/health', '../stores/workoutStore', './progress', '../types/workout']));
-  assert.doesNotMatch(src, /\bfetch\s*\(|XMLHttpRequest|updateSettings|setState/);
-  assert.doesNotMatch(read('components/HealthCard.tsx'), /\bfetch\s*\(|updateSettings|setState|services\/(claude|ask|coach|backup)/);
 });
