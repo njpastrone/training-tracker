@@ -1,3 +1,5 @@
+// Eval-only: never shipped in the app or the Worker. It wraps the existing COACH_TOOLS from server/src/coach.ts, adds no tools,
+// and approximates the Worker's one-round tool limit with a timing heuristic (calls more than 1.5 s after the first are turned away).
 // The coach's read tools as an MCP server, so `claude -p` (run.ts --cli) can call them on the fixture
 // the way the phone does. Each call and its result is appended to the log file run.ts reads back.
 //
