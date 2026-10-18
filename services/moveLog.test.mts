@@ -41,6 +41,7 @@ test('reads where a move goes, what it is and where it is now', () => {
 test("logs and questions aren't moves", () => {
   assert.equal(readMove('switched to dumbbell press on monday, 3x10 at 60', NOW), null);
   assert.equal(readMove('how should I move on squats?', NOW), null);
+  assert.equal(readMove('Should I move legs to Friday?', NOW), null);
   assert.equal(readMove('ate eggs yesterday', NOW), null);
   assert.equal(readMove('move feb 30 to yesterday', NOW)?.from, undefined); // a date that doesn't exist is ignored
 });
@@ -69,6 +70,7 @@ test('"it" alone is the last thing logged; nothing found or already there says s
   assert.deepEqual(resolveMove(readMove('move it to yesterday', NOW)!, workouts, food, NOW), { to: '2026-10-17', entry: { kind: 'workout', id: 'w' } });
   assert.deepEqual(resolveMove(readMove('move it to today', NOW)!, workouts, food, NOW), { to: '2026-10-18', none: 'already' });
   assert.deepEqual(resolveMove(readMove('move my dinner to yesterday', NOW)!, workouts, food, NOW), { to: '2026-10-17', none: 'nothing' });
+  assert.equal('entry' in resolveMove(readMove('move the protein shake to yesterday', NOW)!, workouts, food, NOW), false); // a name not logged isn't "it"
   assert.equal(noMoveText({ to: '2026-10-17', none: 'already' }), "That's already on Oct 17.");
   // A log older than a week needs its day said
   const old = [workout('old', '2026-10-01', at(1, 18))];

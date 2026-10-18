@@ -3,7 +3,7 @@ import type { Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 import { workoutName } from './format';
 import { mealName } from './foods';
-import { LOG_SHAPE } from './ask';
+import { LOG_SHAPE, readsAsQuestion } from './ask';
 
 // Moving a log to another day in plain words ("I logged my food past midnight, move it to
 // yesterday"). Read and resolved here on the phone against the user's own recent entries; nothing goes
@@ -59,7 +59,7 @@ function dayOf(m: RegExpMatchArray, now: Date): string | undefined {
 // "to" (or "on", "for") is where it goes; a day after "from", or with 's, is where it is now.
 export function readMove(text: string, now: Date): MoveRequest | null {
   const t = text.toLowerCase().replace(/’/g, "'");
-  if (!MOVE.test(t) || LOG_SHAPE.test(t)) return null;
+  if (!MOVE.test(t) || LOG_SHAPE.test(t) || readsAsQuestion(t)) return null;
   let to: string | undefined;
   let from: string | undefined;
   for (const m of t.matchAll(DAY)) {
@@ -115,7 +115,7 @@ export function resolveMove(req: MoveRequest, workouts: Workout[], foodEntries: 
   const best = Math.max(0, ...found.map(hits));
   if (best > 0) found = found.filter(e => hits(e) === best);
   found.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const vague = !req.from && !req.kind && !req.night && !req.slot && best === 0;
+  const vague = !req.from && !req.kind && !req.night && !req.slot && !req.words.length;
   if (vague && found.length) return found[0].date === to ? { to, none: 'already' } : { to, entry: found[0].ref };
   const movable = found.filter(e => e.date !== to);
   if (!movable.length) return { to, none: found.length ? 'already' : 'nothing' };
