@@ -185,3 +185,44 @@ test('"Call it Machine flys" names a catalog exercise in the user\'s words and c
   const workouts = [{ id: 'w', date: '2026-10-03', rawInput: '', muscleGroups: ['chest' as const], createdAt: 't', exercises: [ex('e', 'Pec Deck', { exerciseId: 'pec-deck', match: 'sure' })] }];
   assert.deepEqual(yourExercises(workouts, lib)[0], { id: 'pec-deck', name: 'Machine flys', muscleGroup: 'chest', also: ['machine flys'], family: 'fly' });
 });
+
+test('a pick from the picker is remembered for the user\'s words and Undo forgets it', async () => {
+  const { likelyExercises, pickWords, rememberPick, forgetPick } = await import('./exerciseIdentity');
+  const { resolvePick } = await import('../server/src/identity');
+  const { editDraft, pickInDraft, unpickInDraft } = await import('./draft');
+  const lib = emptyLibrary();
+
+  // "rows" can mean several exercises: the guess, its second choice, then the one you log most
+  const logged = [{ id: 'w', date: 'd', rawInput: '', muscleGroups: ['back' as const], createdAt: 't', exercises: [ex('a', 'T-Bar Row', { exerciseId: 't-bar-row' })] }];
+  const row = { name: 'Barbell Row', exerciseId: 'barbell-row', alt: 'seated-cable-row', said: 'rows 3x10', match: 'unsure' as const, muscleGroup: 'back' as const, sets: 3, reps: 10 };
+  assert.deepEqual(likelyExercises(row, logged, lib).map((o) => o.exerciseId), ['barbell-row', 'seated-cable-row', 't-bar-row']);
+
+  // The alias is the user's words without numbers; a catalog name is never redefined
+  assert.equal(pickWords('rows 3x10'), 'rows');
+  assert.equal(pickWords('cable rows'), undefined);
+  assert.equal(pickWords(undefined), undefined);
+
+  const saved = rememberPick(lib, 'rows', 'seated-cable-row');
+  const parse = (aliases: Record<string, string>) => resolvePick({ said: 'Rows', ex: 'e1' }, { input: 'Rows 3x10', candidates: [{ id: 'barbell-row', name: 'Barbell Row', muscleGroup: 'back' }], aliases });
+  assert.deepEqual([parse(lib.aliases).exerciseId, parse(lib.aliases).match], ['barbell-row', 'unsure']);
+  assert.deepEqual([parse(saved.aliases).exerciseId, parse(saved.aliases).match], ['seated-cable-row', 'sure']);
+  assert.equal(resolveExercise('row', 'back', saved).exerciseId, 'seated-cable-row'); // any spelling of the words
+
+  // An alias never belongs to two exercises: a new pick for the same words replaces the old one
+  const again = rememberPick({ ...saved, aliases: { ...saved.aliases, 'my squat': 'back-squat' } }, 'Row', 'dumbbell-row');
+  assert.deepEqual(again.aliases, { 'my squat': 'back-squat', row: 'dumbbell-row' });
+  assert.deepEqual(forgetPick(again, 'Row', saved).aliases, { 'my squat': 'back-squat', rows: 'seated-cable-row' }); // back to what it was
+  assert.deepEqual(forgetPick(saved, 'rows', lib).aliases, {});
+
+  // The entry takes the pick and loses its flag; Undo puts it back flagged
+  const draft = { exercises: [row], muscleGroups: ['back' as const], confidence: 0.9, unsure: [{ exercise: 0, field: 'name' as const }] };
+  const picked = pickInDraft(draft, 0, { exerciseId: 'seated-cable-row', name: 'Seated Cable Row', muscleGroup: 'back' });
+  assert.deepEqual(picked.exercises[0], { ...row, exerciseId: 'seated-cable-row', name: 'Seated Cable Row', match: 'sure', alt: undefined });
+  assert.deepEqual(picked.unsure, []);
+  assert.deepEqual(unpickInDraft(picked, 0, row, 'seated-cable-row'), draft);
+  assert.equal(unpickInDraft(draft, 0, row, 'seated-cable-row'), draft); // the entry changed since: left alone
+
+  // Undo puts back only which exercise it is: numbers edited after the pick stay
+  const edited = editDraft(picked, 0, 'sets', 4);
+  assert.deepEqual(unpickInDraft(edited, 0, row, 'seated-cable-row'), { ...draft, exercises: [{ ...row, sets: 4 }] });
+});

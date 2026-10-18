@@ -7,7 +7,7 @@ import { FoodEntry, FoodItem } from '../types/food';
 import { WorkoutTemplate, TemplateSchedule } from '../types/template';
 import { templateService } from '../services/templates';
 import { scheduleService, SessionLink } from '../services/schedule';
-import { emptyLibrary, migrateToV1, rememberName, withIdentity } from '../services/exerciseIdentity';
+import { emptyLibrary, forgetPick, migrateToV1, rememberName, rememberPick, withIdentity } from '../services/exerciseIdentity';
 import { withFoodGoal } from '../services/goals';
 import { useChatStore } from './chatStore';
 import { format } from 'date-fns';
@@ -46,6 +46,8 @@ interface WorkoutState {
   updateSettings: (settings: Partial<UserSettings>) => void;
   createCustomExercise: (name: string, muscleGroup: MuscleGroup) => string;
   rememberName: (exerciseId: string, words: string) => void;
+  rememberPick: (words: string, exerciseId: string) => ExerciseLibrary; // returns the library before, for forgetPick
+  forgetPick: (words: string, before: ExerciseLibrary) => void;
   clearAllData: () => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -227,6 +229,16 @@ export const useWorkoutStore = create<WorkoutState>()(
 
       rememberName: (exerciseId, words) => {
         set((state) => ({ exerciseLibrary: rememberName(state.exerciseLibrary, exerciseId, words) }));
+      },
+
+      rememberPick: (words, exerciseId) => {
+        const before = get().exerciseLibrary;
+        set({ exerciseLibrary: rememberPick(before, words, exerciseId) });
+        return before;
+      },
+
+      forgetPick: (words, before) => {
+        set((state) => ({ exerciseLibrary: forgetPick(state.exerciseLibrary, words, before) }));
       },
 
       updateSettings: (newSettings) => {

@@ -160,24 +160,30 @@ export interface PickerOption {
   count: number; // times the user has logged it; 0 for catalog entries they haven't
 }
 
-// The picker's list: the user's own exercises first (most logged first), then catalog matches.
-// A query matches any word sequence in a name or catalog alias, or names an exercise outright.
-export function searchExercises(query: string, workouts: Workout[], library: ExerciseLibrary, limit = 50): PickerOption[] {
-  const q = normalizeWords(query);
+// Times the user has logged each exercise; their custom exercises count even at 0
+function loggedCounts(workouts: Workout[], library: ExerciseLibrary) {
   const counts = new Map<string, number>();
   for (const e of workouts.flatMap((w) => w.exercises)) {
     const id = e.exerciseId && resolveId(e.exerciseId, library);
     if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   for (const c of library.custom) if (!library.merged[c.id] && !counts.has(c.id)) counts.set(c.id, 0);
+  return counts;
+}
 
-  const option = (id: string): PickerOption | undefined => {
-    const entry = catalogById.get(id);
-    const custom = library.custom.find((c) => c.id === id);
-    const muscleGroup = entry?.primary ?? custom?.muscleGroup;
-    const name = displayName(id, library);
-    return name && muscleGroup ? { exerciseId: id, name, muscleGroup, count: counts.get(id) ?? 0 } : undefined;
-  };
+function pickerOption(id: string, counts: Map<string, number>, library: ExerciseLibrary): PickerOption | undefined {
+  const entry = catalogById.get(id);
+  const custom = library.custom.find((c) => c.id === id);
+  const muscleGroup = entry?.primary ?? custom?.muscleGroup;
+  const name = displayName(id, library);
+  return name && muscleGroup ? { exerciseId: id, name, muscleGroup, count: counts.get(id) ?? 0 } : undefined;
+}
+
+// The picker's list: the user's own exercises first (most logged first), then catalog matches.
+// A query matches any word sequence in a name or catalog alias, or names an exercise outright.
+export function searchExercises(query: string, workouts: Workout[], library: ExerciseLibrary, limit = 50): PickerOption[] {
+  const q = normalizeWords(query);
+  const counts = loggedCounts(workouts, library);
   const matches = (id: string) =>
     !q || [displayName(id, library) ?? '', ...(catalogById.get(id)?.aliases ?? [])].some((w) => normalizeWords(w).includes(q));
 
@@ -185,7 +191,24 @@ export function searchExercises(query: string, workouts: Workout[], library: Exe
   const catalog = q ? CATALOG.filter((e) => !e.replacedBy && !counts.has(e.id) && matches(e.id)).map((e) => e.id) : [];
   const known = knownIdFor(query, library);
   const ids = known && !yours.includes(known) && !catalog.includes(known) ? [known, ...yours, ...catalog] : [...yours, ...catalog];
-  return ids.slice(0, limit).flatMap((id) => option(id) ?? []);
+  return ids.slice(0, limit).flatMap((id) => pickerOption(id, counts, library) ?? []);
+}
+
+// The few exercises an unsure entry most likely is, offered first in the picker: the parse's guess,
+// its second choice, the exercises its words can mean (the ones you log most first), then search hits
+export function likelyExercises(
+  e: { name: string; exerciseId?: string; alt?: string; said?: string },
+  workouts: Workout[],
+  library: ExerciseLibrary,
+  limit = 3,
+): PickerOption[] {
+  const words = (e.said && exerciseWords(e.said)) || e.name;
+  const counts = loggedCounts(workouts, library);
+  const meanings = [...(ambiguousKeys.get(exerciseKey(words)) ?? [])].sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
+  const ids = [e.exerciseId, e.alt, ...meanings].flatMap((id) => (id ? [resolveId(id, library)] : []));
+  const options = [...new Set(ids)].flatMap((id) => pickerOption(id, counts, library) ?? []);
+  const more = searchExercises(words, workouts, library, limit).filter((o) => !options.some((x) => x.exerciseId === o.exerciseId));
+  return [...options, ...more].slice(0, limit);
 }
 
 // The user's exercises for the parser's candidate list, most recently logged first, each with up
@@ -243,4 +266,27 @@ export function shownName(e: Pick<Exercise, 'name' | 'exerciseId' | 'said'>, lib
   const own = id && (library.renames[id] ?? (said && aliasFor(said, library.aliases) === id ? sentenceCase(said) : undefined));
   if (!entry || !own) return { name: e.name };
   return { name: own, ...(exerciseKey(own) !== exerciseKey(entry.name) ? { catalog: entry.name } : {}) };
+}
+
+// The words a pick is remembered by: what the user typed for the exercise, without its numbers. None
+// when there are no such words or they already name a catalog exercise, so a pick never redefines one.
+export function pickWords(said?: string): string | undefined {
+  const words = said ? exerciseWords(said) : '';
+  return words && fitsPrompt(words) && !catalogIdFor(words) ? words : undefined;
+}
+
+// A pick from the picker: the user's words now mean that exercise, so later logs pick it by them. It
+// replaces any alias the same words had, so an alias never belongs to two exercises.
+export function rememberPick(library: ExerciseLibrary, words: string, exerciseId: string): ExerciseLibrary {
+  const key = exerciseKey(words);
+  const others = Object.entries(library.aliases).filter(([w]) => exerciseKey(w) !== key);
+  return { ...library, aliases: { ...Object.fromEntries(others), [normalizeWords(words)]: resolveId(exerciseId, library) } };
+}
+
+// Undo of rememberPick: the words get back the alias they had in `before`, or none
+export function forgetPick(library: ExerciseLibrary, words: string, before: ExerciseLibrary): ExerciseLibrary {
+  const key = exerciseKey(words);
+  const others = Object.entries(library.aliases).filter(([w]) => exerciseKey(w) !== key);
+  const had = Object.entries(before.aliases).filter(([w]) => exerciseKey(w) === key);
+  return { ...library, aliases: Object.fromEntries([...others, ...had]) };
 }
