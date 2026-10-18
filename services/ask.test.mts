@@ -49,7 +49,7 @@ test('a question goes to the Worker in coach mode with the pack, the thread and 
   // Older Workers read these instead and still answer from the pack
   assert.match(system, /<knowledge>[\s\S]*<pack>/);
   assert.equal(messages[0].content, "I've taken a few days off. What should I start with?");
-  assert.equal(COACH_MODEL, 'claude-sonnet-5-5');
+  assert.equal(COACH_MODEL, 'claude-haiku-5-5');
   assert.equal(reply.headline, 'Start lower, a bit lighter');
   assert.equal(reply.answer, 'Six days off after 9 weeks at 4 a week. Squat 165x5, 10% off 185x5.');
   assert.deepEqual(reply.chips, ['Upper instead', 'Why 10% off?', 'Make it 30 minutes']);

@@ -9,7 +9,7 @@
 // A suggested workout or meals come back as fields of the final answer and render as cards that
 // save only on a tap; a thing to remember comes back the same way and is stored only on a tap.
 
-export const COACH_MODEL = 'claude-sonnet-5-5';
+export const COACH_MODEL = 'claude-haiku-5-5';
 // A safety refusal is retried on Anthropic's recommended fallback model inside the same call
 export const COACH_BETA = 'server-side-fallback-2026-07-01';
 export const MAX_QUESTION_CHARS = 2000;
