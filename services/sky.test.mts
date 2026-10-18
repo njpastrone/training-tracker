@@ -78,6 +78,10 @@ test('days a week set to 4, a plan made today, one day trained: 1 of 4, not met'
   assert.equal(sky.done, 1);
   assert.equal(sky.target, 4);
   assert.notEqual(sky.phase, 'day');
+  // Four days trained with the same plan meets the goal
+  const met = weekSky(w('2026-10-02', '2026-10-04', '2026-10-06', '2026-10-08'), plan, THU, { weeklyTarget: 4 });
+  assert.equal(met.target, 4);
+  assert.equal(met.phase, 'day');
 });
 
 test('a new user is never behind in their first 7 days, and the target is only the days they have been here', () => {
