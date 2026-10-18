@@ -102,6 +102,17 @@ test('workouts logged before saving was turned on are never copied', async () =>
   assert.ok(!calls.some((c) => c[0] === 'saveWorkout'));
 });
 
+test('after saving is turned off and on again, editing an earlier workout deletes its Health copy and does not save it again', async () => {
+  store().updateSettings({ appleHealth: { saveSince: new Date(Date.now() - 1000).toISOString() } });
+  store().addWorkout(workout('a'));
+  await flush();
+  store().updateSettings({ appleHealth: { saveSince: new Date(Date.now() + 1000).toISOString() } });
+  calls = [];
+  store().updateWorkout('a', { date: format(subDays(new Date(), 1), 'yyyy-MM-dd') });
+  await flush();
+  assert.deepEqual(calls, [['deleteWorkouts', ['a']]]);
+});
+
 test('imports and Clear all data leave Apple Health alone', async () => {
   store().updateSettings({ appleHealth: { saveSince: new Date(Date.now() - 1000).toISOString() } });
   store().importWorkouts([workout('imported')], store().exerciseLibrary);

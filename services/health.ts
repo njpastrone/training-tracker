@@ -43,9 +43,9 @@ let syncing = Promise.resolve();
 async function sync({ saved = [], removed = [] }: WorkoutChange, settings: AppleHealthSettings | undefined) {
   const since = settings?.saveSince;
   if (!Health || !since || !Health.canSaveWorkouts()) return;
-  // Only workouts logged since saving was turned on; a changed one is replaced, never doubled
+  // Any old copy of a changed workout goes; only workouts logged since saving was turned on are saved again
   const save = saved.filter(w => w.createdAt >= since);
-  const ids = [...removed, ...save.map(w => w.id)];
+  const ids = [...removed, ...saved.map(w => w.id)];
   if (ids.length) await Health.deleteWorkouts(ids);
   for (const w of save) {
     const times = healthTimes(w, new Date());
