@@ -9,7 +9,7 @@ import CoachCard, { ThinkingCard } from '../../components/CoachCard';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
 import PlanCard from '../../components/PlanCard';
-import { LiftChart, LoggedCard, OpenerCard, PlannedCard } from '../../components/ThreadCards';
+import { LiftChart, LoggedCard, MovedCard, MovePickCard, OpenerCard, PlannedCard } from '../../components/ThreadCards';
 import { dayLabel } from '../../components/WorkoutCard';
 import { LargeTitle, SkySheet } from '../../components/Sky';
 import { HeaderButton, Pill } from '../../components/Glass';
@@ -57,6 +57,7 @@ export default function ChatScreenTab() {
   const log = useLogDraft({
     date: today,
     withFood: true,
+    moves: true,
     onQuestion: ask,
     onLogged: async (workoutId, templateId) => {
       // Started from today's plan: mark the day done, as Log does
@@ -148,6 +149,7 @@ export default function ChatScreenTab() {
             {item.kind === 'you' && <UserBubble text={item.text} />}
             {item.kind === 'logged' && <LoggedCard item={item} />}
             {item.kind === 'planned' && <PlannedCard item={item} />}
+            {item.kind === 'moved' && <MovedCard item={item} />}
             {item.kind === 'answer' && (
               <View style={styles.answer}>
                 <CoachCard
@@ -176,6 +178,7 @@ export default function ChatScreenTab() {
 
         {log.sent && <UserBubble text={log.sent} />}
         {log.busy === 'parse' && <ThinkingCard title="Reading it…" />}
+        {log.picking && <MovePickCard entries={log.picking.entries} to={log.picking.to} onPick={entry => log.pickMove(entry, log.picking!.to)} onCancel={log.discard} />}
         {log.draft && (
           <ParsedCard
             key={log.templateId ?? 'parsed'}

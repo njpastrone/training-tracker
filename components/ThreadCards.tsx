@@ -14,6 +14,8 @@ import type { MuscleGroup } from '../types/workout';
 import type { Opener } from '../services/opener';
 import { openerText } from '../services/opener';
 import { loggedName } from '../services/thread';
+import { entryLabel, movedText, type EntryRef } from '../services/moveLog';
+import { format, parseISO } from 'date-fns';
 
 // The app's side of the Chat thread: what was logged or planned (read live from the log, so edits and
 // deletes show), the opener, and the lift chart under an answer. Reply bubbles on the left; yours are
@@ -65,7 +67,8 @@ export function LoggedCard({ item }: { item: Extract<ChatItem, { kind: 'logged' 
   const items = food.flatMap(e => e.items);
   const kcal = Math.round(items.reduce((n, i) => n + i.macros.kcal, 0));
   const protein = Math.round(items.reduce((n, i) => n + i.macros.protein, 0));
-  const open = () => router.push(workouts.length === 1 && !food.length ? `/workout/${workouts[0].id}` : `/day/${item.day}`);
+  // The day as it is now: a log moved since lands where it went
+  const open = () => router.push(workouts.length === 1 && !food.length ? `/workout/${workouts[0].id}` : `/day/${workouts[0]?.date ?? food[0].date}`);
 
   return (
     <Reply>
@@ -111,6 +114,61 @@ export function PlannedCard({ item }: { item: Extract<ChatItem, { kind: 'planned
           {days.length} workouts on the calendar
         </Text>
       )}
+    </Reply>
+  );
+}
+
+// A log moved to another day, read live: Undo while it's still where it went
+export function MovedCard({ item }: { item: Extract<ChatItem, { kind: 'moved' }> }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const moveEntry = useWorkoutStore(s => s.moveEntry);
+  const date = useWorkoutStore(s => (item.entry.kind === 'workout' ? s.workouts : s.foodEntries).find(e => e.id === item.entry.id)?.date);
+  return (
+    <Reply>
+      <Header title={movedText(item.label, item.from, item.to)} onOpen={date ? () => router.push(`/day/${date}`) : undefined} />
+      {date === item.to ? (
+        <View style={styles.actions}>
+          <Pill size="small" variant="glass" label="Undo" onPress={() => moveEntry(item.entry, item.from)} />
+        </View>
+      ) : (
+        <Text variant="bodyMedium" style={[styles.line, { color: colors.textTertiary }]}>
+          {!date ? 'Deleted' : date === item.from ? 'Moved back' : `Now on ${dayLabel(date)}`}
+        </Text>
+      )}
+    </Reply>
+  );
+}
+
+// More than one log fits a move request: the user picks which one goes
+export function MovePickCard({ entries, to, onPick, onCancel }: { entries: EntryRef[]; to: string; onPick: (entry: EntryRef) => void; onCancel: () => void }) {
+  const { colors } = useTheme();
+  const workouts = useWorkoutStore(s => s.workouts);
+  const foodEntries = useWorkoutStore(s => s.foodEntries);
+  return (
+    <Reply>
+      <Header title={`Which one goes to ${dayLabel(to)}?`} />
+      {entries.map(entry => {
+        const record = (entry.kind === 'workout' ? workouts : foodEntries).find(e => e.id === entry.id);
+        const label = entryLabel(entry, workouts, foodEntries);
+        if (!record || !label) return null;
+        const when = `${dayLabel(record.date)} · ${format(parseISO(record.createdAt), 'h:mm a').toLowerCase()}`;
+        return (
+          <Pressable
+            key={entry.id}
+            onPress={() => onPick(entry)}
+            accessibilityRole="button"
+            accessibilityLabel={`${label}, ${when}. Move to ${dayLabel(to)}`}
+            style={({ pressed }) => [styles.pick, { borderTopColor: colors.dim }, pressed && { opacity: 0.7 }]}
+          >
+            <Text variant="bodyLarge" style={{ color: colors.text }}>{label}</Text>
+            <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{when}</Text>
+          </Pressable>
+        );
+      })}
+      <View style={styles.actions}>
+        <Pill size="small" variant="glass" label="Cancel" onPress={onCancel} />
+      </View>
     </Reply>
   );
 }
@@ -187,6 +245,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.gap,
+  },
+  pick: {
+    borderTopWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
   },
   chart: {
     marginTop: spacing.sm,

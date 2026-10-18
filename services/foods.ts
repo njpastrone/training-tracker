@@ -374,6 +374,12 @@ export function sumMacros(items: { macros: Macros }[]): Macros {
 // "42 g protein · 520 kcal": protein first, the number a lifter acts on
 export const macroLine = (m: Macros) => `${Math.round(m.protein)} g protein · ${Math.round(m.kcal).toLocaleString('en-US')} kcal`;
 
+// A meal's name from the time it was logged; before 4 am is the night before's
+export function mealName(createdAt: string): string {
+  const h = parseISO(createdAt).getHours();
+  return h < 4 ? 'Late night' : h < 11 ? 'Morning' : h < 15 ? 'Midday' : h < 18 ? 'Afternoon' : 'Evening';
+}
+
 // A day's food as meals for the day screen: one logged message is one meal, oldest first, named by
 // the time it was logged ("Morning", "8:10 am"), with its totals
 export interface Meal {
@@ -386,9 +392,7 @@ export function mealsOf(entries: FoodEntry[]): Meal[] {
   return [...entries]
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
     .map(entry => {
-      const at = parseISO(entry.createdAt);
-      const h = at.getHours();
-      const name = h < 11 ? 'Morning' : h < 15 ? 'Midday' : h < 18 ? 'Afternoon' : 'Evening';
-      return { entry, name, time: format(at, 'h:mm a').toLowerCase(), macros: sumMacros(entry.items) };
+      const time = format(parseISO(entry.createdAt), 'h:mm a').toLowerCase();
+      return { entry, name: mealName(entry.createdAt), time, macros: sumMacros(entry.items) };
     });
 }

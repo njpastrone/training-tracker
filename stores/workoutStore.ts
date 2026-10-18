@@ -10,12 +10,19 @@ import { scheduleService, SessionLink } from '../services/schedule';
 import { emptyLibrary, forgetPick, migrateToV1, rememberName, rememberPick, withIdentity } from '../services/exerciseIdentity';
 import { withFoodGoal } from '../services/goals';
 import { useChatStore } from './chatStore';
+import type { EntryRef } from '../services/moveLog';
 import { format } from 'date-fns';
 
 // Undo payload: the deleted workouts and the plan sessions their delete reopened
 export interface DeletedWorkouts {
   workouts: Workout[];
   sessions: Promise<SessionLink[]>;
+}
+
+// A log moved to another day: Undo moves it back to `from`
+export interface MovedEntry extends EntryRef {
+  from: string;
+  to: string;
 }
 
 interface WorkoutState {
@@ -40,6 +47,10 @@ interface WorkoutState {
   deleteWithUndo: (ids: string[]) => void;
   clearUndo: () => void;
   getWorkoutsByDate: (date: string) => Workout[];
+  moveEntry: (entry: EntryRef, to: string) => MovedEntry | null; // null when it's gone or already there
+  // The last move, for <UndoToast> on whichever screen the user lands on
+  moved: (MovedEntry & { at: number }) | null;
+  clearMoved: () => void;
   addFoodEntry: (entry: FoodEntry) => void;
   removeFoodItem: (entryId: string, itemId: string) => void; // the entry goes when its last item does
   updateFoodItem: (entryId: string, itemId: string, item: FoodItem) => void; // a new amount, unit or food; keeps its id
@@ -84,6 +95,9 @@ async function backupV0() {
   }
 }
 
+// Plan relinks run one at a time, so a move and its Undo don't race on the stored schedule
+let relinking = Promise.resolve();
+
 const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
 };
@@ -100,6 +114,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       isLoading: false,
       error: null,
       undo: null,
+      moved: null,
 
       addWorkout: (newWorkout) => {
         const { workout, library } = withIdentity(newWorkout, get().exerciseLibrary);
@@ -129,6 +144,7 @@ export const useWorkoutStore = create<WorkoutState>()(
       },
 
       updateWorkout: (id, updates) => {
+        const before = get().workouts.find((w) => w.id === id);
         let library = get().exerciseLibrary;
         const workouts = get().workouts.map((w) => {
           if (w.id !== id) return w;
@@ -138,6 +154,16 @@ export const useWorkoutStore = create<WorkoutState>()(
         });
         // A new date moves it: Log's Recent and the Select list read the order as is
         set({ workouts: workouts.sort((a, b) => b.date.localeCompare(a.date)), exerciseLibrary: library });
+        // The plan follows: the old day's session it completed reopens, the new day's planned session completes
+        if (before && updates.date && updates.date !== before.date) {
+          const date = updates.date;
+          relinking = relinking
+            .then(async () => {
+              const unlinked = await scheduleService.unlinkDeletedWorkouts([id]);
+              if ((await scheduleService.linkLoggedWorkout(date, id)) || unlinked.length) await get().loadSchedule();
+            })
+            .catch(error => console.error('Error moving workout on the plan:', error));
+        }
       },
 
       deleteWorkout: (id) => {
@@ -191,6 +217,20 @@ export const useWorkoutStore = create<WorkoutState>()(
       getWorkoutsByDate: (date) => {
         return get().workouts.filter((w) => w.date === date);
       },
+
+      // Only the day changes: the time it was logged, its numbers and its id stay, so everything
+      // computed from dates (days, History, Progress, streaks, food totals, PRs) follows
+      moveEntry: ({ kind, id }, to) => {
+        const from = (kind === 'workout' ? get().workouts : get().foodEntries).find((e) => e.id === id)?.date;
+        if (!from || from === to) return null;
+        if (kind === 'workout') get().updateWorkout(id, { date: to });
+        else set((state) => ({ foodEntries: state.foodEntries.map((e) => (e.id === id ? { ...e, date: to } : e)).sort((a, b) => b.date.localeCompare(a.date)) }));
+        const moved = { kind, id, from, to };
+        set({ moved: { ...moved, at: Date.now() } });
+        return moved;
+      },
+
+      clearMoved: () => set({ moved: null }),
 
       addFoodEntry: (entry) => {
         set((state) => ({ foodEntries: [entry, ...state.foodEntries].sort((a, b) => b.date.localeCompare(a.date)) }));

@@ -11,6 +11,7 @@ import { SectionLabel } from './Sky';
 import { Pill } from './Glass';
 import WorkoutList from './WorkoutList';
 import type { FoodDayTotal } from '../services/progress';
+import { entryLabel, movedText } from '../services/moveLog';
 
 const plural = (n: number) => `${n} workout${n === 1 ? '' : 's'}`;
 const TOAST_MS = 6000;
@@ -96,14 +97,32 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, by
   );
 }
 
-// Floats over the bottom of the screen for a few seconds after any delete (deleteWithUndo), also on
-// the screen you land on after deleting from the workout screen
+// Floats over the bottom of the screen for a few seconds after any delete (deleteWithUndo) or move to
+// another day (moveEntry), also on the screen you land on after doing it from the workout screen
 export function UndoToast() {
   const undo = useWorkoutStore(s => s.undo);
   const restoreWorkouts = useWorkoutStore(s => s.restoreWorkouts);
   const clearUndo = useWorkoutStore(s => s.clearUndo);
-  // A delete made where no toast shows isn't offered later, out of context
-  if (!undo?.workouts.length || Date.now() - undo.at > TOAST_MS) return null;
+  const moved = useWorkoutStore(s => s.moved);
+  const moveEntry = useWorkoutStore(s => s.moveEntry);
+  const clearMoved = useWorkoutStore(s => s.clearMoved);
+  const workouts = useWorkoutStore(s => s.workouts);
+  const foodEntries = useWorkoutStore(s => s.foodEntries);
+  // One made where no toast shows isn't offered later, out of context
+  const fresh = (at: number) => Date.now() - at <= TOAST_MS;
+  const label = moved && entryLabel(moved, workouts, foodEntries);
+  if (moved && label && fresh(moved.at) && !(undo && undo.at > moved.at)) {
+    return (
+      <Toast
+        key={`${moved.id}-${moved.at}`}
+        icon="calendar"
+        text={movedText(label, moved.from, moved.to)}
+        onUndo={() => moveEntry(moved, moved.from)}
+        onClose={clearMoved}
+      />
+    );
+  }
+  if (!undo?.workouts.length || !fresh(undo.at)) return null;
   return (
     <Toast
       key={undo.workouts.map(w => w.id).join()}

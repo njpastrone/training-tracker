@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { CoachCards, CoachReply } from '../services/ask';
+import type { EntryRef } from '../services/moveLog';
 
 // The Chat tab's thread: your log as one conversation, kept on this phone (and in backups) until
 // cleared. Only finished things land here: what you sent plus what came of it. Log and plan items
@@ -24,6 +25,7 @@ export type NewChatItem =
   | { kind: 'you'; text: string }
   | { kind: 'logged'; workoutIds: string[]; foodEntryIds: string[]; day: string }
   | { kind: 'planned'; dates: string[]; planId?: string }
+  | { kind: 'moved'; entry: EntryRef; from: string; to: string; label: string } // label: what it was called when moved
   | { kind: 'answer'; question: string; turn: CoachTurnState };
 export type ChatItem = NewChatItem & Stamp;
 

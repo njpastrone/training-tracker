@@ -17,9 +17,9 @@ import GoalBar from './GoalBar';
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
 
 // A day's food for the day screen: the goal and its ring, the plain macros, then each meal (one
-// logged message) with its foods. Rows are read-only; tapping a food opens its editor in place.
-// Nothing shows on a day with no food.
-export default function FoodDay({ entries, goal }: { entries: FoodEntry[]; goal?: FoodGoal }) {
+// logged message) with its foods. Rows are read-only; tapping a food opens its editor in place; Move
+// on a meal moves it to another day. Nothing shows on a day with no food.
+export default function FoodDay({ entries, goal, onMove }: { entries: FoodEntry[]; goal?: FoodGoal; onMove?: (entry: FoodEntry) => void }) {
   const colors = useColors();
   const removeFoodItem = useWorkoutStore(s => s.removeFoodItem);
   const updateFoodItem = useWorkoutStore(s => s.updateFoodItem);
@@ -63,8 +63,13 @@ export default function FoodDay({ entries, goal }: { entries: FoodEntry[]; goal?
         {mealsOf(entries).map(({ entry, name, time, macros: m }) => (
           <View key={entry.id} style={[styles.meal, { borderTopColor: colors.dim }]}>
             <View style={styles.mealHead}>
-              <SectionLabel>{`${name} · ${time}`}</SectionLabel>
+              <SectionLabel style={styles.flex}>{`${name} · ${time}`}</SectionLabel>
               <Text style={[styles.faint, { color: colors.textTertiary }]}>{calories ? `${n(m.kcal)} kcal` : `${m.protein} g protein`}</Text>
+              {onMove && (
+                <Pressable onPress={() => onMove(entry)} accessibilityRole="button" accessibilityLabel={`Move ${name.toLowerCase()} meal to another day`} hitSlop={10}>
+                  <Text style={[styles.move, { color: colors.textSecondary }]}>Move</Text>
+                </Pressable>
+              )}
             </View>
             {entry.items.map(item =>
               open === item.id ? (
@@ -154,7 +159,11 @@ const styles = StyleSheet.create({
   mealHead: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    justifyContent: 'space-between',
+    gap: spacing.gap,
+  },
+  move: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   food: {
     flexDirection: 'row',
