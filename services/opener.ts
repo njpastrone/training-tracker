@@ -50,3 +50,6 @@ export function openerText(o: NonNullable<Opener>): string {
   if (o.kind === 'comeback') return `${o.days} days since your last workout. Start with whatever has rested longest.`;
   return 'Tell me what you did or ate, or ask about your training.';
 }
+
+// The opener's own chips, in place of the usual ones
+export const openerChips = (o: Opener): string[] => (o?.kind === 'comeback' ? ['What should I start with?'] : []);

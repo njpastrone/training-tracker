@@ -13,6 +13,7 @@ import type { LiftTrend } from '../services/insights';
 import type { MuscleGroup } from '../types/workout';
 import type { Opener } from '../services/opener';
 import { openerText } from '../services/opener';
+import { loggedName } from '../services/thread';
 
 // The app's side of the Chat thread: what was logged or planned (read live from the log, so edits and
 // deletes show), the opener, and the lift chart under an answer. Reply bubbles on the left; yours are
@@ -21,7 +22,7 @@ import { openerText } from '../services/opener';
 function Reply({ children, label }: { children: React.ReactNode; label?: string }) {
   const { colors } = useTheme();
   return (
-    <Animated.View entering={FadeInDown.springify().damping(17)} accessibilityLabel={label} style={[styles.reply, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <Animated.View entering={FadeInDown.springify().damping(17)} accessibilityLabel={label} style={[styles.reply, { backgroundColor: colors.card, borderColor: colors.cardLine }]}>
       {children}
     </Animated.View>
   );
@@ -34,7 +35,7 @@ function Header({ title, onOpen }: { title: string; onOpen?: () => void }) {
       <Text variant="titleSmall" style={[styles.fill, { color: colors.text }]}>{title}</Text>
       {onOpen && (
         <Pressable onPress={onOpen} accessibilityRole="link" hitSlop={10}>
-          <Text variant="bodyMedium" style={{ color: colors.cobalt, fontWeight: '600' }}>Open ›</Text>
+          <Text variant="bodyMedium" style={{ color: colors.textSecondary, fontWeight: '600' }}>Open ›</Text>
         </Pressable>
       )}
     </View>
@@ -59,7 +60,7 @@ export function LoggedCard({ item }: { item: Extract<ChatItem, { kind: 'logged' 
 
   const groups = [...new Set(workouts.flatMap(w => w.muscleGroups as MuscleGroup[]))];
   const template = templates.find(t => t.id === workouts[0]?.templateId)?.name;
-  const name = template ?? (groups.length ? groups.slice(0, 2).map(muscleName).join(', ') : workouts.length ? 'Workout' : 'Food');
+  const name = loggedName(template, groups, workouts.length > 0);
   const exercises = workouts.reduce((n, w) => n + w.exercises.length, 0);
   const items = food.flatMap(e => e.items);
   const kcal = Math.round(items.reduce((n, i) => n + i.macros.kcal, 0));
@@ -119,6 +120,9 @@ export function OpenerCard({ opener, onStart, onNotToday }: { opener: NonNullabl
   return (
     <Reply>
       <Text variant="bodyLarge" style={{ color: colors.text }}>{openerText(opener)}</Text>
+      {opener.kind === 'welcome' && (
+        <Text variant="bodyMedium" style={[styles.line, { color: colors.textSecondary }]}>General training information, not medical advice.</Text>
+      )}
       {opener.kind === 'planned' && opener.note && (
         <Text variant="bodyMedium" style={[styles.line, { color: colors.textSecondary }]}>{opener.note}</Text>
       )}

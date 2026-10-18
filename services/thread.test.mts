@@ -13,7 +13,7 @@ mock.module('@react-native-async-storage/async-storage', {
   },
 });
 
-const { coachThread, needsStamp, chartFor, liftWord } = await import('./thread');
+const { coachThread, needsStamp, chartFor, liftWord, loggedName } = await import('./thread');
 const { useChatStore } = await import('../stores/chatStore');
 
 const now = new Date(2026, 9, 17, 18, 0);
@@ -62,6 +62,14 @@ test('liftWord skips equipment and stance words', () => {
   assert.equal(liftWord('Barbell Bench Press'), 'bench');
   assert.equal(liftWord('Seated Cable Row'), 'row');
   assert.equal(liftWord('Squat'), 'squat');
+});
+
+test("loggedName uses the template, else History's workout name, else Food", () => {
+  assert.equal(loggedName('Leg day', ['quads'], true), 'Leg day');
+  assert.equal(loggedName(undefined, ['chest', 'shoulders', 'triceps'], true), 'Push');
+  assert.equal(loggedName(undefined, ['chest', 'quads'], true), 'Full body');
+  assert.equal(loggedName(undefined, [], true), 'Workout');
+  assert.equal(loggedName(undefined, [], false), 'Food');
 });
 
 test('the store adds, patches an answer and clears', () => {

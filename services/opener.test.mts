@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { format, subDays } from 'date-fns';
-import { pickOpener, openerText, type OpenerInput } from './opener';
+import { pickOpener, openerText, openerChips, type OpenerInput } from './opener';
 import { emptyLibrary } from './exerciseIdentity';
 import type { MuscleGroup, Workout } from '../types/workout';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
@@ -46,6 +46,12 @@ test('comeback after 5+ days off with a usual week, not before', () => {
   assert.deepEqual(o, { kind: 'comeback', days: 6 });
   assert.equal(openerText(o!), '6 days since your last workout. Start with whatever has rested longest.');
   assert.equal(pickOpener(input({ workouts: usualWeeks(4) }), now), null);
+});
+
+test('only the comeback opener brings its own chip', () => {
+  assert.deepEqual(openerChips({ kind: 'comeback', days: 6 }), ['What should I start with?']);
+  assert.deepEqual(openerChips({ kind: 'welcome' }), []);
+  assert.deepEqual(openerChips(null), []);
 });
 
 test('welcome only on an empty thread', () => {
