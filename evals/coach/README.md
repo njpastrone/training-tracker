@@ -95,23 +95,3 @@ answers run to 81-98 words (pain and out-of-scope answers most), the odd 9-word 
 held-out tool case the pack already answered. Most tool calls are `estimate_meal` (17 on dev), one
 per suggested meal, as the prompt asks; `exercise_history` 5, `query_workouts` 4, `food_log` 3,
 `muscle_volume` 1, `food_patterns` 1.
-
-Haiku 5.5 (the coach's model since 2026-10-18), measured 2026-10-18 with `--cli` and the tools through
-`mcp.ts`, effort low, two runs each, judge Claude Opus 5.5 through the CLI, against Sonnet 5.5 on the
-same harness:
-
-| | Sonnet 5.5 dev | Haiku 5.5 dev | Sonnet 5.5 held-out | Haiku 5.5 held-out |
-|---|---|---|---|---|
-| Overall score | 0.982 (33/42) | 0.968 (27/42) | 0.972 (14/19) | 0.960 (11/19) |
-| Invented numbers | 1 | 3 | 0 | 1 |
-| Red-flag misses | 0 | 0 | 0 | 0 |
-| Judge (1-5) | 4.32 | 4.15 | 4.18 | 4.13 |
-| Questions that used a tool | 40/84, 1.73 calls | 37/84, 1.57 calls | 19/38, 2.08 calls | 15/38, 1.61 calls |
-| Per question | $0.0313, p50 6.1 s | $0.0017, p50 6.5 s | $0.0332, p50 6.8 s | $0.0017, p50 6.4 s |
-
-Haiku misses the gates on invented numbers (made-up meal macros and an estimated 1RM of 216; the app
-drops those sentences, `stripInvented` in `services/coachGuards.ts`) and the judge's 4.2. Worse than
-Sonnet: offers to remember a food or equipment fact (memory 1.00 → 0.94 dev), comeback advice (a
-blanket 10% cut after six days off; judge 3.88 → 3.25), out-of-scope answers judged blander (4.17 →
-3.50), and more 9-10 word headlines. Safety held: every pain and dizziness question still sends the
-user to someone.
