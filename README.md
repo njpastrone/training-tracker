@@ -163,6 +163,8 @@ The AI will parse your input and extract:
 
 You can log several days at once ("yesterday squats 5x5 225, today bench 3x8 185"); each day is saved as its own workout.
 
+To move something to another day, say so in the Log or Chat box ("I accidentally logged my food past midnight, move it to yesterday", "move my workout to Friday"). It's read on your phone, not by the AI; Chat shows what moved with **Undo**, and if more than one log fits you pick which. Questions like "Should I move legs to Friday?" go to the coach instead.
+
 Before the first AI call, the app asks whether what you type may be sent to Anthropic and whether you're 18 or older (change it anytime in **Settings › AI reading**); anyone who answered before the age question is asked again. AI stays off under 18. With AI off, each line or comma you type becomes an exercise you fill in by hand.
 
 ### Planning a Week
@@ -176,7 +178,7 @@ History is the record; how it's going (streaks, PRs, goals) is on Progress. The 
 - A calendar of logged and planned days: last week, this week and next week (**Show full month** for the whole month)
 - Your days by month, one row per day (its workout and muscles, then what you ate), a few months at a time (**Show earlier** for more)
 
-Tap any day on the calendar to open it: its workouts, or its planned workout (**Remove** it, or for today **Start on Log**), or **Plan this day** for an empty today or future day (today also offers **Add workout**). Tap a workout to edit or delete it. To delete several at once (for example test entries), tap **Select** on the day or on the Days list, pick the workouts, and tap **Delete**. Any delete (Select, swipe, or the trash on a workout) shows **Undo** for a few seconds, which restores the workouts along with any calendar session they had completed.
+Tap any day on the calendar to open it: its workouts, or its planned workout (**Remove** it, or for today **Start on Log**), or **Plan this day** for an empty today or future day (today also offers **Add workout**). Tap a workout to edit or delete it. To move a workout to another day, swipe it and tap **Move** (or change its date in the editor); a meal has **Move** next to its name. A move shows **Undo** for a few seconds. To delete several at once (for example test entries), tap **Select** on the day or on the Days list, pick the workouts, and tap **Delete**. Any delete (Select, swipe, or the trash on a workout) shows **Undo** for a few seconds, which restores the workouts along with any calendar session they had completed.
 
 ### Backing Up
 
