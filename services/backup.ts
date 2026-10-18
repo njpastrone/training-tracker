@@ -83,7 +83,9 @@ const chatItemOk = (i: any) =>
       ? strings(i.workoutIds) && strings(i.foodEntryIds) && typeof i.day === 'string'
       : i.kind === 'planned'
         ? strings(i.dates)
-        : i.kind === 'answer' && typeof i.question === 'string' && isObject(i.turn) && typeof i.turn.raw === 'string' && hasStrings(i.turn.reply, 'answer') && Array.isArray(i.turn.reply.chips));
+        : i.kind === 'moved'
+          ? hasStrings(i, 'from', 'to', 'label') && hasStrings(i.entry, 'kind', 'id')
+          : i.kind === 'answer' && typeof i.question === 'string' && isObject(i.turn) && typeof i.turn.raw === 'string' && hasStrings(i.turn.reply, 'answer') && Array.isArray(i.turn.reply.chips));
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
   '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises) && Array.isArray(t.muscleGroups),

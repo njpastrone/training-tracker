@@ -15,6 +15,7 @@ import { ThinkingCard } from '../../components/CoachCard';
 import TodaySummary, { RecentDays, UpNext } from '../../components/TodayTiles';
 import SunArc from '../../components/SunArc';
 import { UndoToast } from '../../components/SelectableWorkoutList';
+import { MovePickCard } from '../../components/ThreadCards';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLogDraft } from '../../hooks/useLogDraft';
@@ -90,6 +91,7 @@ export default function LogScreen() {
   const log = useLogDraft({
     date: today,
     withFood: true,
+    moves: true,
     onQuestion: question => router.navigate({ pathname: '/(tabs)/chat', params: { question } }),
     onLogged: async (workoutId, templateId) => {
       // Logged from today's scheduled template: mark the schedule completed
@@ -232,6 +234,8 @@ export default function LogScreen() {
       )}
 
       {log.busy === 'parse' && <ThinkingCard title="Reading it…" />}
+
+      {log.picking && <MovePickCard entries={log.picking.entries} to={log.picking.to} onPick={entry => log.pickMove(entry, log.picking!.to)} onCancel={log.discard} />}
 
       {log.draft && (
         <ParsedCard

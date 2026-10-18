@@ -89,7 +89,7 @@ export async function askCoach(question: string, thread: CoachMessage[] = [], no
 // that finds nothing and it looksLikeQuestion does it go to the coach: the one two-slot path.
 
 // A log: sets x reps, a weight or rep count, a time or distance
-const LOG_SHAPE = /\b\d+\s*[x×]\s*\d+\b|\b\d+(?:\.\d+)?\s*(?:lbs?|kg|kgs|kilos?|pounds?|reps?|sets?|mi|miles?|km|k|min|mins|minutes?)\b|@\s*\d/i;
+export const LOG_SHAPE = /\b\d+\s*[x×]\s*\d+\b|\b\d+(?:\.\d+)?\s*(?:lbs?|kg|kgs|kilos?|pounds?|reps?|sets?|mi|miles?|km|k|min|mins|minutes?)\b|@\s*\d/i;
 // Question words that don't start logs ("did legs" is a log; "did I train legs?" ends with ?;
 // "can of tuna" is a log, "can you" is not)
 const OPENERS = /^(?:what|what's|whats|should|how|how's|hows|why|which|when|where|suggest|recommend)\b|\b(?:can|could|would) (?:i|you|we)\b/i;

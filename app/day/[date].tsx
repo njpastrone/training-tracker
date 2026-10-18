@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, AlertButton } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -15,6 +15,8 @@ import { HeaderButton, Pill } from '../../components/Glass';
 import { deletePlan } from '../../services/planner';
 import { workoutName } from '../../services/format';
 import { sumMacros } from '../../services/foods';
+import { entryLabel, type EntryRef } from '../../services/moveLog';
+import MoveDaySheet from '../../components/MoveDaySheet';
 
 export default function DayDetailScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
@@ -24,8 +26,13 @@ export default function DayDetailScreen() {
   const goal = useWorkoutStore(s => s.settings.goals?.food);
   const food = useMemo(() => allFood.filter(e => e.date === date), [allFood, date]);
   const { colors } = useTheme();
+  const [moving, setMoving] = useState<(EntryRef & { date: string; label: string }) | null>(null);
 
   const workouts = getWorkoutsByDate(date);
+  const move = (entry: EntryRef) => {
+    const label = entryLabel(entry, workouts, food);
+    if (label) setMoving({ ...entry, date, label });
+  };
   const dateObj = parseISO(date);
   const future = isFuture(dateObj) && !isToday(dateObj);
   const planned = schedule.find(s => s.date === date && !s.completed && !s.skipped);
@@ -117,8 +124,8 @@ export default function DayDetailScreen() {
           </SkyCard>
         )}
 
-        <DayTraining workouts={workouts} />
-        <FoodDay entries={food} goal={goal} />
+        <DayTraining workouts={workouts} onMove={w => move({ kind: 'workout', id: w.id })} />
+        <FoodDay entries={food} goal={goal} onMove={e => move({ kind: 'food', id: e.id })} />
 
         {empty && (
           <SkyCard style={styles.empty}>
@@ -132,6 +139,7 @@ export default function DayDetailScreen() {
         )}
       </ScrollView>
       <UndoToast />
+      <MoveDaySheet entry={moving} onClose={() => setMoving(null)} />
     </SkyScreen>
   );
 }

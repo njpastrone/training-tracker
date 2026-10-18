@@ -7,6 +7,7 @@ import { useChatStore } from '../stores/chatStore';
 import { parseWorkout, parseLog, correctWorkout, correctFood, workoutsFromParse, ApiError } from '../services/claude';
 import { mentionsFood } from '../services/foods';
 import { routeComposer } from '../services/ask';
+import { entryLabel, noMoveText, readMove, resolveMove, type EntryRef } from '../services/moveLog';
 import { ParsedWorkoutResponse, Workout } from '../types/workout';
 import { FoodDraft, FoodEntry } from '../types/food';
 import { NOTHING_CHANGED, sameDraft } from '../services/draft';
@@ -45,8 +46,9 @@ const foodShown = (food: FoodDraft) =>
 // Type it → review the parsed card → fix by typing or tapping a number → Save.
 // Nothing is stored until save(); date is the day being logged. With withFood, what the user ate is
 // read too (services/claude.ts parseLog) and reviewed and saved with the workout. With onQuestion, a
-// message that reads as a question goes to the coach instead of the parser (services/ask.ts).
-export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: string; onLogged?: (workoutId: string | undefined, templateId?: string, saved?: Workout[]) => void; withFood?: boolean; onQuestion?: (question: string) => void }) {
+// message that reads as a question goes to the coach instead of the parser (services/ask.ts). With
+// moves, "move my food past midnight to yesterday" moves that log (services/moveLog.ts), or asks which.
+export function useLogDraft({ date, onLogged, withFood, onQuestion, moves }: { date: string; onLogged?: (workoutId: string | undefined, templateId?: string, saved?: Workout[]) => void; withFood?: boolean; onQuestion?: (question: string) => void; moves?: boolean }) {
   const { addWorkout, addFoodEntry, markTemplateUsed, settings } = useWorkoutStore();
   const [text, setText] = useState(''); // what's in the composer
   const [sent, setSent] = useState<string | null>(null); // the log as typed, shown as your bubble
@@ -56,6 +58,7 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
   const [busy, setBusy] = useState<'parse' | 'fix' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState<FixReplyState | null>(null); // the fix box's answer to a question
+  const [picking, setPicking] = useState<{ to: string; entries: EntryRef[] } | null>(null); // a move that fits more than one log
   const options = { date, unit: settings.weightUnit };
   // Removing the last exercise or food leaves the other half on its own
   const setDraft = (next: Draft | null) => setWorkoutDraft(next && next.exercises.length === 0 && food ? null : next);
@@ -70,6 +73,22 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
     const raw = text.trim();
     if (!raw || busy) return;
     setText('');
+    setPicking(null);
+    const move = moves && readMove(raw, new Date());
+    if (move) {
+      const { workouts, foodEntries } = useWorkoutStore.getState();
+      const found = resolveMove(move, workouts, foodEntries, new Date());
+      if ('entry' in found) return pickMove(found.entry, found.to, raw);
+      discard();
+      if ('pick' in found) {
+        setSent(raw);
+        setPicking({ to: found.to, entries: found.pick });
+      } else {
+        setError(noMoveText(found));
+        setText(raw);
+      }
+      return;
+    }
     try {
       const parsed = await routeComposer(raw, async () => {
         setSent(raw);
@@ -140,6 +159,17 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
     }
   };
 
+  // Moves one log and says so in the Chat thread, with Undo there and in the screen's UndoToast
+  const pickMove = (entry: EntryRef, to: string, said = sent ?? '') => {
+    const { workouts, foodEntries, moveEntry } = useWorkoutStore.getState();
+    const label = entryLabel(entry, workouts, foodEntries);
+    const moved = moveEntry(entry, to);
+    discard();
+    if (!moved || !label) return;
+    useChatStore.getState().add(...(said ? [{ kind: 'you' as const, text: said }] : []), { kind: 'moved', entry: { kind: entry.kind, id: entry.id }, from: moved.from, to, label });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
   // Start from a template: its exercises go straight to the review card
   const startFromTemplate = (workout: { exercises: Draft['exercises']; muscleGroups: string[]; notes?: string }, id: string) => {
     setSent(null);
@@ -183,8 +213,9 @@ export function useLogDraft({ date, onLogged, withFood, onQuestion }: { date: st
     setTemplateId(undefined);
     setError(null);
     setReply(null);
+    setPicking(null);
     setBusy(null);
   };
 
-  return { text, setText, sent, draft, setDraft, food, setFood, templateId, busy, error, reply, parse, fix, startFromTemplate, save, discard };
+  return { text, setText, sent, draft, setDraft, food, setFood, templateId, busy, error, reply, picking, pickMove, parse, fix, startFromTemplate, save, discard };
 }

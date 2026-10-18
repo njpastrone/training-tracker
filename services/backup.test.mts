@@ -261,6 +261,12 @@ test('the chat thread is backed up and restored; a backup from before Chat resto
   // An answer without its reply would crash the Chat tab on every render
   damaged.data['@training-tracker/chat'].state.items[0] = { id: 'x', at: 'now', kind: 'answer', question: 'q', turn: { raw: 'r' } };
   assert.throws(() => backup.parseBackup(JSON.stringify(damaged)), /damaged/);
+  // A moved card reads its entry and days
+  const moved = { id: 'm', at: 'now', kind: 'moved', entry: { kind: 'food', id: 'f1' }, from: '2026-10-18', to: '2026-10-17', label: 'Late night (toast)' };
+  damaged.data['@training-tracker/chat'].state.items[0] = moved;
+  assert.doesNotThrow(() => backup.parseBackup(JSON.stringify(damaged)));
+  damaged.data['@training-tracker/chat'].state.items[0] = { ...moved, entry: undefined };
+  assert.throws(() => backup.parseBackup(JSON.stringify(damaged)), /damaged/);
 });
 
 test('clear all data empties the chat thread', async () => {

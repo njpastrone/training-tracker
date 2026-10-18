@@ -14,18 +14,18 @@ import { MuscleChips } from './DayRow';
 import ExerciseRows from './ExerciseRows';
 
 // A day's training, in full: one card per workout with every exercise. The card opens the workout
-// editor; swipe left to delete (the screen's UndoToast offers Undo).
-export default function DayTraining({ workouts }: { workouts: Workout[] }) {
+// editor; swipe left to move it to another day or delete it (the screen's UndoToast offers Undo).
+export default function DayTraining({ workouts, onMove }: { workouts: Workout[]; onMove: (workout: Workout) => void }) {
   if (!workouts.length) return null;
   return (
     <GestureHandlerRootView>
       <SectionLabel style={styles.label}>Training</SectionLabel>
-      {workouts.map(w => <WorkoutBlock key={w.id} workout={w} />)}
+      {workouts.map(w => <WorkoutBlock key={w.id} workout={w} onMove={() => onMove(w)} />)}
     </GestureHandlerRootView>
   );
 }
 
-function WorkoutBlock({ workout }: { workout: Workout }) {
+function WorkoutBlock({ workout, onMove }: { workout: Workout; onMove: () => void }) {
   const colors = useColors();
   const router = useRouter();
   const deleteWithUndo = useWorkoutStore(s => s.deleteWithUndo);
@@ -39,10 +39,16 @@ function WorkoutBlock({ workout }: { workout: Workout }) {
     <Swipeable
       overshootRight={false}
       renderRightActions={() => (
-        <Pressable onPress={remove} accessibilityRole="button" accessibilityLabel={`Delete ${name}`} style={[styles.delete, { backgroundColor: colors.error }]}>
-          <SymbolView name="trash" size={22} tintColor={colors.onSunrise} />
-          <Text style={[styles.deleteText, { color: colors.onSunrise }]}>Delete</Text>
-        </Pressable>
+        <>
+          <Pressable onPress={onMove} accessibilityRole="button" accessibilityLabel={`Move ${name} to another day`} style={[styles.delete, { backgroundColor: colors.cobalt }]}>
+            <SymbolView name="calendar" size={22} tintColor={colors.onSunrise} />
+            <Text style={[styles.deleteText, { color: colors.onSunrise }]}>Move</Text>
+          </Pressable>
+          <Pressable onPress={remove} accessibilityRole="button" accessibilityLabel={`Delete ${name}`} style={[styles.delete, { backgroundColor: colors.error }]}>
+            <SymbolView name="trash" size={22} tintColor={colors.onSunrise} />
+            <Text style={[styles.deleteText, { color: colors.onSunrise }]}>Delete</Text>
+          </Pressable>
+        </>
       )}
     >
       <Pressable
@@ -50,8 +56,8 @@ function WorkoutBlock({ workout }: { workout: Workout }) {
         accessibilityRole="button"
         accessibilityLabel={`${name}, ${workout.exercises.length} exercise${workout.exercises.length === 1 ? '' : 's'}, logged ${time}`}
         accessibilityHint="Opens the workout to edit"
-        accessibilityActions={[{ name: 'delete', label: 'Delete' }]}
-        onAccessibilityAction={remove}
+        accessibilityActions={[{ name: 'move', label: 'Move to another day' }, { name: 'delete', label: 'Delete' }]}
+        onAccessibilityAction={e => (e.nativeEvent.actionName === 'move' ? onMove() : remove())}
         style={({ pressed }) => pressed && { opacity: 0.7 }}
       >
         <SkyCard>

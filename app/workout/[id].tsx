@@ -27,7 +27,7 @@ const muscleGroups: MuscleGroup[] = [
 export default function WorkoutEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { workouts, updateWorkout, deleteWorkout, deleteWithUndo, getWorkoutsByDate, settings, exerciseLibrary } = useWorkoutStore();
+  const { workouts, updateWorkout, deleteWorkout, deleteWithUndo, moveEntry, getWorkoutsByDate, settings, exerciseLibrary } = useWorkoutStore();
   const { colors } = useTheme();
   
   const workout = workouts.find(w => w.id === id);
@@ -98,11 +98,12 @@ export default function WorkoutEditScreen() {
   
   const saveWorkout = (dateString: string, muscleGroups: MuscleGroup[]) => {
     updateWorkout(id, {
-      date: dateString,
       exercises,
       muscleGroups,
       notes: notes.trim() || undefined,
     });
+    // A new day is a move: the screen it goes back to confirms it with Undo
+    moveEntry({ kind: 'workout', id }, dateString);
     // Back to where it was opened (History, a day, an exercise), else home
     if (router.canGoBack()) router.back();
     else router.replace('/');
