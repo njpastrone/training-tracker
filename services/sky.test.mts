@@ -66,32 +66,83 @@ test('with a plan the target is the planned days in the last 7, and missing one 
   assert.equal(weekSky([], [...PLAN, ...w('2026-10-01', '2026-10-09')], THU).target, 4);
 });
 
-test('a picked weekly target wins over the usual count', () => {
-  assert.equal(weekSky(USUAL, [], THU, { weeklyTarget: 5 }).target, 5);
-  assert.equal(weekSky(USUAL, PLAN, THU, { weeklyTarget: 5 }).target, 4); // a plan still wins
+test('no days a week picked, a plan made today, one day trained: the plan\'s whole week is the target, not met', () => {
+  // The planner never writes sessions before today; the plan's week runs from today to Wed Oct 14
+  const plan = w('2026-10-08', '2026-10-10', '2026-10-12', '2026-10-14', '2026-10-15');
+  const sky = weekSky(w('2026-10-08'), plan, THU);
+  assert.equal(sky.planned, true);
+  assert.equal(sky.done, 1);
+  assert.equal(sky.target, 4);
+  assert.notEqual(sky.phase, 'day');
 });
 
-test('a new user is never behind in their first 7 days, and the target is only the days they have been here', () => {
+test('a picked weekly target wins over the usual count and over a plan', () => {
+  assert.equal(weekSky(USUAL, [], THU, { weeklyTarget: 5 }).target, 5);
+  assert.equal(weekSky(USUAL, PLAN, THU, { weeklyTarget: 5 }).target, 5);
+});
+
+test('days a week set to 4, a plan made today, one day trained: 1 of 4, not met', () => {
+  // The planner never writes sessions before today, so a new plan has at most today in the last 7
+  const plan = w('2026-10-08', '2026-10-10', '2026-10-12', '2026-10-14');
+  const sky = weekSky(w('2026-10-08'), plan, THU, { weeklyTarget: 4 });
+  assert.equal(sky.done, 1);
+  assert.equal(sky.target, 4);
+  assert.notEqual(sky.phase, 'day');
+  // Four days trained with the same plan meets the goal
+  const met = weekSky(w('2026-10-02', '2026-10-04', '2026-10-06', '2026-10-08'), plan, THU, { weeklyTarget: 4 });
+  assert.equal(met.target, 4);
+  assert.equal(met.phase, 'day');
+});
+
+test('a new user is never behind in their first 7 days, and the target is only the days left in their setup week', () => {
   for (const weeklyTarget of [3, 4, 5]) {
     for (let start = 0; start < 7; start++) {
       const startedAt = `2026-10-0${2 + start}`; // Fri Oct 2 .. Thu Oct 8 (today)
-      const daysHere = 7 - start;
+      const daysLeftInWeek = [Infinity, Infinity, Infinity, 7, 6, 5, 4][start]; // through Sunday; Fri-Sun starts are last week
       const before = weekSky([], [], THU, { weeklyTarget, startedAt });
       assert.notEqual(before.phase, 'dusk');
-      assert.equal(before.target, Math.min(weeklyTarget, daysHere));
+      assert.equal(before.target, Math.min(weeklyTarget, daysLeftInWeek));
       // One workout on the first day, nothing since
       assert.notEqual(weekSky(w(startedAt), [], THU, { weeklyTarget, startedAt }).phase, 'dusk');
     }
   }
+});
+
+test('days a week picked on a Monday, one workout: 1 of 4, not met', () => {
+  const sky = weekSky(w('2026-10-05'), [], MON, { weeklyTarget: 4, startedAt: '2026-10-05' });
+  assert.equal(sky.done, 1);
+  assert.equal(sky.target, 4);
+  assert.notEqual(sky.phase, 'day');
+});
+
+test('days a week picked on a Saturday, trained Sat and Sun, checked the next Thursday: 2 of 4, not met', () => {
+  const sky = weekSky(w('2026-10-10', '2026-10-11'), [], new Date(2026, 9, 15, 9), { weeklyTarget: 4, startedAt: '2026-10-10' });
+  assert.equal(sky.target, 4);
+  assert.notEqual(sky.phase, 'day');
+  assert.notEqual(sky.phase, 'dusk');
+});
+
+test('days a week picked on a Saturday: the target is capped at 2 (Saturday and Sunday)', () => {
+  const sat = new Date(2026, 9, 10, 9);
+  assert.equal(weekSky([], [], sat, { weeklyTarget: 4, startedAt: '2026-10-10' }).target, 2);
+  assert.equal(weekSky(w('2026-10-10', '2026-10-11'), [], new Date(2026, 9, 11, 9), { weeklyTarget: 4, startedAt: '2026-10-10' }).phase, 'day');
+});
+
+test('no days a week picked: the first week asks only for the days since setup', () => {
+  for (let start = 0; start < 7; start++) {
+    const startedAt = `2026-10-0${2 + start}`;
+    assert.equal(weekSky([], [], THU, { startedAt }).target, Math.min(3, 7 - start));
+  }
   // Starting today and logging today is full daylight
-  assert.equal(weekSky(w('2026-10-08'), [], THU, { weeklyTarget: 4, startedAt: '2026-10-08' }).phase, 'day');
+  assert.equal(weekSky(w('2026-10-08'), [], THU, { startedAt: '2026-10-08' }).phase, 'day');
 });
 
 test('a setup date after today (clock moved back, date line) still gives a target of at least 1', () => {
   const sky = weekSky([], [], THU, { weeklyTarget: 4, startedAt: '2026-10-10' });
-  assert.equal(sky.target, 1);
+  assert.ok(sky.target >= 1);
   assert.notEqual(sky.phase, 'dusk');
   assert.ok(Number.isFinite(sky.progress));
+  assert.equal(weekSky([], [], THU, { startedAt: '2026-10-10' }).target, 1);
 });
 
 test('after the first 7 days the full target and pace are back', () => {

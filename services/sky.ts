@@ -1,5 +1,5 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { trainingWindow, usualPerWeek, onPace, perWeekRate } from './pace';
+import { addDays, differenceInCalendarDays, getISODay, isSameISOWeek, parseISO } from 'date-fns';
+import { trainingWindow, usualPerWeek, onPace, perWeekRate, ymd } from './pace';
 
 // The Daylight sky tracks the last 7 days of training, not the clock: dawn when nothing's in,
 // brighter with each workout, full daylight once the usual week is in, dusk when behind pace
@@ -21,7 +21,7 @@ export interface WeekSky {
   phase: SkyPhase;
   progress: number; // 0..1, share of the target done
   done: number; // distinct days trained in the last 7
-  target: number; // planned days in the last 7, else the picked or usual weekly count
+  target: number; // the picked weekly count, else the plan's week, else the usual weekly count
   planned: boolean; // target comes from the schedule
   stops: SkyStops; // light-mode gradient
 }
@@ -36,14 +36,23 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
   const dates = workouts.map(w => w.date);
   const win = trainingWindow(dates, 7, now);
   const done = win.trained.size;
-  const plannedDates = [...new Set(schedule.map(s => s.date))].filter(d => d >= win.first && d <= win.last);
-  const planned = plannedDates.length > 0;
-  // A new user's first 7 days only ask for the days they've been here, and pace never fails them:
-  // day one is dawn, and logging that day is full daylight
+  const allPlanned = [...new Set(schedule.map(s => s.date))];
+  const plannedDates = allPlanned.filter(d => d >= win.first && d <= win.last);
+  // A plan sets the target only when no days a week were picked, and then it's the plan's whole week
+  // from its first day in the last 7: plans never start before today, so the days planned so far are
+  // often just today, and any one workout would read as goal met
+  const planned = plannedDates.length > 0 && prefs.weeklyTarget === undefined;
+  const weekStart = plannedDates.reduce((a, b) => (b < a ? b : a), win.last);
+  const weekEnd = ymd(addDays(parseISO(weekStart), 6));
+  const planWeek = allPlanned.filter(d => d >= weekStart && d <= weekEnd).length;
+  // A new user's first 7 days only ask for the days they've been here (with days a week picked, the days
+  // left in their setup week, Monday to Sunday, then the full target), and pace never fails them
   const daysHere = prefs.startedAt ? Math.max(1, differenceInCalendarDays(now, parseISO(prefs.startedAt)) + 1) : Infinity;
   const firstWeek = !planned && daysHere <= 7;
   const usual = prefs.weeklyTarget ?? usualPerWeek(dates, now);
-  const target = planned ? Math.max(plannedDates.length, done) : firstWeek ? Math.min(usual, daysHere) : usual;
+  const setupWeekLeft = prefs.startedAt && isSameISOWeek(now, parseISO(prefs.startedAt)) ? 8 - getISODay(parseISO(prefs.startedAt)) : Infinity;
+  const firstCap = prefs.weeklyTarget !== undefined ? setupWeekLeft : daysHere;
+  const target = planned ? Math.max(planWeek, done) : firstWeek ? Math.min(usual, firstCap) : usual;
   const progress = Math.min(1, done / target);
   const behind = planned
     ? done < plannedDates.filter(d => d < win.last).length // planned days already gone by
