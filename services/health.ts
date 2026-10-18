@@ -6,8 +6,9 @@ import type { AppleHealthSettings, WeightUnit, Workout } from '../types/workout'
 
 // Apple Health. What LiftText reads (workouts other apps saved, body weight) is shown on Progress and kept only
 // in memory: never in the store, backups or anything sent to our server or the AI, which the AI consent sheet
-// promises (services/health.test.mts checks that what it reads never reaches the store or storage). Saving goes the other way and only once you turn
-// it on: each workout you log, change or delete here is then saved, replaced or deleted in Health.
+// promises (services/health.test.mts checks that what it reads never reaches the store or storage). Saving goes
+// the other way and only once you turn it on: each workout you log, change or delete here is then saved, replaced
+// or deleted in Health.
 
 export const healthAvailable = () => !!Health?.isAvailable();
 
