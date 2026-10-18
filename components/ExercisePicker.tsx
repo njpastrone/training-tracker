@@ -3,7 +3,7 @@ import { FlatList, Modal, StyleSheet, View } from 'react-native';
 import { Button, List, Searchbar, Text } from 'react-native-paper';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useColors } from '../contexts/ThemeContext';
-import { knownIdFor, searchExercises } from '../services/exerciseIdentity';
+import { knownIdFor, searchExercises, type PickerOption } from '../services/exerciseIdentity';
 import { muscleGroupColors, spacing } from '../constants/theme';
 import type { MuscleGroup } from '../types/workout';
 
@@ -16,17 +16,19 @@ export interface PickedExercise {
 interface Props {
   visible: boolean;
   initialQuery?: string;
+  suggestions?: PickerOption[]; // the few it most likely is, listed first until the search changes
   onPick: (exercise: PickedExercise) => void;
   onDismiss: () => void;
 }
 
 // Native sheet for choosing what a logged exercise is: your exercises first, then the catalog,
-// then "New exercise" with the typed name.
-export default function ExercisePicker({ visible, initialQuery = '', onPick, onDismiss }: Props) {
+// then "New exercise" with the typed name. Suggestions, when given, come first.
+export default function ExercisePicker({ visible, initialQuery = '', suggestions = [], onPick, onDismiss }: Props) {
   const colors = useColors();
   const { workouts, exerciseLibrary, createCustomExercise } = useWorkoutStore();
   const [query, setQuery] = useState(initialQuery);
-  const options = visible ? searchExercises(query, workouts, exerciseLibrary) : [];
+  const suggested = query === initialQuery ? suggestions : [];
+  const options = visible ? searchExercises(query, workouts, exerciseLibrary).filter(o => !suggested.some(x => x.exerciseId === o.exerciseId)) : [];
   const typed = query.trim();
   const exact = !!knownIdFor(typed, exerciseLibrary);
 
@@ -37,20 +39,21 @@ export default function ExercisePicker({ visible, initialQuery = '', onPick, onD
           <Text variant="titleMedium" style={{ color: colors.text }}>Choose exercise</Text>
           <Button onPress={onDismiss}>Cancel</Button>
         </View>
-        <Searchbar placeholder="Search exercises" value={query} onChangeText={setQuery} autoFocus autoCorrect={false} />
+        <Searchbar placeholder="Search exercises" value={query} onChangeText={setQuery} autoFocus={!suggestions.length} autoCorrect={false} />
         <FlatList
           data={options}
           keyExtractor={(o) => o.exerciseId}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <List.Item
-              title={item.name}
-              description={item.count ? `Logged ${item.count}×` : undefined}
-              left={() => <View style={[styles.dot, { backgroundColor: muscleGroupColors[item.muscleGroup] }]} />}
-              right={() => <Text style={[styles.group, { color: colors.textSecondary }]}>{item.muscleGroup.replace('_', ' ')}</Text>}
-              onPress={() => onPick(item)}
-            />
-          )}
+          renderItem={({ item }) => <Option item={item} onPick={onPick} />}
+          ListHeaderComponent={
+            suggested.length ? (
+              <>
+                <List.Subheader>Best matches</List.Subheader>
+                {suggested.map(item => <Option key={item.exerciseId} item={item} onPick={onPick} />)}
+                <List.Subheader>All exercises</List.Subheader>
+              </>
+            ) : null
+          }
           ListFooterComponent={
             typed && !exact ? (
               <List.Item
@@ -63,6 +66,19 @@ export default function ExercisePicker({ visible, initialQuery = '', onPick, onD
         />
       </View>
     </Modal>
+  );
+}
+
+function Option({ item, onPick }: { item: PickerOption; onPick: (exercise: PickedExercise) => void }) {
+  const colors = useColors();
+  return (
+    <List.Item
+      title={item.name}
+      description={item.count ? `Logged ${item.count}×` : undefined}
+      left={() => <View style={[styles.dot, { backgroundColor: muscleGroupColors[item.muscleGroup] }]} />}
+      right={() => <Text style={[styles.group, { color: colors.textSecondary }]}>{item.muscleGroup.replace('_', ' ')}</Text>}
+      onPress={() => onPick(item)}
+    />
   );
 }
 

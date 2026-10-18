@@ -8,16 +8,17 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, muscleGroupColors, spacing } from '../constants/theme';
 import { workoutSummary } from '../services/format';
-import { editDraft, removeFromDraft } from '../services/draft';
-import { sentenceCase, shownName } from '../services/exerciseIdentity';
+import { editDraft, pickInDraft, removeFromDraft, unpickInDraft } from '../services/draft';
+import { likelyExercises, pickWords, sentenceCase, shownName } from '../services/exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
-import { ParsedWorkoutResponse, UnsureField } from '../types/workout';
+import { ExerciseLibrary, ParsedWorkoutResponse, UnsureField } from '../types/workout';
 import type { FoodDraft } from '../types/food';
 import { SkyCard, SectionLabel } from './Sky';
 import FoodRows, { EstimateNote, foodSummary } from './FoodRows';
 import NumberChip from './NumberChip';
 import { Pill } from './Glass';
 import LogoMark from './LogoMark';
+import ExercisePicker, { PickedExercise } from './ExercisePicker';
 
 type Draft = ParsedWorkoutResponse;
 type DraftExercise = Draft['exercises'][number];
@@ -40,15 +41,49 @@ interface Props {
 
 // The parsed workout, reviewed before anything is saved: tap a number to change it, type a fix, Save.
 // Values the parse guessed or a typed fix left uncertain are highlighted; a low parse confidence shows a banner.
+// An exercise it isn't sure of opens the picker, and the pick is remembered for the user's words (Undo).
+
+// The last pick, remembered for the user's words until they undo it
+interface Remembered {
+  index: number;
+  words: string;
+  exerciseId: string;
+  name: string;
+  row: DraftExercise; // the entry before the pick
+  before: ExerciseLibrary; // the library before the alias
+}
+
 export default function ParsedCard({ draft, date, title, onChange, onSave, onDiscard, onFix, busy, error, reply, example, food, onFoodChange }: Props) {
   const { colors } = useTheme();
   const library = useWorkoutStore(s => s.exerciseLibrary);
+  const workouts = useWorkoutStore(s => s.workouts);
+  const rememberPick = useWorkoutStore(s => s.rememberPick);
+  const forgetPick = useWorkoutStore(s => s.forgetPick);
   const unsure = draft.unsure ?? [];
   const isUnsure = (exercise: number, field: UnsureField['field']) => unsure.some(u => u.exercise === exercise && u.field === field);
   const lowConfidence = draft.confidence < 0.6;
 
   const update = (i: number, field: keyof DraftExercise, value: unknown) => onChange(editDraft(draft, i, field, value));
-  const remove = (i: number) => onChange(removeFromDraft(draft, i));
+  // Which unsure exercise the picker is choosing for
+  const [picking, setPicking] = useState<number | null>(null);
+  const [remembered, setRemembered] = useState<Remembered | null>(null);
+  const remove = (i: number) => {
+    setRemembered(null);
+    onChange(removeFromDraft(draft, i));
+  };
+  const pickingRow = picking === null ? undefined : draft.exercises[picking];
+  const pick = (p: PickedExercise) => {
+    const row = draft.exercises[picking!];
+    onChange(pickInDraft(draft, picking!, p));
+    const words = pickWords(row.said);
+    setRemembered(words ? { index: picking!, words, exerciseId: p.exerciseId, name: p.name, row, before: rememberPick(words, p.exerciseId) } : null);
+    setPicking(null);
+  };
+  const undoPick = (r: Remembered) => {
+    forgetPick(r.words, r.before);
+    onChange(unpickInDraft(draft, r.index, r.row, r.exerciseId));
+    setRemembered(null);
+  };
 
   // An optional chip stays while it is being edited, even when emptied
   const [focused, setFocused] = useState<string | null>(null);
@@ -129,16 +164,31 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
             <View style={[styles.dot, { backgroundColor: muscleGroupColors[e.muscleGroup] }]} />
             <View style={styles.flex}>
               <View style={styles.nameRow}>
-                <TextInput
-                  value={shown.name}
-                  onChangeText={name => update(i, 'name', name)}
-                  accessibilityLabel="Exercise name"
-                  style={[
-                    styles.name,
-                    { color: colors.text },
-                    isUnsure(i, 'name') && [styles.unsure, { backgroundColor: colors.warning + '22', borderColor: colors.warning }],
-                  ]}
-                />
+                {isUnsure(i, 'name') && e.match !== 'sure' && !example ? (
+                  <Pressable
+                    onPress={() => setPicking(i)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Exercise name, ${shown.name}, not sure`}
+                    accessibilityHint="Opens the list to choose which exercise it is"
+                    hitSlop={10}
+                    style={[styles.name, styles.unsure, styles.picker, { backgroundColor: colors.warning + '22', borderColor: colors.warning }]}
+                  >
+                    <Text style={[styles.nameText, { color: colors.text }]}>{shown.name}</Text>
+                    <SymbolView name="chevron.down" size={11} weight="semibold" tintColor={colors.warning} />
+                  </Pressable>
+                ) : (
+                  <TextInput
+                    value={shown.name}
+                    onChangeText={name => update(i, 'name', name)}
+                    accessibilityLabel="Exercise name"
+                    style={[
+                      styles.name,
+                      styles.nameText,
+                      { color: colors.text },
+                      isUnsure(i, 'name') && [styles.unsure, { backgroundColor: colors.warning + '22', borderColor: colors.warning }],
+                    ]}
+                  />
+                )}
                 {shown.catalog ? (
                   <Text variant="bodySmall" style={[styles.catalogName, { color: colors.textTertiary }]} numberOfLines={1}>· {shown.catalog}</Text>
                 ) : null}
@@ -170,6 +220,16 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
               </View>
               {e.notes ? (
                 <Text variant="bodySmall" style={{ color: colors.textTertiary }}>{e.notes}</Text>
+              ) : null}
+              {remembered?.index === i && e.exerciseId === remembered.exerciseId ? (
+                <View style={styles.remembered} accessibilityLiveRegion="polite">
+                  <Text variant="bodySmall" style={[styles.flex, { color: colors.textSecondary }]}>
+                    Remembered: {remembered.words} = {remembered.name}
+                  </Text>
+                  <Pressable onPress={() => undoPick(remembered)} accessibilityRole="button" accessibilityLabel={`Undo, forget ${remembered.words}`} hitSlop={12}>
+                    <Text variant="labelLarge" style={{ color: colors.cobalt }}>Undo</Text>
+                  </Pressable>
+                </View>
               ) : null}
             </View>
             <Pressable onPress={() => remove(i)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${e.name}`}>
@@ -208,6 +268,13 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
           </>
         )}
         {reply ? <FixReply reply={reply} /> : null}
+        <ExercisePicker
+          visible={!!pickingRow}
+          initialQuery={pickingRow ? pickWords(pickingRow.said) ?? pickingRow.name : ''}
+          suggestions={pickingRow ? likelyExercises(pickingRow, workouts, library) : []}
+          onPick={pick}
+          onDismiss={() => setPicking(null)}
+        />
         {error ? (
           <Text variant="bodySmall" style={[styles.error, { color: colors.error }]} accessibilityLiveRegion="polite">{error}</Text>
         ) : null}
@@ -340,12 +407,26 @@ const styles = StyleSheet.create({
   },
   name: {
     flexShrink: 1,
-    fontSize: 17,
-    fontWeight: '500',
     paddingVertical: 2,
     paddingHorizontal: 4,
     marginLeft: -4,
     borderRadius: 8,
+  },
+  nameText: {
+    flexShrink: 1,
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  remembered: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 4,
   },
   dayTag: {
     borderRadius: 999,

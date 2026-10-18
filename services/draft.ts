@@ -15,6 +15,26 @@ export function editDraft(draft: Draft, index: number, field: Field, value: unkn
   };
 }
 
+// A pick from the exercise picker confirms which exercise it is: the entry takes that exercise and
+// is no longer flagged. Its numbers and the user's words stay.
+export function pickInDraft(draft: Draft, index: number, pick: { exerciseId: string; name: string; muscleGroup: Draft['exercises'][number]['muscleGroup'] }): Draft {
+  return {
+    ...draft,
+    exercises: draft.exercises.map((e, i) => (i === index ? { ...e, ...pick, match: 'sure', alt: undefined } : e)),
+    unsure: (draft.unsure ?? []).filter(u => !(u.exercise === index && u.field === 'name')),
+  };
+}
+
+// Undo of pickInDraft: the entry is put back as it was and flagged again, if it still holds the pick
+export function unpickInDraft(draft: Draft, index: number, before: Draft['exercises'][number], exerciseId: string): Draft {
+  if (draft.exercises[index]?.exerciseId !== exerciseId) return draft;
+  return {
+    ...draft,
+    exercises: draft.exercises.map((e, i) => (i === index ? before : e)),
+    unsure: [...(draft.unsure ?? []), { exercise: index, field: 'name' }],
+  };
+}
+
 // Removing an exercise drops its flags and renumbers the ones after it
 export function removeFromDraft(draft: Draft, index: number): Draft {
   return {
