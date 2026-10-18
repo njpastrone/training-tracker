@@ -3,7 +3,7 @@ import type { Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 import { workoutName } from './format';
 import { mealName } from './foods';
-import { LOG_SHAPE, readsAsQuestion } from './ask';
+import { LOG_SHAPE } from './ask';
 
 // Moving a log to another day in plain words ("I logged my food past midnight, move it to
 // yesterday"). Read and resolved here on the phone against the user's own recent entries; nothing goes
@@ -32,6 +32,7 @@ const MOVE = /\b(?:move|moved|moving|shift|shifted|switch|put|change|changed)\b/
 const DAY = /\b(?:(?:the )?day before yesterday|yesterday|today|tonight|this morning|last night|(\d+|a|one|two|three|four|five|six|seven) days? ago|(?:last |this past )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? (\d{1,2})(?:st|nd|rd|th)?|(\d{1,2})\/(\d{1,2}))\b/g;
 const FOOD = /\b(?:food|foods|meals?|ate|eaten|eat|breakfast|brunch|lunch|dinner|supper|snacks?|drinks?)\b/g;
 const TRAINING = /\b(?:workouts?|sessions?|training|trained|lifts?|lifting|gym|runs?|ran|cardio|exercises?|push|pull|legs|leg day)\b/g;
+const ADVICE = /^(?:(?:hey|so),? )?(?:should|how|why|what|which|when|where|is|are|do|does)\b|\bshould i\b/;
 const NIGHT = /\bmidnight\b|\blate(?: last)? night\b|\bin the night\b/;
 const STOP = new Set(('move moved moving shift shifted switch put change changed the and that this these those them its into onto from for was were have has had been should would could can you please ' +
   'accidentally accident mistake mistakenly wrong wrongly logged log logs entry entries day date instead actually oops meant mean past midnight late night last morning ago days ' +
@@ -59,7 +60,7 @@ function dayOf(m: RegExpMatchArray, now: Date): string | undefined {
 // "to" (or "on", "for") is where it goes; a day after "from", or with 's, is where it is now.
 export function readMove(text: string, now: Date): MoveRequest | null {
   const t = text.toLowerCase().replace(/’/g, "'");
-  if (!MOVE.test(t) || LOG_SHAPE.test(t) || readsAsQuestion(t)) return null;
+  if (!MOVE.test(t) || LOG_SHAPE.test(t) || ADVICE.test(t.trim())) return null;
   let to: string | undefined;
   let from: string | undefined;
   for (const m of t.matchAll(DAY)) {

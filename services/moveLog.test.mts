@@ -42,6 +42,12 @@ test("logs and questions aren't moves", () => {
   assert.equal(readMove('switched to dumbbell press on monday, 3x10 at 60', NOW), null);
   assert.equal(readMove('how should I move on squats?', NOW), null);
   assert.equal(readMove('Should I move legs to Friday?', NOW), null);
+  assert.equal(readMove('so what if I move legs to Friday?', NOW), null);
+  assert.equal(readMove('is it fine to switch push to Friday', NOW), null);
+  // Asking politely is still a move
+  assert.deepEqual(readMove('Can you move my lunch to yesterday?', NOW), { to: '2026-10-17', kind: 'food', slot: 'lunch', words: [] });
+  assert.deepEqual(readMove('could you put my food on yesterday please', NOW), { to: '2026-10-17', kind: 'food', words: [] });
+  assert.equal(readMove('I logged dinner past midnight, can you move it to yesterday?', NOW)?.night, true);
   assert.equal(readMove('ate eggs yesterday', NOW), null);
   assert.equal(readMove('move feb 30 to yesterday', NOW)?.from, undefined); // a date that doesn't exist is ignored
 });
