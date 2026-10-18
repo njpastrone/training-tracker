@@ -31,7 +31,7 @@ export default function TemplatesScreen() {
   }, [templates, searchQuery]);
 
   const handleDeleteTemplate = (id: string) => {
-    Alert.alert('Delete Template', 'Are you sure you want to delete this template? This action cannot be undone.', [
+    Alert.alert('Delete this template?', "This can't be undone.", [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteTemplate(id) },
     ]);
@@ -131,7 +131,7 @@ export default function TemplatesScreen() {
 
               <View style={styles.footer}>
                 <Text variant="bodySmall" style={[styles.footerText, { color: colors.textTertiary }]}>
-                  {template.exercises.length} exercises
+                  {template.exercises.length} exercise{template.exercises.length === 1 ? '' : 's'}
                   {template.lastUsed ? ` · Last used ${format(new Date(template.lastUsed), 'MMM d, yyyy')} · Used ${template.usageCount}×` : ''}
                 </Text>
                 <Pill icon="play.fill" size="small" label="Use" onPress={() => handleUseTemplate(template.id)} />

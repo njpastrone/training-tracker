@@ -4,7 +4,8 @@ import Svg, { Line } from 'react-native-svg';
 import { format, parseISO } from 'date-fns';
 import { SkyCard } from './Sky';
 import { useTheme } from '../contexts/ThemeContext';
-import { foodTarget, type FoodProgress } from '../services/goals';
+import { foodMet, foodTarget, type FoodProgress } from '../services/goals';
+import type { FoodGoal } from '../types/workout';
 import type { FoodDayTotal, foodWeek } from '../services/progress';
 import { fonts, spacing } from '../constants/theme';
 
@@ -51,7 +52,7 @@ export default function FoodBreakdown({ week, goal }: Props) {
         <Text variant="bodySmall" style={{ color: colors.textTertiary }}>{line}</Text>
       </View>
 
-      <DayBars days={week.days} kcal={!!calories} goal={g && foodTarget(g)} target={g?.target} />
+      <DayBars days={week.days} kcal={!!calories} goal={g} />
 
       {rows.map(([label, value]) => (
         <View key={label} style={[styles.row, { borderTopColor: colors.dim }]} accessible accessibilityLabel={`${label}: ${value}`}>
@@ -63,11 +64,12 @@ export default function FoodBreakdown({ week, goal }: Props) {
   );
 }
 
-// Protein (or calories, for a cut or bulk) a day, one sunrise bar each (a stub on a day without food),
-// with the target as a dashed line labelled "150 g" or "2,000"
-function DayBars({ days, kcal, goal, target }: { days: Props['week']['days']; kcal: boolean; goal?: string; target?: number }) {
+// Protein (or calories, for a cut or bulk) a day, one bar each (a stub on a day without food): ink, and
+// sunrise on a day the goal was met. The target is a dashed line labelled "150 g" or "2,000"
+function DayBars({ days, kcal, goal }: { days: Props['week']['days']; kcal: boolean; goal?: FoodGoal }) {
   const { colors } = useTheme();
   const value = (t: FoodDayTotal) => (kcal ? t.kcal : t.protein);
+  const target = goal?.target;
   const max = Math.max(target ?? 0, ...days.map(d => (d.total ? value(d.total) : 0)), 1) * 1.05;
   const goalY = target ? (target / max) * BARS : undefined;
   const said = days.map(d => `${format(parseISO(d.date), 'EEEE')} ${d.total ? (kcal ? `${n(d.total.kcal)} kcal` : `${d.total.protein} g`) : 'no food'}`).join(', ');
@@ -79,7 +81,7 @@ function DayBars({ days, kcal, goal, target }: { days: Props['week']['days']; kc
             <View
               style={[
                 styles.bar,
-                d.total ? { height: Math.max(3, (value(d.total) / max) * BARS), backgroundColor: colors.sunrise } : { height: 3, backgroundColor: colors.dim },
+                d.total ? { height: Math.max(3, (value(d.total) / max) * BARS), backgroundColor: goal && foodMet(goal, d.total) ? colors.sunrise : colors.text } : { height: 3, backgroundColor: colors.dim },
               ]}
             />
           </View>
@@ -89,7 +91,7 @@ function DayBars({ days, kcal, goal, target }: { days: Props['week']['days']; kc
             <Svg width="100%" height={2} style={[styles.goalLine, { bottom: goalY - 1 }]}>
               <Line x1="0" y1="1" x2="100%" y2="1" stroke={colors.textTertiary} strokeWidth={2} strokeDasharray="4 4" />
             </Svg>
-            <Text style={[styles.goalLabel, { bottom: goalY + 4, color: colors.textTertiary }]}>{goal}</Text>
+            <Text style={[styles.goalLabel, { bottom: goalY + 4, color: colors.textTertiary }]}>{foodTarget(goal!)}</Text>
           </>
         )}
       </View>

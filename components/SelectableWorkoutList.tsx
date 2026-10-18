@@ -7,7 +7,7 @@ import { FoodGoal, Workout } from '../types/workout';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
-import { SectionLabel } from './Sky';
+import { SectionAction, SectionLabel } from './Sky';
 import { Pill } from './Glass';
 import WorkoutList from './WorkoutList';
 import type { FoodDayTotal } from '../services/progress';
@@ -60,19 +60,12 @@ export default function SelectableWorkoutList({ label, workouts, groupByDate, by
         {/* A Days list can hold only food: nothing to select */}
         {workouts.length > 0 && <View style={styles.actions}>
           {selected && (
-            <Pill
-              variant="glass"
-              size="small"
+            <SectionAction
               label={allSelected ? 'None' : 'All'}
               onPress={() => setSelected(new Set(allSelected ? [] : workouts.map(w => w.id)))}
             />
           )}
-          <Pill
-            variant="glass"
-            size="small"
-            label={selected ? 'Cancel' : 'Select'}
-            onPress={() => setSelected(selected ? null : new Set())}
-          />
+          <SectionAction label={selected ? 'Cancel' : 'Select'} onPress={() => setSelected(selected ? null : new Set())} />
         </View>}
       </View>
       {selected && (
@@ -174,7 +167,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.lg,
   },
   delete: {
     marginBottom: spacing.gap,

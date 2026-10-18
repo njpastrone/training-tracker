@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 import { format, parseISO } from 'date-fns';
-import { SkyCard, SectionLabel } from './Sky';
+import { SkyCard, SectionAction, SectionLabel } from './Sky';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { resolveId } from '../services/exerciseIdentity';
@@ -21,14 +21,11 @@ export const LIST_AT_FONT_SCALE = 1.3;
 
 // A section label with its Edit link, which goes to Goals
 export function GoalsHeader({ label }: { label: string }) {
-  const { colors } = useTheme();
   const router = useRouter();
   return (
     <View style={styles.header}>
       <SectionLabel style={styles.fill}>{label}</SectionLabel>
-      <Pressable onPress={() => router.push('/goals')} accessibilityRole="button" accessibilityLabel="Edit goals" hitSlop={10}>
-        <Text variant="labelLarge" style={{ color: colors.textSecondary }}>Edit</Text>
-      </Pressable>
+      <SectionAction label="Edit" accessibilityLabel="Edit goals" onPress={() => router.push('/goals')} />
     </View>
   );
 }

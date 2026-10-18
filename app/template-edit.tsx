@@ -57,9 +57,9 @@ export default function TemplateEditScreen() {
       const parsedExercises = await parseTemplateFromNL(naturalLanguageInput);
       setExercises(parsedExercises);
       setInputMode('manual');
-      Alert.alert('Success', `Parsed ${parsedExercises.length} exercises from your description.`);
+      Alert.alert(`Found ${parsedExercises.length} exercise${parsedExercises.length === 1 ? '' : 's'}`, 'Check them before saving.');
     } catch (error) {
-      Alert.alert('Parse Error', error instanceof ApiError ? error.message : 'Failed to parse exercises. Please try a different format.');
+      Alert.alert("Couldn't read that", error instanceof ApiError ? error.message : 'Try describing it a different way.');
     } finally {
       setIsParsing(false);
     }
@@ -127,12 +127,12 @@ export default function TemplateEditScreen() {
 
   const handleSaveTemplate = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter a template name');
+      Alert.alert('Name this template first');
       return;
     }
 
     if (exercises.length === 0) {
-      Alert.alert('Error', 'Please add at least one exercise');
+      Alert.alert('Add an exercise first');
       return;
     }
 
@@ -156,7 +156,7 @@ export default function TemplateEditScreen() {
       }
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save template');
+      Alert.alert("Couldn't save the template", 'Try again.');
     } finally {
       setIsSaving(false);
     }
@@ -167,7 +167,7 @@ export default function TemplateEditScreen() {
       <Stack.Screen options={{ title: '' }} />
       <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <LargeTitle title={id ? 'Edit Template' : 'New Template'} />
+          <LargeTitle title={id ? 'Edit template' : 'New template'} />
 
           <SkyCard style={styles.card}>
             <Field
@@ -253,7 +253,7 @@ export default function TemplateEditScreen() {
         <View style={styles.footer}>
           <Pill variant="glass" label="Cancel" onPress={() => router.back()} style={styles.footerButton} />
           <Pill
-            label={id ? 'Update' : 'Create'}
+            label={id ? 'Save' : 'Create'}
             onPress={handleSaveTemplate}
             loading={isSaving}
             disabled={!name.trim() || exercises.length === 0}

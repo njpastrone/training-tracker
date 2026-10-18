@@ -187,7 +187,7 @@ export default function GoalsScreen() {
         <SkyCard style={styles.tight}>
           {goals.custom.map((goal, i) => {
             const name = displayName(goal.exerciseId, exerciseLibrary) ?? goal.exerciseId;
-            const title = goal.kind === 'lift' ? `${name} ${goal.weight} ${goal.unit}` : `${name} ${goal.perWeek}× a week`;
+            const title = goal.kind === 'lift' ? `${name} ${goal.weight} ${goal.unit === 'kg' ? 'kg' : 'lb'}` : `${name} ${goal.perWeek}× a week`;
             return (
               <View key={goal.id} style={[styles.row, i > 0 && divider]}>
                 <Text variant="bodyLarge" style={[styles.fill, { color: colors.text }]}>{title}</Text>

@@ -67,7 +67,7 @@ export default function DayDetailScreen() {
   const removePlanned = () => {
     if (!planned) return;
     const run = (action: () => Promise<unknown>) => () =>
-      action().catch(() => Alert.alert('Error', "Couldn't change the plan. Try again."));
+      action().catch(() => Alert.alert("Couldn't change the plan", 'Try again.'));
     const buttons: AlertButton[] = [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove this day', style: 'destructive', onPress: run(() => cancelScheduledWorkout(date)) },

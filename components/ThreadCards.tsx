@@ -210,7 +210,7 @@ export function LiftChart({ trend }: { trend: LiftTrend }) {
         {sets.map((s, i) => (
           <View
             key={s.date}
-            style={[styles.bar, { height: `${Math.max(20, (s.weight / max) * 100)}%`, backgroundColor: i === sets.length - 1 ? colors.text : colors.dim }]}
+            style={[styles.bar, { height: `${Math.max(20, (s.weight / max) * 100)}%`, backgroundColor: i === sets.length - 1 ? colors.text : colors.textTertiary, opacity: i === sets.length - 1 ? 1 : 0.35 }]}
           />
         ))}
       </View>
@@ -265,6 +265,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     flex: 1,
+    maxWidth: 22, // reads as a chart, not a row of tiles
     borderRadius: 4,
   },
 });

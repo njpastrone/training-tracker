@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { StyleProp, StyleSheet, TextStyle, View, ViewProps } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, TextStyle, View, ViewProps } from 'react-native';
 import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
@@ -91,6 +91,16 @@ export function SectionLabel({ children, style }: { children: React.ReactNode; s
     <Text accessibilityRole="header" style={[styles.label, { color: colors.textTertiary }, style]}>
       {children}
     </Text>
+  );
+}
+
+// The one action on a section label's line ("Edit", "Select"): quiet text, not a button
+export function SectionAction({ label, onPress, accessibilityLabel }: { label: string; onPress: () => void; accessibilityLabel?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} hitSlop={10}>
+      <Text variant="labelLarge" style={{ color: colors.textSecondary }}>{label}</Text>
+    </Pressable>
   );
 }
 
