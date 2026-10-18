@@ -14,7 +14,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.njpastrone.trainingtracker",
       "entitlements": {
         "com.apple.developer.devicecheck.appattest-environment": "production",
