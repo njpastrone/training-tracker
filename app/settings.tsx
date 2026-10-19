@@ -3,6 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Text } from 'react-native-paper';
 import { Stack, useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, SkySheet, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill, Segmented } from '../components/Glass';
@@ -144,7 +145,7 @@ export default function SettingsScreen() {
     if (!on) return updateSettings({ appleHealth: { ...health, saveSince: undefined } });
     Alert.alert(
       'Save workouts to Apple Health?',
-      "Each workout you log from now on is saved as Traditional Strength Training (Mixed Cardio when it's all cardio), and changed or deleted there when you change or delete it here. A workout without logged minutes counts as an hour. Past workouts aren't copied.",
+      "Each workout you log from now on is saved as Traditional Strength Training (Mixed Cardio when it's all cardio), and changed or deleted there when you change or delete it here. A workout without logged minutes is saved with no length, at the time you logged it. Past workouts aren't copied.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -337,7 +338,7 @@ export default function SettingsScreen() {
 
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
-          <Row first icon="info.circle" title="LiftText" subtitle="Version 1.0.0" />
+          <Row first icon="info.circle" title="LiftText" subtitle={`Version ${Constants.expoConfig?.version}`} />
           <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts, chat history and progress photos are saved only on this phone, and nothing from Apple Health is ever sent. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
           <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving" onPress={() => Linking.openURL(legalUrl('terms'))} />
         </SkyCard>

@@ -44,12 +44,12 @@ beforeEach(async () => {
   canSave = true;
 });
 
-test('a workout gets an end when it was logged (or noon on a past day) and lasts its cardio minutes, else an hour', () => {
+test('a workout gets an end when it was logged (or noon on a past day) and lasts its cardio minutes, else no time at all', () => {
   const now = new Date('2026-10-18T19:00:00');
   const logged = new Date('2026-10-18T18:30:00');
   const t = health.healthTimes(workout('a', '2026-10-18', logged.toISOString()), now)!;
   assert.equal(t.end, logged.getTime());
-  assert.equal(t.end - t.start, 60 * 60_000);
+  assert.equal(t.end - t.start, 0, 'no logged minutes, so no made-up length');
   assert.equal(t.activity, 50); // strength training
 
   const runs = [{ name: 'Run', muscleGroup: 'cardio', duration: 30 }, { name: 'Bike', muscleGroup: 'cardio', duration: 15 }];
