@@ -24,12 +24,12 @@ const ACTIVITY: Record<number, string> = {
 };
 export const activityName = (activity: number) => ACTIVITY[activity] ?? 'Workout';
 
-// Health needs a start and an end, and a log has neither: the minutes you logged (cardio), else an hour, ending
-// when you logged it, or starting at noon for a past day. Nothing for a day still to come.
-export const DEFAULT_MINUTES = 60;
+// Health needs a start and an end, and a log has neither: the minutes you logged (cardio), ending when you logged
+// it, or starting at noon for a past day. A log with no minutes has no length to tell Health, so it gets none
+// rather than a made-up one (App Review 5.1.3: no inaccurate data in HealthKit). Nothing for a day still to come.
 export function healthTimes(workout: Workout, now: Date): { start: number; end: number; activity: number } | null {
   if (workout.date > format(now, 'yyyy-MM-dd')) return null;
-  const minutes = workout.exercises.reduce((sum, e) => sum + (e.duration ?? 0), 0) || DEFAULT_MINUTES;
+  const minutes = workout.exercises.reduce((sum, e) => sum + (e.duration ?? 0), 0);
   const logged = parseISO(workout.createdAt);
   const sameDay = format(logged, 'yyyy-MM-dd') === workout.date;
   const start = sameDay ? subMinutes(logged, minutes) : parseISO(`${workout.date}T12:00:00`);
