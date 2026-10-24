@@ -85,7 +85,7 @@ export default function TodayScreen() {
     const names = u.entry.items.map(i => i.name.toLowerCase());
     return { items: names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' and '), around: format(parseISO(u.entry.createdAt), 'h a').toLowerCase(), said: u.entry.items.map(i => i.said ?? i.name).join(', ') };
   }, [foodEntries, slot]);
-  const up = nextUp({ plannedToday, trainedToday: todays.length > 0, trains: lifts, slot, goal: foodGoal, today: food.get(today), bubbles, usual, plannedAhead: !!next });
+  const up = nextUp({ plannedToday, trainedToday: todays.length > 0, lifts, eats, slot, goal: foodGoal, today: food.get(today), bubbles, usual, plannedAhead: !!next });
 
   // The coach line: what's left of the protein goal, and the goal muscle furthest off that a plan covers
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);

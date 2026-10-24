@@ -133,24 +133,39 @@ test('meal bubbles keep their distance and stay inside the axis', () => {
 test('next up: start the plan, then the next meal, then plan tomorrow', () => {
   const today = foodByDay([meal('2026-10-23', '12:40', 136)]).get('2026-10-23');
   const planned = { date: '2026-10-23', name: 'Legs', exercises: 6, groups: ['quads' as const], templateId: 'Legs' };
-  assert.equal(nextUp({ plannedToday: planned, trainedToday: false, trains: true, bubbles: [], plannedAhead: true }).title, 'Start Legs');
+  assert.equal(nextUp({ plannedToday: planned, trainedToday: false, lifts: true, eats: true, bubbles: [], plannedAhead: true }).title, 'Start Legs');
   const bubbles = mealBubbles([meal('2026-10-23', '12:40', 136)], GOAL, NOW);
-  const dinner = nextUp({ trainedToday: true, trains: true, goal: GOAL, today, bubbles, usual: { items: 'salmon and rice', around: '7 pm' }, plannedAhead: true });
+  const dinner = nextUp({ trainedToday: true, lifts: true, eats: true, goal: GOAL, today, bubbles, usual: { items: 'salmon and rice', around: '7 pm' }, plannedAhead: true });
   assert.equal(dinner.title, 'Log a snack · 24 g to go');
   assert.equal(dinner.sub, 'Usually salmon and rice, around 7 pm');
   assert.equal(dinner.action, 'log');
-  assert.equal(nextUp({ trainedToday: true, trains: true, goal: GOAL, today, bubbles: [], plannedAhead: false }).title, 'Plan tomorrow');
-  assert.equal(nextUp({ trainedToday: true, trains: true, goal: GOAL, today: { ...today!, protein: 170 }, bubbles: [], plannedAhead: true }).title, 'Protein goal met');
-  assert.equal(nextUp({ trainedToday: false, trains: true, bubbles: [], plannedAhead: true }).title, 'Log what you did');
+  assert.equal(nextUp({ trainedToday: true, lifts: true, eats: true, goal: GOAL, today, bubbles: [], plannedAhead: false }).title, 'Plan tomorrow');
+  assert.equal(nextUp({ trainedToday: true, lifts: true, eats: true, goal: GOAL, today: { ...today!, protein: 170 }, bubbles: [], plannedAhead: true }).title, 'Protein goal met');
+  assert.equal(nextUp({ trainedToday: false, lifts: true, eats: true, bubbles: [], plannedAhead: true }).title, 'Log what you did');
 });
 
 test('next up: food-only users log the next meal, never plan tomorrow', () => {
   const lunch = [meal('2026-10-23', '12:40', 40)];
   const bubbles = mealBubbles(lunch, undefined, NOW);
   const slot = nextMeal(bubbles, NOW)?.[0];
-  const up = nextUp({ trainedToday: false, trains: false, slot, today: foodByDay(lunch).get('2026-10-23'), bubbles, usual: { items: 'salmon and rice', around: '7 pm' }, plannedAhead: false });
+  const up = nextUp({ trainedToday: false, lifts: false, eats: true, slot, today: foodByDay(lunch).get('2026-10-23'), bubbles, usual: { items: 'salmon and rice', around: '7 pm' }, plannedAhead: false });
   assert.deepEqual(up, { title: 'Log a snack', sub: 'Usually salmon and rice, around 7 pm', action: 'log', meal: 'a snack' });
-  const late = nextUp({ trainedToday: false, trains: false, slot: nextMeal([...bubbles, { ...bubbles[0], hour: 20 }], NOW)?.[0], bubbles, plannedAhead: false });
+  const late = nextUp({ trainedToday: false, lifts: false, eats: true, slot: nextMeal([...bubbles, { ...bubbles[0], hour: 20 }], NOW)?.[0], bubbles, plannedAhead: false });
   assert.notEqual(late.action, 'plan');
-  assert.equal(nextUp({ trainedToday: false, trains: false, slot: 'Evening', goal: { kind: 'cut' as const, target: 2000 }, bubbles: [], plannedAhead: false }).title, 'Log dinner');
+  assert.equal(nextUp({ trainedToday: false, lifts: false, eats: true, slot: 'Evening', goal: { kind: 'cut' as const, target: 2000 }, bubbles: [], plannedAhead: false }).title, 'Log dinner');
+});
+
+test('next up: train-only users plan tomorrow, never log a meal', () => {
+  const up = nextUp({ trainedToday: true, lifts: true, eats: false, slot: 'Afternoon', bubbles: [], plannedAhead: false });
+  assert.equal(up.title, 'Plan tomorrow');
+  assert.equal(up.action, 'plan');
+  assert.equal(nextUp({ trainedToday: true, lifts: true, eats: false, slot: 'Afternoon', bubbles: [], plannedAhead: true }).action, undefined);
+});
+
+test('next up: those who do both start the plan, then log the next meal, then plan tomorrow', () => {
+  const planned = { date: '2026-10-23', name: 'Legs', exercises: 6, groups: ['quads' as const], templateId: 'Legs' };
+  const both = { lifts: true, eats: true, bubbles: [], plannedAhead: false };
+  assert.equal(nextUp({ ...both, plannedToday: planned, trainedToday: false, slot: 'Evening' }).action, 'start');
+  assert.equal(nextUp({ ...both, plannedToday: planned, trainedToday: true, slot: 'Evening' }).title, 'Log dinner');
+  assert.equal(nextUp({ ...both, plannedToday: planned, trainedToday: true }).title, 'Plan tomorrow');
 });

@@ -234,11 +234,12 @@ export interface NextUp {
 const MEAL_WORD: Record<string, string> = { Morning: 'breakfast', Midday: 'lunch', Afternoon: 'a snack', Evening: 'dinner' };
 
 // "Start Legs" while today's plan isn't done; else the next meal with what's left and what you usually
-// have then (any next meal without a protein goal); "Plan tomorrow" for those who train when nothing is; else what's done
+// have then (for those who log food); "Plan tomorrow" for those who train when nothing is; else what's done
 export function nextUp(input: {
   plannedToday?: PlannedDay;
   trainedToday: boolean;
-  trains: boolean; // has workouts or a plan
+  lifts: boolean; // has workouts or a plan
+  eats: boolean; // logs food or set a food goal
   slot?: string; // nextMeal()'s name: the next meal's slot, none after the last
   goal?: FoodGoal;
   today?: FoodDayTotal;
@@ -246,18 +247,18 @@ export function nextUp(input: {
   usual?: { items: string; around: string }; // what you usually log in that slot
   plannedAhead: boolean;
 }): NextUp {
-  const { plannedToday, trainedToday, trains, slot, goal, today, bubbles, usual, plannedAhead } = input;
+  const { plannedToday, trainedToday, lifts, eats, slot, goal, today, bubbles, usual, plannedAhead } = input;
   if (plannedToday && !trainedToday) return { title: `Start ${plannedToday.name}`, sub: `${plannedToday.exercises} exercise${plannedToday.exercises === 1 ? '' : 's'} · planned for today`, action: 'start' };
   const toGo = bubbles.find(b => b.toGo);
   if (toGo) {
     const meal = MEAL_WORD[toGo.name];
     return { title: `Log ${meal} · ${toGo.grams} g to go`, sub: usual ? `Usually ${usual.items}, around ${usual.around}` : `${today?.protein ?? 0} g of ${goal!.target} g so far`, action: 'log', meal };
   }
-  if (goal?.kind !== 'protein' && slot) {
+  if (eats && goal?.kind !== 'protein' && slot) {
     const meal = MEAL_WORD[slot];
     return { title: `Log ${meal}`, sub: usual ? `Usually ${usual.items}, around ${usual.around}` : 'In the bar', action: 'log', meal };
   }
-  if (trains && !plannedAhead) return { title: 'Plan tomorrow', sub: 'Nothing planned yet', action: 'plan' };
+  if (lifts && !plannedAhead) return { title: 'Plan tomorrow', sub: 'Nothing planned yet', action: 'plan' };
   if (goal?.kind === 'protein' && today && today.protein >= goal.target) return { title: 'Protein goal met', sub: `${today.protein} g of ${goal.target} g` };
   return trainedToday ? { title: 'Done for today', sub: 'Rest up' } : { title: 'Log what you did', sub: 'A workout, a meal, or both, in the bar' };
 }
