@@ -90,6 +90,18 @@ export interface UserSettings {
   goalsPromptDismissed?: boolean; // "Not now" on Progress's set-a-goal prompt: it doesn't come back
   profile?: { facts: Fact[] }; // things you told the coach to remember (services/ask.ts); shown and deletable in Settings
   appleHealth?: AppleHealthSettings; // Settings › Apple Health; what Health holds is never stored here (services/health.ts)
+  foodPrefs?: FoodPrefs; // how you like to eat (app/food-prefs.tsx); sent to the coach only with a question, like facts, never stored by the Worker
+  foodPrefsPromptDismissed?: boolean; // "Not now" on the food surface's set-up prompt: it doesn't come back
+}
+
+// How you like to eat (services/foodPrefs.ts): what every meal idea is checked against one by one, a
+// budget, foods never to suggest, and how long you cook. All of it stays on the phone.
+export type FoodPreference = 'protein' | 'lowSpike' | 'simple' | 'noSeedOils' | 'cheap' | 'lowCalorie' | 'highFiber';
+export interface FoodPrefs {
+  matters: FoodPreference[];
+  budget?: 8 | 12 | 16; // dollars a meal; unset = any
+  never: string[]; // a chip's word ("shellfish", standing for every shellfish) or your own words; a filter, never a score
+  cooking?: 0 | 10 | 20 | 40; // minutes you'll spend; 0 = no cooking, assembled food only; unset = not asked
 }
 
 export interface AppleHealthSettings {

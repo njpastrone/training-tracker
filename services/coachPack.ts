@@ -8,6 +8,7 @@ import { itemFor, usualPortions } from './foods';
 import { trainingWindow } from './pace';
 import { workoutName } from './format';
 import { foodById } from '../data/foods';
+import { PREFERENCES } from './foodPrefs';
 import type { ExerciseLibrary, MuscleGroup, UserSettings, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
@@ -51,6 +52,18 @@ export function foodHabits(foodEntries: FoodEntry[], now: Date) {
 
 // Things you told the coach, as it reads them: "food: no dairy (said 2026-10-01)"
 export const factLines = (settings: UserSettings) => (settings.profile?.facts ?? []).map(f => `${f.kind}: ${f.text} (said ${f.saidOn})`);
+
+// How you like to eat, as the coach reads it (services/foodPrefs.ts): what matters, the budget, what never to suggest, how long you cook
+export function prefLines(settings: UserSettings) {
+  const p = settings.foodPrefs;
+  if (!p) return undefined;
+  return clean({
+    matters: p.matters.length ? p.matters.map(m => PREFERENCES.find(x => x.value === m)?.label.toLowerCase() ?? m) : undefined,
+    budget: p.budget ? `about $${p.budget} a meal` : undefined,
+    never: p.never.length ? p.never : undefined,
+    cooking: p.cooking === undefined ? undefined : p.cooking === 0 ? "doesn't cook: no stove, assembled food only" : `up to ${p.cooking} minutes`,
+  });
+}
 
 export interface PackInput {
   workouts: Workout[];
@@ -163,6 +176,7 @@ export function buildCoachPack({ workouts, foodEntries, settings, library, sched
       trainingFor: settings.goal,
       goals: settings.goals && goalLines(settings.goals, library).length ? goalLines(settings.goals, library) : undefined,
       facts: factLines(settings).length ? factLines(settings) : undefined,
+      foodPrefs: prefLines(settings),
     }),
     training,
     food,

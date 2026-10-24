@@ -120,6 +120,10 @@ const defaultSettings: UserSettings = {
   weightUnit: 'lbs',
 };
 
+// The one way to read food preferences (services/foodPrefs.ts): in a component, or anywhere else
+export const useFoodPrefs = () => useWorkoutStore(s => s.settings.foodPrefs);
+export const readFoodPrefs = () => useWorkoutStore.getState().settings.foodPrefs;
+
 export const useWorkoutStore = create<WorkoutState>()(
   persist(
     (set, get) => ({

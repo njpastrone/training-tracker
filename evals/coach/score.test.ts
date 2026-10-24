@@ -72,6 +72,19 @@ test('every case names a fixture user and has a unique id', () => {
     assert.equal(ids.has(c.id), false, c.id);
     ids.add(c.id);
   }
-  assert.equal(cases.length, 42);
+  assert.equal(cases.length, 46);
   assert.equal(holdout.length, 19);
+});
+
+test('with food preferences a meal needs price and minutes within the cooking time, and never a never-suggest food', () => {
+  const make = cases.find((c) => c.id === 'prefs-make-it')!;
+  const meals = (extra: object) => JSON.stringify([{ label: 'Salmon and lentils', items: ['6 oz salmon', '1 cup lentils'], ...extra }]);
+  const ok = scoreCoachCase(make, reply('Salmon and lentils gets you most of the way there.').replace(/}$/, `,"meals":${meals({ price: 9, minutes: 20 })}}`), PACKS.prefs);
+  assert.deepEqual(ok.checks.filter((k) => !k.pass).map((k) => k.name), [`says ${make.must![0]}`]);
+  const bare = scoreCoachCase(make, reply('Salmon and lentils.').replace(/}$/, `,"meals":${meals({})}}`), PACKS.prefs);
+  assert.ok(bare.checks.find((k) => k.name === 'meals carry price and minutes' && !k.pass));
+  const slow = scoreCoachCase(make, reply('Salmon and lentils.').replace(/}$/, `,"meals":${meals({ price: 9, minutes: 45 })}}`), PACKS.prefs);
+  assert.ok(slow.checks.find((k) => k.name === 'within cooking time' && !k.pass));
+  const shrimp = scoreCoachCase(make, reply('Shrimp and rice.').replace(/}$/, `,"meals":${JSON.stringify([{ label: 'Shrimp bowl', items: ['200 g shrimp', '1 cup rice'], price: 8, minutes: 15 }])}}`), PACKS.prefs);
+  assert.ok(shrimp.checks.find((k) => k.name.startsWith('card never') && !k.pass));
 });
