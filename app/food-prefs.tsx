@@ -20,7 +20,7 @@ const splitWords = (text: string) => text.split(',').map(w => w.trim()).filter(B
 
 // How you like to eat (data/lt-ui-g/report.md §3.2), the same sheet for setup and later edits: what
 // matters, a budget, foods never to suggest, how long you cook. Changes save as you make them, on this
-// phone; they go to the AI only inside a meal question, and the Worker never stores them.
+// phone; they go to the AI only when you ask the coach, and the Worker never stores them.
 export default function FoodPrefsScreen() {
   const { colors } = useTheme();
   const { settings, updateSettings } = useWorkoutStore();
@@ -85,7 +85,7 @@ export default function FoodPrefsScreen() {
         </SkyCard>
 
         <Text variant="bodySmall" style={[styles.footer, { color: colors.textTertiary }]}>
-          Saved on this iPhone. Sent to the AI only with a meal idea, never stored by our server.
+          Saved on this iPhone. Sent to the AI only when you ask the coach, never stored by our server.
         </Text>
       </ScrollView>
     </SkyScreen>
