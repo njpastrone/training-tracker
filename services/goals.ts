@@ -45,14 +45,38 @@ export interface FoodProgress {
   met: boolean; // every logged day met it
 }
 
-type DayFood = { protein: number; kcal: number };
-// The number a food goal measures: protein grams, or kcal on a cut or bulk
-export const foodValue = (goal: FoodGoal, t: DayFood) => (goal.kind === 'protein' ? t.protein : t.kcal);
-// Met: at least the target for protein and a bulk, at or under it on a cut
+type DayFood = { protein: number; kcal: number; fiber?: number; lowGiMeals?: number };
+// The number a food goal measures: protein grams, kcal on a cut or bulk, fiber grams, or low-GI meals
+export const foodValue = (goal: FoodGoal, t: DayFood) =>
+  goal.kind === 'protein' ? t.protein : goal.kind === 'fiber' ? t.fiber ?? 0 : goal.kind === 'lowgi' ? t.lowGiMeals ?? 0 : t.kcal;
+// Whether a day's food carries the number the goal measures (fiber and GI are estimates the log may not have yet)
+export const foodKnown = (goal: FoodGoal, t: DayFood) => (goal.kind === 'fiber' ? t.fiber !== undefined : goal.kind === 'lowgi' ? t.lowGiMeals !== undefined : true);
+// Met: at least the target for protein, fiber, low-GI meals and a bulk, at or under it on a cut
 export const foodMet = (goal: FoodGoal, t: DayFood) => (goal.kind === 'cut' ? t.kcal <= goal.target : foodValue(goal, t) >= goal.target);
-export const foodGoalName = (goal: FoodGoal) => (goal.kind === 'protein' ? 'Protein' : 'Calories');
-// "160 g" or "2,000"
-export const foodTarget = (goal: FoodGoal) => (goal.kind === 'protein' ? `${goal.target} g` : goal.target.toLocaleString('en-US'));
+export const FOOD_GOAL_NAMES: Record<FoodGoal['kind'], string> = { protein: 'Protein', cut: 'Calories', bulk: 'Calories', fiber: 'Fiber', lowgi: 'Low-GI meals' };
+export const foodGoalName = (goal: FoodGoal) => FOOD_GOAL_NAMES[goal.kind];
+// "160 g", "2,000", "3 meals"
+export const foodTarget = (goal: FoodGoal) =>
+  goal.kind === 'protein' || goal.kind === 'fiber' ? `${goal.target} g` : goal.kind === 'lowgi' ? `${goal.target} meal${goal.target === 1 ? '' : 's'}` : goal.target.toLocaleString('en-US');
+
+// Food's goals card: the main goal first, then the others, one per family (protein, calories, fiber, low-GI)
+export type FoodGoalFamily = 'protein' | 'calories' | 'fiber' | 'lowgi';
+export const foodGoalFamily = (kind: FoodGoal['kind']): FoodGoalFamily => (kind === 'cut' || kind === 'bulk' ? 'calories' : kind);
+export function foodGoalRows(goals: Pick<Goals, 'food' | 'foodGoals'> | undefined): FoodGoal[] {
+  const seen = new Set<FoodGoalFamily>();
+  return [goals?.food, ...(goals?.foodGoals ?? [])].filter((g): g is FoodGoal => {
+    if (!g || seen.has(foodGoalFamily(g.kind))) return false;
+    seen.add(foodGoalFamily(g.kind));
+    return true;
+  });
+}
+// The picker's list back into settings: protein is the main goal when it's on, else calories; the rest go after
+export function packFoodGoals(rows: FoodGoal[]): Pick<Goals, 'food' | 'foodGoals'> {
+  const list = foodGoalRows({ foodGoals: rows });
+  const food = list.find(g => g.kind === 'protein') ?? list.find(g => foodGoalFamily(g.kind) === 'calories');
+  const rest = list.filter(g => g !== food);
+  return { food, foodGoals: rest.length ? rest : undefined };
+}
 // Calories against a cut or bulk in plain words, never a grade: "876 left · cutting", "124 over · cutting", "876 to go · bulking", "reached · bulking"
 export function calorieLeft(goal: FoodGoal, kcal: number): string {
   const diff = goal.target - kcal;

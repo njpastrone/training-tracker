@@ -1,7 +1,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { analyzeWeeklyVolume } from './coach';
 import { mealsOf } from './foods';
-import { DEFAULT_MUSCLES, foodMet, foodValue, hasMuscleGoals } from './goals';
+import { DEFAULT_MUSCLES, foodKnown, foodMet, foodValue, hasMuscleGoals } from './goals';
 import { foodByDay, type FoodDayTotal } from './progress';
 import type { TrainingWindow } from './pace';
 import type { FoodEntry } from '../types/food';
@@ -261,4 +261,40 @@ export function nextUp(input: {
   if (lifts && !plannedAhead) return { title: 'Plan tomorrow', sub: 'Nothing planned yet', action: 'plan' };
   if (goal?.kind === 'protein' && today && today.protein >= goal.target) return { title: 'Protein goal met', sub: `${today.protein} g of ${goal.target} g` };
   return trainedToday ? { title: 'Done for today', sub: 'Rest up' } : { title: 'Log what you did', sub: 'A workout, a meal, or both, in the bar' };
+}
+
+export type GoalCell = 'met' | 'partly' | 'missed' | 'none' | 'future';
+
+export interface GoalWeek {
+  goal: FoodGoal;
+  cells: GoalCell[]; // Monday first; partly is halfway there (or just over on a cut)
+  hit: number; // days at goal this week
+  logged: number; // days with food this week
+  today?: number; // today's value, once there is food today
+  known: boolean; // the food log carries this goal's number (fiber and GI are estimates it may not have yet)
+}
+
+// One row of Food's goals card: each day this week against the goal, and where today stands
+export function goalWeek(goal: FoodGoal, totals: Map<string, FoodDayTotal>, now: Date): GoalWeek {
+  const today = ymd(now);
+  const dates = weekDates(now);
+  const days = dates.map(d => totals.get(d));
+  const known = days.some(t => t && foodKnown(goal, t));
+  const cells = dates.map((date, i): GoalCell => {
+    const t = days[i];
+    if (date > today) return 'future';
+    if (!t || !foodKnown(goal, t)) return 'none';
+    if (foodMet(goal, t)) return 'met';
+    const v = foodValue(goal, t);
+    return (goal.kind === 'cut' ? v <= goal.target * 1.1 : v >= goal.target / 2) ? 'partly' : 'missed';
+  });
+  const todayTotal = totals.get(today);
+  return {
+    goal,
+    cells,
+    hit: cells.filter(c => c === 'met').length,
+    logged: days.filter(t => t && foodKnown(goal, t)).length,
+    today: todayTotal && foodKnown(goal, todayTotal) ? foodValue(goal, todayTotal) : undefined,
+    known,
+  };
 }

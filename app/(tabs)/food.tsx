@@ -9,7 +9,7 @@ import { SkyCard, LargeTitle } from '../../components/Sky';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import { CardHead, CoachLine, Disc, Doors, HueCard, Link, WeekStrip } from '../../components/Hue';
-import MealTimeline from '../../components/MealTimeline';
+import FoodGoalsCard from '../../components/FoodGoalsCard';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
 import { ThinkingCard } from '../../components/CoachCard';
@@ -18,11 +18,11 @@ import { UndoToast } from '../../components/SelectableWorkoutList';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useLogDraft } from '../../hooks/useLogDraft';
-import { foodGoalName, foodTarget } from '../../services/goals';
+import { foodGoalName, foodGoalRows, foodTarget } from '../../services/goals';
 import { foodByDay } from '../../services/progress';
 import { toChips, usualMeal } from '../../services/suggestions';
 import { foodLine } from '../../services/coachLine';
-import { foodTrend, foodWeekOf, mealBubbles, weekRange } from '../../services/week';
+import { foodTrend, foodWeekOf, goalWeek, weekRange } from '../../services/week';
 import { fonts, spacing } from '../../constants/theme';
 
 const BAR_H = 44; // the trend's tallest bar
@@ -30,7 +30,7 @@ const FOOD_EXAMPLES = toChips(['2 eggs and toast', 'Chicken, rice and broccoli',
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
 
 // How food is going, in the same four blocks as Training: the goal and this week (the hero, a ring a
-// day), today by meal, the 4-week trend with one coach line, then the doors. The bar logs what you ate.
+// day), your goals a row each, the 4-week trend with one coach line, then the doors. The bar logs what you ate.
 export default function FoodScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -60,9 +60,11 @@ export default function FoodScreen() {
 
   const week = useMemo(() => foodWeekOf(foodEntries, goal, now), [foodEntries, goal, today]);
   const trend = useMemo(() => foodTrend(foodEntries, goal, now), [foodEntries, goal, today]);
-  const todays = useMemo(() => foodEntries.filter(e => e.date === today), [foodEntries, today]);
-  const bubbles = useMemo(() => mealBubbles(todays, goal, now), [todays, goal]);
-  const total = useMemo(() => foodByDay(todays).get(today), [todays, today]);
+  // Every goal row this week; fiber and low-GI rows wait for the log to carry those numbers
+  const rows = useMemo(() => {
+    const totals = foodByDay(foodEntries);
+    return foodGoalRows(settings.goals).map(g => goalWeek(g, totals, now)).filter(r => r.known || (r.goal.kind !== 'fiber' && r.goal.kind !== 'lowgi'));
+  }, [foodEntries, settings.goals, today]);
   const line = useMemo(() => foodLine(foodEntries, goal, now), [foodEntries, goal, today]);
   const chips = useMemo(() => {
     const usual = usualMeal(foodEntries, now);
@@ -112,20 +114,16 @@ export default function FoodScreen() {
             />
           </HueCard>
 
-          {/* Slot 2: today by meal */}
+          {/* Slot 2: your goals, a row each; fiber and low-GI rows only once the log carries those numbers */}
           {eats || goal ? (
             <SkyCard card style={styles.tight}>
-              <CardHead label="Today by meal" right={total ? (goal ? `${protein ? total.protein : n(total.kcal)} of ${foodTarget(goal)}` : `${total.protein} g · ${n(total.kcal)} kcal`) : undefined} />
-              {bubbles.length ? (
-                <>
-                  <MealTimeline bubbles={bubbles} />
-                  <View style={styles.legend}>
-                    <View style={[styles.legendDot, { backgroundColor: colors.food }]} />
-                    <Text style={[styles.legendText, { color: colors.textSecondary }]}>g protein, sized by amount</Text>
-                  </View>
-                </>
+              {rows.length ? (
+                <FoodGoalsCard rows={rows} onEdit={() => router.push('/food-goals')} />
               ) : (
-                <Text variant="bodyMedium" style={[styles.quiet, { color: colors.textSecondary }]}>Nothing logged yet today. Say what you ate in the bar.</Text>
+                <>
+                  <CardHead label="Your goals" right={<Link label="Edit goals" onPress={() => router.push('/food-goals')} />} />
+                  <Text variant="bodyMedium" style={[styles.quiet, { color: colors.textSecondary }]}>Set a protein or calorie goal and each day shows up here against it.</Text>
+                </>
               )}
             </SkyCard>
           ) : (
@@ -133,7 +131,7 @@ export default function FoodScreen() {
               <SymbolView name="fork.knife" size={30} tintColor={colors.food} />
               <Text variant="titleMedium" style={{ color: colors.text }}>Your food shows up here</Text>
               <Text variant="bodyMedium" style={[styles.center, { color: colors.textSecondary }]}>
-                Say what you ate in the bar, like “2 eggs and toast”. Amounts are optional. Set a protein goal in Goals.
+                Say what you ate in the bar, like “2 eggs and toast”. Amounts are optional. Set a protein goal in Food goals.
               </Text>
             </SkyCard>
           )}
@@ -169,8 +167,8 @@ export default function FoodScreen() {
           <Doors
             hue="food"
             doors={[
-              { sf: 'target', md: 'track-changes', label: 'Food goal', onPress: () => router.push('/goals') },
-              { sf: 'list.bullet', md: 'format-list-bulleted', label: 'All meals', onPress: () => router.push('/calendar') },
+              { sf: 'target', md: 'track-changes', label: 'Food goals', onPress: () => router.push('/food-goals') },
+              { sf: 'list.bullet', md: 'format-list-bulleted', label: 'All meals', onPress: () => router.push('/meals') },
               { sf: 'chart.bar', md: 'bar-chart', label: 'Top sources', onPress: () => router.push('/food-week') },
               { sf: 'scalemass', md: 'monitor-weight', label: 'Body weight', onPress: () => router.push('/health') },
             ]}
@@ -219,22 +217,6 @@ const styles = StyleSheet.create({
   },
   quiet: {
     marginTop: spacing.sm,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: spacing.sm,
-  },
-  legendDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-  },
-  legendText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
   },
   empty: {
     alignItems: 'center',

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { catalogById } from '../data/catalog';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodByDay } from './progress';
-import { foodTrend, foodWeekOf, layoutMeals, mealBubbles, muscleWeek, nextMeal, nextUp, trainingWeek, weekDates, weekRange } from './week';
+import { foodTrend, foodWeekOf, goalWeek, layoutMeals, mealBubbles, muscleWeek, nextMeal, nextUp, trainingWeek, weekDates, weekRange } from './week';
 import type { FoodEntry } from '../types/food';
 import type { Workout } from '../types/workout';
 import type { TemplateSchedule, WorkoutTemplate } from '../types/template';
@@ -168,4 +168,35 @@ test('next up: those who do both start the plan, then log the next meal, then pl
   assert.equal(nextUp({ ...both, plannedToday: planned, trainedToday: false, slot: 'Evening' }).action, 'start');
   assert.equal(nextUp({ ...both, plannedToday: planned, trainedToday: true, slot: 'Evening' }).title, 'Log dinner');
   assert.equal(nextUp({ ...both, plannedToday: planned, trainedToday: true }).title, 'Plan tomorrow');
+});
+
+test('a goal row: each day met, partly or missed, today as a value, and whether the log knows the number', () => {
+  const fiberMeal = (date: string, fiber: number): FoodEntry => ({ ...meal(date, '12:00', 100), items: [{ id: 'i', name: 'Food', macros: { kcal: 400, protein: 100, carbs: 50, fat: 10, fiber }, source: 'usda' }] });
+  const totals = foodByDay([meal('2026-10-19', '08:00', 170), meal('2026-10-20', '08:00', 90), meal('2026-10-21', '08:00', 40), meal('2026-10-23', '12:00', 136)]);
+  const protein = goalWeek(GOAL, totals, NOW);
+  assert.deepEqual(protein.cells, ['met', 'partly', 'missed', 'none', 'partly', 'future', 'future']);
+  assert.equal(protein.hit, 1);
+  assert.equal(protein.logged, 4);
+  assert.equal(protein.today, 136);
+  assert.equal(protein.known, true);
+  // A cut: at or under is met, just over is partly
+  const cut = goalWeek({ kind: 'cut', target: 1000 }, totals, NOW);
+  assert.deepEqual(cut.cells.slice(0, 3), ['missed', 'met', 'met']);
+  // Fiber: unknown until the food carries fiber numbers
+  const fiber = goalWeek({ kind: 'fiber', target: 30 }, totals, NOW);
+  assert.equal(fiber.known, false);
+  assert.deepEqual(fiber.cells.slice(0, 2), ['none', 'none']);
+  const withFiber = goalWeek({ kind: 'fiber', target: 30 }, foodByDay([fiberMeal('2026-10-22', 18), fiberMeal('2026-10-23', 32)]), NOW);
+  assert.equal(withFiber.known, true);
+  assert.deepEqual(withFiber.cells.slice(3, 5), ['partly', 'met']);
+  assert.equal(withFiber.today, 32);
+});
+
+test('low-GI meals count only once the food log carries GI numbers', () => {
+  const gi = (date: string, time: string, g: number): FoodEntry => ({ ...meal(date, time, 20), items: [{ id: 'a', name: 'A', macros: { kcal: 300, protein: 20, carbs: 40, fat: 5 }, gi: g, source: 'estimate' }, { id: 'b', name: 'B', macros: { kcal: 100, protein: 5, carbs: 10, fat: 1 }, gi: 70, source: 'estimate' }] });
+  const day = foodByDay([gi('2026-10-23', '08:00', 40), gi('2026-10-23', '13:00', 65), meal('2026-10-23', '19:00', 30)]).get('2026-10-23')!;
+  assert.equal(day.lowGiMeals, 1); // 40×40+70×10 over 50 carbs = 46; 65×40+70×10 = 66; the plain meal has no GI
+  assert.equal(day.meals, 3);
+  assert.equal(foodByDay([meal('2026-10-23', '08:00', 30)]).get('2026-10-23')!.lowGiMeals, undefined);
+  assert.equal(goalWeek({ kind: 'lowgi', target: 2 }, foodByDay([gi('2026-10-23', '08:00', 40), gi('2026-10-23', '13:00', 50)]), NOW).today, 2);
 });

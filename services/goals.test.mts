@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, goalProgressLines, formatSets, goalLines, calorieLeft, withFoodGoal } from './goals';
+import { goalProgress, goalProgressLines, formatSets, goalLines, calorieLeft, withFoodGoal, foodGoalRows, packFoodGoals, foodTarget, foodValue, foodKnown, foodMet } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -174,4 +174,23 @@ test('goal progress as plain lines for the coach and the planner, without food',
     'Bench Press: 220.5 of 225 lbs',
     'Running: 2 of 3 days a week',
   ]);
+});
+
+test("Food's goal rows: the main goal first, one per kind, and the picker's list packed back", () => {
+  const protein = { kind: 'protein' as const, target: 160 };
+  const cut = { kind: 'cut' as const, target: 2200 };
+  const fiber = { kind: 'fiber' as const, target: 30 };
+  assert.deepEqual(foodGoalRows({ food: protein, foodGoals: [cut, fiber, { kind: 'bulk', target: 3000 }] }), [protein, cut, fiber]);
+  assert.deepEqual(foodGoalRows({ food: cut, foodGoals: [protein] }), [cut, protein]);
+  assert.deepEqual(foodGoalRows(undefined), []);
+  assert.deepEqual(packFoodGoals([fiber, cut, protein]), { food: protein, foodGoals: [fiber, cut] });
+  assert.deepEqual(packFoodGoals([fiber, cut]), { food: cut, foodGoals: [fiber] });
+  assert.deepEqual(packFoodGoals([protein]), { food: protein, foodGoals: undefined });
+  assert.deepEqual(packFoodGoals([]), { food: undefined, foodGoals: undefined });
+  assert.equal(foodTarget({ kind: 'lowgi', target: 3 }), '3 meals');
+  assert.equal(foodTarget(fiber), '30 g');
+  assert.equal(foodValue(fiber, { protein: 100, kcal: 2000, fiber: 18 }), 18);
+  assert.equal(foodValue(fiber, { protein: 100, kcal: 2000 }), 0);
+  assert.equal(foodKnown(fiber, { protein: 100, kcal: 2000 }), false);
+  assert.equal(foodMet({ kind: 'lowgi', target: 2 }, { protein: 0, kcal: 0, lowGiMeals: 2 }), true);
 });
