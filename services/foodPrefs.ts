@@ -21,12 +21,11 @@ export const PREFERENCES: { value: FoodPreference; label: string; short: string 
 export const DEFAULT_MATTERS: FoodPreference[] = ['protein', 'lowSpike', 'simple', 'noSeedOils', 'cheap'];
 export const BUDGETS = [8, 12, 16] as const;
 export const COOKING = [0, 10, 20, 40] as const;
-export const DEFAULT_BUDGET = 12;
 
 // The common allergens and dislikes as chips; each word stands for the foods it covers
 export const NEVER_CHIPS: Record<string, RegExp> = {
   shellfish: /\b(shellfish|shrimp|prawns?|crab|lobster|clams?|mussels?|oysters?|scallops?|crawfish|crayfish|calamari|squid)\b/i,
-  dairy: /\b(dairy|milk|cheese|yogurt|yoghurt|whey|casein|butter|cream|kefir|cottage|paneer|ghee|skyr)\b/i,
+  dairy: /\b(dairy|cheese|whey|casein|kefir|cottage|paneer|ghee|skyr|(?<!\b(?:almond|oat|coconut|soy|rice|cashew|peanut|cocoa|nut|seed)\s)(?:milk|butter|cream|yogurt|yoghurt))\b/i,
   gluten: /\b(gluten|wheat|bread|toast|pasta|noodles?|flour|barley|rye|bagels?|tortillas?|couscous|seitan|crackers?|cereal|pita|naan)\b/i,
   nuts: /\b(nuts?|almonds?|walnuts?|cashews?|pecans?|pistachios?|hazelnuts?|peanuts?|macadamia)\b/i,
   pork: /\b(pork|bacon|ham|prosciutto|pancetta|chorizo|salami|pepperoni)\b/i,
@@ -56,7 +55,7 @@ export const swapQuestion = (meal: string, foods: string[]) => `I had ${foods.jo
 
 // ---------------------------------------------------------------- scorecard
 
-export type Verdict = 'hit' | 'miss' | 'unknown';
+export type Verdict = 'hit' | 'miss' | 'unknown' | 'info'; // info: shown, never scored
 export interface ScoreRow {
   pref: FoodPreference | 'cooking';
   label: string; // "Low spike likely", "~$9"
@@ -132,14 +131,16 @@ export function scoreMeal(facts: MealFacts, prefs: FoodPrefs): Scorecard {
         const fat = items.find(i => category(i) === 'fats_oils');
         if (oil) row(p, 'Seed oils likely', 'miss', short(oil.name));
         else if (peanut) row(p, 'Peanut oil', 'unknown', 'your call');
-        else if (unknownFoods) row(p, 'Oils unknown', 'unknown', 'not in the table');
+        else if (unknownFoods) row(p, 'Oils not published', 'unknown', 'not in the table');
         else row(p, 'No seed oils', 'hit', fat ? short(fat.name) : 'none added');
         break;
       }
       case 'cheap': {
         if (eaten) break;
-        const budget = prefs.budget ?? DEFAULT_BUDGET;
-        if (facts.price === undefined) row(p, 'Price unknown', 'unknown', 'no estimate');
+        const budget = prefs.budget;
+        if (!budget) {
+          if (facts.price !== undefined) row(p, `~$${facts.price}`, 'info', 'an estimate');
+        } else if (facts.price === undefined) row(p, 'Price unknown', 'unknown', 'no estimate');
         else row(p, `~$${facts.price}`, facts.price <= budget ? 'hit' : 'miss', `${facts.price <= budget ? 'under' : 'over'} $${budget}`);
         break;
       }
@@ -157,7 +158,17 @@ export function scoreMeal(facts: MealFacts, prefs: FoodPrefs): Scorecard {
   }
 
   const hits = rows.filter(r => r.verdict === 'hit').length;
+  const of = rows.filter(r => r.verdict !== 'info').length;
   const likely = rows.some(r => r.verdict === 'unknown' || r.pref === 'cheap' || r.pref === 'cooking' || r.pref === 'lowSpike' || r.pref === 'noSeedOils');
-  const headline = rows.length ? `${eaten ? 'Hit' : likely ? 'Likely hits' : 'Hits'} ${hits} of ${rows.length}` : '';
-  return { hits, of: rows.length, likely, headline, rows };
+  const headline = of ? `${eaten ? 'Hit' : likely ? 'Likely hits' : 'Hits'} ${hits} of ${of}` : '';
+  return { hits, of, likely, headline, rows };
+}
+
+// A logged meal's one line, "Hit 3 of 4 of your preferences · spike likely · rice, oils not published · not
+// in the table": misses first, then what can't be told; only a miss earns the swap
+export function mealCheck(card: Scorecard): { line: string; swap: boolean } {
+  const misses = card.rows.filter(r => r.verdict === 'miss');
+  const open = card.rows.filter(r => r.verdict === 'unknown');
+  const notes = [...misses, ...open].map(r => `${r.label.toLowerCase()} · ${r.why}`);
+  return { line: `${card.headline} of your preferences${notes.length ? ` · ${notes.join(', ')}` : ''}`, swap: misses.length > 0 };
 }

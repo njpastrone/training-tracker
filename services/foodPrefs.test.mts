@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { neverSuggested, prefsSummary, scoreMeal, swapQuestion } from './foodPrefs';
+import { mealCheck, neverSuggested, prefsSummary, scoreMeal, swapQuestion } from './foodPrefs';
 import { localFoodParse } from './foods';
 import type { FoodPrefs } from '../types/workout';
 
@@ -72,4 +72,29 @@ test('the summary line and the swap question read as the design has them', () =>
   assert.equal(prefsSummary({ matters: [], never: [], cooking: 0 }), 'No cooking');
   assert.equal(prefsSummary({ matters: [], never: [] }), 'Nothing picked yet');
   assert.equal(swapQuestion('Midday', ['chicken breast', 'white rice']), "I had chicken breast, white rice for midday. What's a version that fits my food preferences next time?");
+});
+
+test('with no budget set the price is shown as an estimate, never scored against a default', () => {
+  const card = scoreMeal({ items: items('6 oz salmon, 1 cup lentils'), price: 14 }, { matters: ['protein', 'cheap'], never: [] });
+  assert.deepEqual(card.rows.find(r => r.pref === 'cheap'), { pref: 'cheap', label: '~$14', verdict: 'info', why: 'an estimate' });
+  assert.equal(card.headline, 'Likely hits 1 of 1');
+  assert.equal(scoreMeal({ items: items('6 oz salmon') }, { matters: ['cheap'], never: [] }).rows.length, 0);
+});
+
+test('a logged meal offers the swap only for a miss; oils that cannot be told read neutrally', () => {
+  const unknownOnly = mealCheck(scoreMeal({ items: items('6 oz salmon'), unknown: ['house sauce'], eaten: true }, { matters: ['protein', 'noSeedOils'], never: [] }));
+  assert.deepEqual(unknownOnly, { line: 'Hit 1 of 2 of your preferences · oils not published · not in the table', swap: false });
+  const peanut = mealCheck(scoreMeal({ items: items('6 oz salmon, 1 tbsp peanut oil'), eaten: true }, { matters: ['noSeedOils'], never: [] }));
+  assert.equal(peanut.swap, false);
+  const missed = mealCheck(scoreMeal({ items: items('2 eggs'), eaten: true }, { matters: ['protein'], never: [] }));
+  assert.equal(missed.swap, true);
+  assert.match(missed.line, /protein · a light serving$/);
+});
+
+test('plant milks and nut butters are not dairy', () => {
+  const dairy = { matters: [], never: ['dairy'] };
+  for (const name of ['almond milk', 'oat milk', 'coconut milk', 'soy milk', 'peanut butter', 'almond butter', 'cocoa butter']) {
+    assert.equal(neverSuggested([{ name }], dairy), undefined, name);
+  }
+  for (const name of ['Milk, whole', 'butter', 'Greek yogurt', 'ice cream']) assert.equal(neverSuggested([{ name }], dairy), 'dairy', name);
 });

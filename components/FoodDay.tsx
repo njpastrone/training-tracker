@@ -9,7 +9,7 @@ import { foodById } from '../data/foods';
 import { mealsOf, sumMacros } from '../services/foods';
 import { amountLabel } from '../services/foodUnits';
 import { calorieLeft, foodTarget } from '../services/goals';
-import { scoreMeal, swapQuestion } from '../services/foodPrefs';
+import { mealCheck, scoreMeal, swapQuestion } from '../services/foodPrefs';
 import type { FoodEntry, FoodItem } from '../types/food';
 import type { FoodGoal, FoodPrefs } from '../types/workout';
 import { SectionLabel, SkyCard } from './Sky';
@@ -105,13 +105,11 @@ function MealCheck({ items, meal, prefs }: { items: FoodItem[]; meal: string; pr
   const router = useRouter();
   const card = scoreMeal({ items, eaten: true }, prefs);
   if (!card.of) return null;
-  const misses = card.rows.filter(r => r.verdict !== 'hit');
+  const { line, swap } = mealCheck(card);
   return (
     <View style={styles.check}>
-      <Text style={[styles.faint, { color: colors.textSecondary }]}>
-        {card.headline} of your preferences{misses.length ? ` · ${misses.map(r => `${r.label.toLowerCase()} · ${r.why}`).join(', ')}` : ''}
-      </Text>
-      {misses.length > 0 && (
+      <Text style={[styles.faint, { color: colors.textSecondary }]}>{line}</Text>
+      {swap && (
         <View style={styles.swap}>
           <Pill
             size="small"

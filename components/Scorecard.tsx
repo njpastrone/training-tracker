@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import type { Scorecard as Card, Verdict } from '../services/foodPrefs';
 
-const ICON: Record<Verdict, SFSymbol> = { hit: 'checkmark.circle.fill', miss: 'minus.circle', unknown: 'questionmark.circle' };
+const ICON: Record<Verdict, SFSymbol> = { hit: 'checkmark.circle.fill', miss: 'minus.circle', unknown: 'questionmark.circle', info: 'tag' };
 
 // A meal checked against your food preferences (services/foodPrefs.ts): "Likely hits 4 of 5", then one
 // short row per preference, a sunrise ✓ for a hit, a warning dash for a miss, grey for unknown, never red
@@ -13,7 +13,7 @@ const ICON: Record<Verdict, SFSymbol> = { hit: 'checkmark.circle.fill', miss: 'm
 export default function Scorecard({ card }: { card: Card }) {
   const { colors } = useTheme();
   if (!card.of) return null;
-  const tint: Record<Verdict, string> = { hit: colors.sunrise, miss: colors.warning, unknown: colors.textTertiary };
+  const tint: Record<Verdict, string> = { hit: colors.sunrise, miss: colors.warning, unknown: colors.textTertiary, info: colors.textTertiary };
   const oneColumn = PixelRatio.getFontScale() > 1.3;
   return (
     <View accessible accessibilityLabel={`${card.headline} of your preferences. ${card.rows.map(r => `${r.label}, ${r.why}: ${r.verdict}`).join('. ')}`}>

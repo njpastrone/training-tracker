@@ -62,7 +62,7 @@ export interface MealCard {
 // so is one that holds a food on the never-suggest list (services/foodPrefs.ts): a filter, not a score
 export function priceMeals(meals: SuggestedMeal[], foodEntries: FoodEntry[], prefs?: FoodPrefs): MealCard[] {
   return meals.flatMap(m => {
-    if (neverSuggested([m.label, ...m.items].map(name => ({ name })), prefs)) return [];
+    if (neverSuggested(m.items.map(name => ({ name })), prefs)) return [];
     const { result, parsed: items } = estimateMeal(m.items, foodEntries);
     if (!items.length || neverSuggested(items, prefs)) return [];
     return [{

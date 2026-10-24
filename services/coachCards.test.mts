@@ -58,11 +58,12 @@ test('priceMeals carries the price and minutes estimates and drops a meal that h
       { label: 'Dinner', items: ['6 oz salmon', '1 cup lentils'], price: 9, minutes: 20 },
       { label: 'Shrimp bowl', items: ['200 g shrimp', '1 cup rice'], price: 7, minutes: 15 },
       { label: 'Tacos', items: ['200 g chicken breast', 'cilantro'] },
+      { label: 'No-shellfish stir fry', items: ['200 g chicken breast', '1 cup broccoli'] },
     ],
     SAM.foodEntries,
     prefs,
   );
-  assert.deepEqual(meals.map(m => [m.label, m.price, m.minutes]), [['Dinner', 9, 20]]);
+  assert.deepEqual(meals.map(m => [m.label, m.price, m.minutes]), [['Dinner', 9, 20], ['No-shellfish stir fry', undefined, undefined]]);
   // Without preferences nothing is filtered
   assert.equal(priceMeals([{ label: 'Shrimp bowl', items: ['200 g shrimp', '1 cup rice'] }], SAM.foodEntries).length, 1);
 });
