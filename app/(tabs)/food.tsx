@@ -18,7 +18,7 @@ import { UndoToast } from '../../components/SelectableWorkoutList';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useLogDraft } from '../../hooks/useLogDraft';
-import { foodGoalName, foodGoalRows, foodTarget } from '../../services/goals';
+import { foodGoalName, foodGoalRows, foodLogKnows, foodTarget } from '../../services/goals';
 import { foodByDay } from '../../services/progress';
 import { toChips, usualMeal } from '../../services/suggestions';
 import { foodLine } from '../../services/coachLine';
@@ -61,9 +61,10 @@ export default function FoodScreen() {
   const week = useMemo(() => foodWeekOf(foodEntries, goal, now), [foodEntries, goal, today]);
   const trend = useMemo(() => foodTrend(foodEntries, goal, now), [foodEntries, goal, today]);
   // Every goal row this week; fiber and low-GI rows wait for the log to carry those numbers
+  const goalRows = foodGoalRows(settings.goals);
   const rows = useMemo(() => {
     const totals = foodByDay(foodEntries);
-    return foodGoalRows(settings.goals).map(g => goalWeek(g, totals, now)).filter(r => r.known || (r.goal.kind !== 'fiber' && r.goal.kind !== 'lowgi'));
+    return goalRows.filter(g => foodLogKnows(g, totals)).map(g => goalWeek(g, totals, now));
   }, [foodEntries, settings.goals, today]);
   const line = useMemo(() => foodLine(foodEntries, goal, now), [foodEntries, goal, today]);
   const chips = useMemo(() => {
@@ -122,7 +123,7 @@ export default function FoodScreen() {
               ) : (
                 <>
                   <CardHead label="Your goals" right={<Link label="Edit goals" onPress={() => router.push('/food-goals')} />} />
-                  <Text variant="bodyMedium" style={[styles.quiet, { color: colors.textSecondary }]}>Set a protein or calorie goal and each day shows up here against it.</Text>
+                  <Text variant="bodyMedium" style={[styles.quiet, { color: colors.textSecondary }]}>{goalRows.length ? 'Fiber and low-GI goals show up here once your food log carries those numbers.' : 'Set a protein or calorie goal and each day shows up here against it.'}</Text>
                 </>
               )}
             </SkyCard>

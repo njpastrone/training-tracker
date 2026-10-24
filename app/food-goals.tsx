@@ -7,7 +7,7 @@ import { Segmented } from '../components/Glass';
 import NumberChip from '../components/NumberChip';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
-import { FOOD_GOAL_NAMES, NO_GOALS, foodGoalFamily, foodGoalRows, packFoodGoals, type FoodGoalFamily } from '../services/goals';
+import { FOOD_GOAL_NAMES, NO_GOALS, foodGoalFamily, foodGoalRows, foodLogKnows, packFoodGoals, type FoodGoalFamily } from '../services/goals';
 import { foodByDay } from '../services/progress';
 import { spacing } from '../constants/theme';
 import type { FoodGoal } from '../types/workout';
@@ -38,8 +38,8 @@ export default function FoodGoalsScreen() {
   const byFamily = (f: FoodGoalFamily) => rows.find(g => foodGoalFamily(g.kind) === f);
   // Whether any logged food carries fiber or GI numbers yet
   const known = useMemo(() => {
-    const totals = [...foodByDay(foodEntries).values()];
-    return { fiber: totals.some(t => t.fiber !== undefined), lowgi: totals.some(t => t.lowGiMeals !== undefined) };
+    const totals = foodByDay(foodEntries);
+    return { fiber: foodLogKnows(DEFAULTS.fiber, totals), lowgi: foodLogKnows(DEFAULTS.lowgi, totals) };
   }, [foodEntries]);
 
   const save = (next: FoodGoal[]) => updateSettings({ goals: { ...goals, ...packFoodGoals(next) } });

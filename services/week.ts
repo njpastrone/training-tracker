@@ -271,7 +271,6 @@ export interface GoalWeek {
   hit: number; // days at goal this week
   logged: number; // days with food this week
   today?: number; // today's value, once there is food today
-  known: boolean; // the food log carries this goal's number (fiber and GI are estimates it may not have yet)
 }
 
 // One row of Food's goals card: each day this week against the goal, and where today stands
@@ -279,7 +278,6 @@ export function goalWeek(goal: FoodGoal, totals: Map<string, FoodDayTotal>, now:
   const today = ymd(now);
   const dates = weekDates(now);
   const days = dates.map(d => totals.get(d));
-  const known = days.some(t => t && foodKnown(goal, t));
   const cells = dates.map((date, i): GoalCell => {
     const t = days[i];
     if (date > today) return 'future';
@@ -295,6 +293,5 @@ export function goalWeek(goal: FoodGoal, totals: Map<string, FoodDayTotal>, now:
     hit: cells.filter(c => c === 'met').length,
     logged: days.filter(t => t && foodKnown(goal, t)).length,
     today: todayTotal && foodKnown(goal, todayTotal) ? foodValue(goal, todayTotal) : undefined,
-    known,
   };
 }

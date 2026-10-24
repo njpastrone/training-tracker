@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { catalogById } from '../data/catalog';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodByDay } from './progress';
+import { foodLogKnows } from './goals';
 import { foodTrend, foodWeekOf, goalWeek, layoutMeals, mealBubbles, muscleWeek, nextMeal, nextUp, trainingWeek, weekDates, weekRange } from './week';
 import type { FoodEntry } from '../types/food';
 import type { Workout } from '../types/workout';
@@ -178,16 +179,17 @@ test('a goal row: each day met, partly or missed, today as a value, and whether 
   assert.equal(protein.hit, 1);
   assert.equal(protein.logged, 4);
   assert.equal(protein.today, 136);
-  assert.equal(protein.known, true);
+  assert.equal(foodLogKnows(GOAL, totals), true);
   // A cut: at or under is met, just over is partly
   const cut = goalWeek({ kind: 'cut', target: 1000 }, totals, NOW);
   assert.deepEqual(cut.cells.slice(0, 3), ['missed', 'met', 'met']);
   // Fiber: unknown until the food carries fiber numbers
   const fiber = goalWeek({ kind: 'fiber', target: 30 }, totals, NOW);
-  assert.equal(fiber.known, false);
+  assert.equal(foodLogKnows({ kind: 'fiber', target: 30 }, totals), false);
   assert.deepEqual(fiber.cells.slice(0, 2), ['none', 'none']);
   const withFiber = goalWeek({ kind: 'fiber', target: 30 }, foodByDay([fiberMeal('2026-10-22', 18), fiberMeal('2026-10-23', 32)]), NOW);
-  assert.equal(withFiber.known, true);
+  // Known from any day in the log, so a fiber row stays on a Monday before this week has fiber
+  assert.equal(foodLogKnows({ kind: 'fiber', target: 30 }, foodByDay([fiberMeal('2026-10-12', 18), meal('2026-10-19', '08:00', 40)])), true);
   assert.deepEqual(withFiber.cells.slice(3, 5), ['partly', 'met']);
   assert.equal(withFiber.today, 32);
 });

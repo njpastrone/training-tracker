@@ -51,6 +51,8 @@ export const foodValue = (goal: FoodGoal, t: DayFood) =>
   goal.kind === 'protein' ? t.protein : goal.kind === 'fiber' ? t.fiber ?? 0 : goal.kind === 'lowgi' ? t.lowGiMeals ?? 0 : t.kcal;
 // Whether a day's food carries the number the goal measures (fiber and GI are estimates the log may not have yet)
 export const foodKnown = (goal: FoodGoal, t: DayFood) => (goal.kind === 'fiber' ? t.fiber !== undefined : goal.kind === 'lowgi' ? t.lowGiMeals !== undefined : true);
+// Whether any day in the food log carries that number, so the goal can show on Food
+export const foodLogKnows = (goal: FoodGoal, totals: Map<string, DayFood>) => [...totals.values()].some(t => foodKnown(goal, t));
 // Met: at least the target for protein, fiber, low-GI meals and a bulk, at or under it on a cut
 export const foodMet = (goal: FoodGoal, t: DayFood) => (goal.kind === 'cut' ? t.kcal <= goal.target : foodValue(goal, t) >= goal.target);
 export const FOOD_GOAL_NAMES: Record<FoodGoal['kind'], string> = { protein: 'Protein', cut: 'Calories', bulk: 'Calories', fiber: 'Fiber', lowgi: 'Low-GI meals' };
