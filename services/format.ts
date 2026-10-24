@@ -58,17 +58,10 @@ export const daysAgo = (n: number) => (n <= 0 ? 'today' : n === 1 ? 'yesterday' 
 export const lastDoneLine = (e: { lastDoneDaysAgo: number; timesLast28Days: number }) =>
   `last done ${daysAgo(e.lastDoneDaysAgo)}${e.timesLast28Days ? ` · ${e.timesLast28Days}× in 4 wks` : ''}`;
 
-// History's subtitle: logged days (workout or food) in the last 7 days and planned training days in the next 7
+// The calendar's subtitle: logged days (workout or food) in the last 7 days and planned training days in the next 7
 export function weekLine(logged: number, planned: number): string {
   if (!logged && !planned) return 'Nothing logged in the last 7';
   return [logged && `Last 7: ${logged} logged`, planned && `Next 7: ${planned} planned`].filter(Boolean).join(' · ');
-}
-
-// Progress's subtitle: the sky's training days in the last 7 against its target
-export function paceLine(done: number, target: number): string {
-  if (!done) return 'No training days in the last 7';
-  if (done >= target) return `${done} training day${done === 1 ? '' : 's'} in the last 7 · goal met`;
-  return `${done} of ${target} training days in the last 7`;
 }
 
 // A workout's short name from its muscles, for the day rows and Log: "Push", "Pull", "Legs", "Upper body",

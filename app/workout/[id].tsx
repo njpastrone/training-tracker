@@ -104,7 +104,7 @@ export default function WorkoutEditScreen() {
     });
     // A new day is a move: the screen it goes back to confirms it with Undo
     moveEntry({ kind: 'workout', id }, dateString);
-    // Back to where it was opened (History, a day, an exercise), else home
+    // Back to where it was opened (the calendar, a day, an exercise), else home
     if (router.canGoBack()) router.back();
     else router.replace('/');
   };

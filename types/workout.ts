@@ -1,4 +1,5 @@
 import type { Metric } from '../data/catalog';
+import type { PaletteId } from '../constants/palettes';
 
 // Muscle group categories
 export type MuscleGroup =
@@ -92,6 +93,7 @@ export interface UserSettings {
   appleHealth?: AppleHealthSettings; // Settings › Apple Health; what Health holds is never stored here (services/health.ts)
   foodPrefs?: FoodPrefs; // how you like to eat (app/food-prefs.tsx); sent to the coach only with a question, like facts, never stored by the Worker
   foodPrefsPromptDismissed?: boolean; // "Not now" on the food surface's set-up prompt: it doesn't come back
+  palette?: PaletteId; // Settings › App colours (constants/palettes.ts); unset = the default scheme
 }
 
 // How you like to eat (services/foodPrefs.ts): what every meal idea is checked against one by one, a
@@ -127,12 +129,14 @@ export interface Goals {
   timesPerWeek?: number; // each muscle trained on this many days; unset = off
   minSets?: Partial<Record<MuscleGroup, number>>; // minimum sets a week (MEV); a muscle without a number gets the default; unset = off
   custom: CustomGoal[];
-  food?: FoodGoal; // one food goal, checked on days with food logged; unset = off
+  food?: FoodGoal; // the main food goal (protein, else calories), checked on days with food logged; unset = off
+  foodGoals?: FoodGoal[]; // the other food goals on Food's goals card, one per kind (services/goals.ts foodGoalRows); unset = none
 }
 
-// The one food goal: at least this much protein (g), or calories (kcal) at or under it on a cut, at least it on a bulk
+// A food goal: at least this much protein (g), calories (kcal) at or under it on a cut, at least it on a bulk,
+// at least this much fiber (g), or at least this many low-GI meals a day (needs fiber and GI numbers in the food log)
 export interface FoodGoal {
-  kind: 'protein' | 'cut' | 'bulk';
+  kind: 'protein' | 'cut' | 'bulk' | 'fiber' | 'lowgi';
   target: number;
 }
 

@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { spacing } from '../constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SkyScreen } from './Sky';
-import { SKY, mixHex } from '../services/sky';
+import { mixHex } from '../services/sky';
 import { Composer, Pill } from './Glass';
 import type { useLogDraft } from '../hooks/useLogDraft';
 import { toChips, type Chip } from '../services/suggestions';
@@ -20,12 +20,13 @@ export interface ChatBarProps {
   busy?: boolean;
   disabled?: boolean;
   error?: string | null;
+  accent?: string | [string, string]; // the send button in the tab's hue
 }
 
 // The one chat bar every chat tab shares: suggestion chips over the composer, an error above them.
 // Only the placeholder, chips and what a send does change per tab. Chips run to the screen edge,
 // so a cut-off one reads as "scroll for more"; with no chips there's no row.
-export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChip, busy, disabled, error }: ChatBarProps) {
+export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChip, busy, disabled, error, accent }: ChatBarProps) {
   const { colors } = useTheme();
   return (
     <View style={styles.bar}>
@@ -47,7 +48,7 @@ export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChi
           ))}
         </ScrollView>
       )}
-      <Composer value={value} onChangeText={onChangeText} onSend={onSend} placeholder={placeholder} busy={busy} disabled={disabled} />
+      <Composer value={value} onChangeText={onChangeText} onSend={onSend} placeholder={placeholder} busy={busy} disabled={disabled} accent={accent} />
     </View>
   );
 }
@@ -56,7 +57,7 @@ export function ChatBar({ value, onChangeText, onSend, placeholder, chips, onChi
 const FIX_CHIPS = toChips(['It was yesterday', 'Drop the last exercise']);
 const FOOD_FIX_CHIPS = toChips(['It was yesterday', 'Drop the last one']);
 
-// The bar for a tab that logs through useLogDraft (Log, Progress): log what you typed, then fix the card.
+// The bar for a tab that logs through useLogDraft (Today, Food): log what you typed, then fix the card.
 // Chips with nothing open fill the box and hide while you type; fix chips send right away.
 export function logBar(log: ReturnType<typeof useLogDraft>, placeholder: string, chips: Chip[], beforeSend?: () => void): ChatBarProps {
   const fixing = !!log.draft || !!log.food;
@@ -82,17 +83,18 @@ interface ChatScreenProps {
   children: React.ReactNode;
   follow?: boolean; // scroll to the newest answer as it grows
   overlay?: React.ReactNode; // toasts, kept above the bar
+  hue?: { glow: string[]; accent: string | [string, string] }; // the tab's colour: a glow at the top and the send button
 }
 
 // A chat tab: the page scrolls, the bar stays pinned above the tab bar and rides up with the keyboard
-export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) {
+export function ChatScreen({ bar, children, follow, overlay, hue }: ChatScreenProps) {
   const scrollRef = useRef<ScrollView>(null);
-  const { colors, isDarkMode, reduceTransparency, sky } = useTheme();
+  const { colors, isDarkMode, reduceTransparency, sky, palette } = useTheme();
   // Fade to the sheet as it renders over the sky base (SkySheet's card material), so there's no band
-  const base = reduceTransparency ? colors.surface : mixHex(isDarkMode ? SKY.night[3] : sky.stops[3], '#FFFFFF', isDarkMode ? 0.075 : 0.62);
+  const base = reduceTransparency ? colors.surface : mixHex(isDarkMode ? palette.sky.night[3] : sky.stops[3], '#FFFFFF', isDarkMode ? 0.075 : 0.62);
   return (
     // The bar sits above the tab bar, so pad the bottom edge too
-    <SkyScreen edges={['top', 'bottom']}>
+    <SkyScreen edges={['top', 'bottom']} glow={hue?.glow}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
         <View style={styles.fill}>
           <ScrollView
@@ -107,7 +109,7 @@ export function ChatScreen({ bar, children, follow, overlay }: ChatScreenProps) 
           <LinearGradient pointerEvents="none" colors={[`${base}00`, base]} style={styles.fade} />
           {overlay}
         </View>
-        <ChatBar {...bar} />
+        <ChatBar {...bar} accent={hue?.accent} />
       </KeyboardAvoidingView>
     </SkyScreen>
   );

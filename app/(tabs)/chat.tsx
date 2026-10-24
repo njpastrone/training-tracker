@@ -147,7 +147,7 @@ export default function ChatScreenTab() {
         };
 
   return (
-    <ChatScreen bar={bar} follow>
+    <ChatScreen bar={bar} follow hue={{ glow: [colors.chatSoft], accent: colors.indigo }}>
       <LargeTitle
         title="Chat"
         subtitle="Everything you've told LiftText"

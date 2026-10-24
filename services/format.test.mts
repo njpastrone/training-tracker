@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, weekLine, paceLine, workoutName } from './format';
+import { exerciseNumbers, workoutSummary, draftToText, formatDuration, lastDoneLine, weekLine, workoutName } from './format';
 
 const bench = { name: 'Bench Press', muscleGroup: 'chest' as const, sets: 3, reps: 8, weight: 135, unit: 'lbs' as const };
 const run = { name: 'Run', muscleGroup: 'cardio' as const, duration: 25, distance: 5, distanceUnit: 'km' as const };
@@ -38,16 +38,11 @@ test('lastDoneLine reads well for any recency, and leaves out an empty count', (
   assert.equal(lastDoneLine({ lastDoneDaysAgo: 40, timesLast28Days: 0 }), 'last done 40 days ago');
 });
 
-test('weekLine and paceLine always say something', () => {
+test('weekLine always says something', () => {
   assert.equal(weekLine(5, 4), 'Last 7: 5 logged · Next 7: 4 planned');
   assert.equal(weekLine(2, 0), 'Last 7: 2 logged');
   assert.equal(weekLine(0, 3), 'Next 7: 3 planned');
   assert.equal(weekLine(0, 0), 'Nothing logged in the last 7');
-  assert.equal(paceLine(2, 3), '2 of 3 training days in the last 7');
-  assert.equal(paceLine(0, 3), 'No training days in the last 7');
-  assert.equal(paceLine(3, 3), '3 training days in the last 7 · goal met');
-  assert.equal(paceLine(3, 2), '3 training days in the last 7 · goal met');
-  assert.equal(paceLine(1, 0), '1 training day in the last 7 · goal met');
 });
 
 test('a workout is named by its split, else by its muscles', () => {

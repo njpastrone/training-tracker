@@ -1,21 +1,21 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { v4 as uuidv4 } from 'uuid';
 import { SkyScreen, SkyCard, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill, Segmented } from '../components/Glass';
 import Field from '../components/Field';
-import NumberChip from '../components/NumberChip';
+import Row from '../components/Row';
 import ExercisePicker, { PickedExercise } from '../components/ExercisePicker';
 import { useTheme } from '../contexts/ThemeContext';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { displayName } from '../services/exerciseIdentity';
 import { DAYS_OPTIONS } from '../services/onboarding';
-import { DEFAULT_MIN_SETS, GOAL_MUSCLES, NO_GOALS, hasMuscleGoals, minSetsFor, muscleName } from '../services/goals';
+import { DEFAULT_MIN_SETS, GOAL_MUSCLES, NO_GOALS, foodGoalName, foodGoalRows, foodTarget, hasMuscleGoals, minSetsFor, muscleName } from '../services/goals';
 import { fonts, muscleGroupColors, spacing } from '../constants/theme';
-import type { CustomGoal, FoodGoal, Goals, MuscleGroup, WeightUnit } from '../types/workout';
+import type { CustomGoal, Goals, MuscleGroup, WeightUnit } from '../types/workout';
 
 const TIMES = [
   { value: 'off', label: 'Off' },
@@ -24,29 +24,17 @@ const TIMES = [
   { value: '3', label: '3×' },
 ];
 
-const FOOD_KINDS = [
-  { value: 'off', label: 'Off' },
-  { value: 'protein', label: 'Protein' },
-  { value: 'cut', label: 'Cut' },
-  { value: 'bulk', label: 'Bulk' },
-] as const;
-
-const FOOD_HELP: Record<FoodGoal['kind'], string> = {
-  protein: 'Protein: at least this much a day',
-  cut: 'Calories, cutting: stay under this a day',
-  bulk: 'Calories, bulking: reach at least this a day',
-};
-
 // "Chest, back, shoulders": the chosen muscles in a sentence
 const muscleList = (muscles: MuscleGroup[]) =>
   GOAL_MUSCLES.filter(m => muscles.includes(m))
     .map((m, i) => (i === 0 ? muscleName(m) : muscleName(m).toLowerCase()))
     .join(', ') || 'None';
 
-// Your goals, checked on Progress against the last 7 days of your log. Changes save as you make them.
+// Your goals, checked on Training against the last 7 days of your log. Changes save as you make them.
 // Training, then food (food first for people who only log food), then your own goals.
 export default function GoalsScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const { settings, updateSettings, exerciseLibrary } = useWorkoutStore();
   const foodOnly = useWorkoutStore(s => s.foodEntries.length > 0 && s.workouts.length === 0);
   const goals = settings.goals ?? NO_GOALS;
@@ -56,12 +44,7 @@ export default function GoalsScreen() {
   const [musclesOpen, setMusclesOpen] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // Switching between grams and kcal starts from the last number of that kind (this visit), or a usual one
-  const food = goals.food;
-  const last = useRef({ protein: 160, kcal: 2000 });
-  if (food) last.current[food.kind === 'protein' ? 'protein' : 'kcal'] = food.target;
-  const setFoodKind = (kind: FoodGoal['kind'] | 'off') =>
-    set({ food: kind === 'off' ? undefined : { kind, target: kind === 'protein' ? last.current.protein : last.current.kcal } });
+  const foodGoals = foodGoalRows(goals);
 
   const divider = { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.dim };
 
@@ -142,35 +125,18 @@ export default function GoalsScreen() {
     </View>
   );
 
+  // The food goals live in their own picker (app/food-goals.tsx), also behind Edit goals on Food
   const foodSection = (first: boolean) => (
     <View key="food">
       <SectionLabel style={[styles.label, first && styles.firstLabel]}>Food</SectionLabel>
-      <SkyCard>
-        <View style={styles.foodHead}>
-          <View style={styles.fill}>
-            <Text variant="bodyLarge" style={{ color: colors.text }}>Food goal</Text>
-            {food && <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{FOOD_HELP[food.kind]}</Text>}
-          </View>
-          {food && (
-            <NumberChip
-              value={food.target}
-              suffix={food.kind === 'protein' ? 'g' : 'kcal'}
-              unsure={false}
-              label={food.kind === 'protein' ? 'Protein a day, grams' : 'Calories a day'}
-              // Empty keeps the goal while you retype; Off turns it off
-              onChange={v => v !== undefined && set({ food: { kind: food.kind, target: Math.round(v) } })}
-            />
-          )}
-        </View>
-        <View style={styles.seg}>
-          <Segmented value={food?.kind ?? 'off'} options={[...FOOD_KINDS]} onChange={setFoodKind} />
-        </View>
-        {food && <Text variant="bodySmall" style={{ color: colors.textTertiary }}>The other number still shows, as a plain number.</Text>}
-        {food && food.kind !== 'protein' && (
-          <Text variant="bodySmall" style={[styles.faintNext, { color: colors.textTertiary }]}>
-            Restaurant and homemade foods are estimates, so treat calories as a guide.
-          </Text>
-        )}
+      <SkyCard style={styles.tight}>
+        <Row
+          first
+          icon="fork.knife"
+          title="Food goals"
+          subtitle={foodGoals.length ? foodGoals.map(g => `${foodGoalName(g)} ${foodTarget(g)}`).join(' · ') : 'None on yet'}
+          onPress={() => router.push('/food-goals')}
+        />
       </SkyCard>
     </View>
   );
@@ -337,14 +303,6 @@ const styles = StyleSheet.create({
   },
   musclesRow: {
     marginTop: 6,
-  },
-  foodHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  faintNext: {
-    paddingTop: 6,
   },
   tight: {
     paddingVertical: 6,

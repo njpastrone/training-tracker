@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, SkySheet, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill, Segmented } from '../components/Glass';
+import { PALETTES, PALETTE_IDS, paletteOf } from '../constants/palettes';
 import Row from '../components/Row';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useChatStore } from '../stores/chatStore';
@@ -95,7 +96,7 @@ export default function SettingsScreen() {
     const save = (unit: WeightUnit) => {
       const r = read(unit);
       importWorkouts(r.workouts, r.library);
-      Alert.alert('Imported', `${plural(r.preview.workouts, 'workout')} added to History.`);
+      Alert.alert('Imported', `${plural(r.preview.workouts, 'workout')} added to the calendar.`);
     };
     const label = (u: WeightUnit) => (u === 'kg' ? 'Import in kg' : 'Import in lb');
     const units: WeightUnit[] = settings.weightUnit === 'kg' ? ['kg', 'lbs'] : ['lbs', 'kg'];
@@ -139,7 +140,7 @@ export default function SettingsScreen() {
     });
   };
 
-  // Apple Health: reading shows on Progress only; saving copies each workout you log from now on
+  // Apple Health: reading shows on the Health screen only; saving copies each workout you log from now on
   const health = settings.appleHealth ?? {};
   const toggleHealthRead = async (on: boolean) => {
     if (on) await requestHealthAccess(false).catch(error => console.error('Apple Health access failed:', error));
@@ -197,6 +198,14 @@ export default function SettingsScreen() {
               value={String(settings.weeklyTarget ?? '')}
               options={[...DAYS_OPTIONS]}
               onChange={value => updateSettings({ weeklyTarget: Number(value) })}
+            />
+          </View>
+          <Row icon="paintpalette" title="App colours" subtitle={paletteOf(settings.palette).name} />
+          <View style={styles.below}>
+            <Segmented
+              value={paletteOf(settings.palette).id}
+              options={PALETTE_IDS.map(id => ({ value: id, label: PALETTES[id].name }))}
+              onChange={palette => updateSettings({ palette })}
             />
           </View>
           <Row
@@ -283,9 +292,9 @@ export default function SettingsScreen() {
               <Row
                 first
                 icon="heart.text.square"
-                title="Show on Progress"
+                title="Show in LiftText"
                 subtitle="Workouts from other apps and your body weight. They stay on this iPhone and are never sent to our server or the AI."
-                right={<Switch value={!!health.connected} onValueChange={toggleHealthRead} trackColor={{ true: colors.sunrise }} accessibilityLabel="Show Apple Health on Progress" />}
+                right={<Switch value={!!health.connected} onValueChange={toggleHealthRead} trackColor={{ true: colors.sunrise }} accessibilityLabel="Show Apple Health in LiftText" />}
               />
               <Row
                 icon="square.and.arrow.down.on.square"

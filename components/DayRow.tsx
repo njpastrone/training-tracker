@@ -20,7 +20,7 @@ interface Props {
 
 const n = (v: number) => v.toLocaleString('en-US');
 
-// One even row per day, for History's Days and Log's Recent: training (name and muscles), then food
+// One even row per day, for the calendar's Days: training (name and muscles), then food
 // (the number the food goal doesn't measure, and meals), the goal's number on the right, with a ✓ once met.
 // The whole row opens the day.
 export default function DayRow({ date, workouts, food, goal, first }: Props) {

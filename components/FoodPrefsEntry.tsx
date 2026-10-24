@@ -12,7 +12,7 @@ import { Pill } from './Glass';
 // The food surface's one slot for preferences (data/lt-ui-g/report.md §3.1, §3.3): until preferences
 // exist, the one-time set-up prompt (Not now hides it for good); after, one line on what is left today
 // and the Make it entry, which asks the coach on Chat. Shown only where food data already exists. Built
-// for any food surface to mount; the Food tab can put it in its coach slot.
+// for any food surface to mount; the Food tab puts it under its coach line.
 export default function FoodPrefsEntry({ today = format(new Date(), 'yyyy-MM-dd') }: { today?: string }) {
   const { colors } = useTheme();
   const router = useRouter();
