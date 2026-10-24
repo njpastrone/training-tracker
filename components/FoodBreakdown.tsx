@@ -8,7 +8,6 @@ import { foodMet, foodTarget, type FoodProgress } from '../services/goals';
 import type { FoodGoal } from '../types/workout';
 import type { FoodDayTotal, foodWeek } from '../services/progress';
 import { fonts, spacing } from '../constants/theme';
-import FoodPrefsEntry from './FoodPrefsEntry';
 
 interface Props {
   week: ReturnType<typeof foodWeek>;
@@ -61,7 +60,6 @@ export default function FoodBreakdown({ week, goal }: Props) {
           <Text style={[styles.value, styles.shrink, styles.end, { color: colors.text }]}>{value}</Text>
         </View>
       ))}
-      <FoodPrefsEntry />
     </SkyCard>
   );
 }

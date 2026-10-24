@@ -10,6 +10,7 @@ import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
 import { CardHead, CoachLine, Disc, Doors, HueCard, Link, WeekStrip } from '../../components/Hue';
 import FoodGoalsCard from '../../components/FoodGoalsCard';
+import FoodPrefsEntry from '../../components/FoodPrefsEntry';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
 import { ThinkingCard } from '../../components/CoachCard';
@@ -161,6 +162,8 @@ export default function FoodScreen() {
                 </View>
               </View>
               {line && <CoachLine line={line} inset />}
+              {/* How you like to eat: the one-time set-up prompt, then what's left today and Make it (components/FoodPrefsEntry.tsx) */}
+              <FoodPrefsEntry today={today} />
             </SkyCard>
           )}
 
