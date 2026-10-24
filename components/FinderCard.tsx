@@ -86,7 +86,7 @@ export default function FinderCard({ result, logged, busy, onWhere, onDirections
           const pt = tally(p.verdicts);
           const miss = p.verdicts.find(v => v.verdict === 'miss');
           const unknown = p.verdicts.find(v => v.verdict === 'unknown');
-          const note = miss ? `${PREFERENCE_LABEL[miss.preference].toLowerCase()}: no${miss.reason ? ` · ${miss.reason}` : ''}` : unknown ? `${PREFERENCE_LABEL[unknown.preference].toLowerCase()} unknown` : '';
+          const note = miss ? verdictLine(miss, p).title.toLowerCase() : unknown ? verdictLine(unknown, p).title.toLowerCase() : '';
           return (
             <Pressable key={i} onPress={() => onDirections(p.place)} accessibilityRole="button" accessibilityLabel={`${p.place}, ${p.item}. Open in Maps`} style={[styles.row, { borderTopColor: colors.dim }]}>
               <View style={styles.fill}>
@@ -121,7 +121,7 @@ export default function FinderCard({ result, logged, busy, onWhere, onDirections
 function verdictLine(v: PickVerdict, pick: FinderPick): { title: string; sub?: string } {
   const reason = v.reason;
   const label = PREFERENCE_LABEL[v.preference];
-  if (v.verdict === 'unknown') return { title: `${label} unknown`, sub: reason || 'not published' };
+  if (v.verdict === 'unknown') return { title: v.preference === 'no_seed_oils' ? 'Oils unknown' : `${label} unknown`, sub: reason || 'not published' };
   const hit = v.verdict === 'hit';
   switch (v.preference) {
     case 'high_protein': return { title: `~${Math.round(pick.protein)} g protein`, sub: hit ? undefined : reason || 'under 30 g' };
