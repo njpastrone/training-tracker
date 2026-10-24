@@ -62,13 +62,15 @@ const isCount = (v: unknown) => Number.isFinite(v) && (v as number) > 0;
 const customGoalOk = (c: any) =>
   hasStrings(c, 'id', 'exerciseId') &&
   (c.kind === 'lift' ? isCount(c.weight) && (c.unit === 'lbs' || c.unit === 'kg') : c.kind === 'often' && isCount(c.perWeek));
+const foodGoalOk = (f: any) => ['protein', 'cut', 'bulk', 'fiber', 'lowgi'].includes(f?.kind) && isCount(f.target);
 const goalsOk = (g: any) =>
   isObject(g) &&
   listOf(g.muscles, (m) => GOAL_MUSCLES.includes(m)) &&
   (g.timesPerWeek === undefined || isCount(g.timesPerWeek)) &&
   (g.minSets === undefined || (isObject(g.minSets) && Object.values(g.minSets).every(isCount))) &&
   (g.protein === undefined || isCount(g.protein)) && // before the one food goal; the store migration turns it into food
-  (g.food === undefined || (['protein', 'cut', 'bulk'].includes(g.food?.kind) && isCount(g.food.target))) &&
+  (g.food === undefined || foodGoalOk(g.food)) &&
+  (g.foodGoals === undefined || listOf(g.foodGoals, foodGoalOk)) &&
   listOf(g.custom, customGoalOk);
 const FACT_KINDS = ['constraint', 'preference', 'equipment', 'food', 'injury'];
 // Things told to the coach (services/coachCards.ts): each with its kind, words and day

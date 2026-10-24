@@ -24,7 +24,7 @@ import { formatSets, goalProgress, muscleName } from '../services/goals';
 import { spacing } from '../constants/theme';
 import type { ExerciseLibrary, MuscleGroup, WeightUnit } from '../types/workout';
 
-// One exercise (id) or muscle group (group) from Progress or Exercises: add a session you forgot, or see
+// One exercise (id) or muscle group (group) from Training or Exercises: add a session you forgot, or see
 // every time you did it. Each workout opens its own screen, with the fix box, edit and delete. An
 // exercise also shows its records and what you call it, and can be renamed, merged or split.
 export default function ExerciseScreen() {

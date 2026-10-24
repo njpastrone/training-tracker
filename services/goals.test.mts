@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, goalProgressLines, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal, trainedLine } from './goals';
+import { goalProgress, goalProgressLines, formatSets, goalLines, calorieLeft, withFoodGoal, foodGoalRows, packFoodGoals, foodTarget, foodValue, foodKnown, foodMet } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -74,15 +74,6 @@ test('a lift goal: heaviest set in each of the last 4 weeks, and the change sinc
   const [older] = goalProgress(GOALS, [...WORKOUTS, w('2026-09-01', ['bench-press', 5, 185])], lib, [], NOW).custom;
   assert.equal(older.change, 35.5);
   assert.equal(goalProgress(GOALS, WORKOUTS, lib, [], NOW).custom[1].weeks, undefined);
-});
-
-test('when a muscle was last trained reads as a day', () => {
-  assert.equal(trainedLine(undefined, NOW), 'Not trained yet');
-  assert.equal(trainedLine(0, NOW), 'Trained today');
-  assert.equal(trainedLine(1, NOW), 'Trained yesterday');
-  assert.equal(trainedLine(2, NOW), 'Trained Sunday');
-  assert.equal(trainedLine(6, NOW), 'Trained Wednesday');
-  assert.equal(trainedLine(9, NOW), 'Trained 9 days ago');
 });
 
 test('only the goals that are on are checked', () => {
@@ -172,20 +163,6 @@ test('a protein target from before the one food goal becomes a protein food goal
   assert.deepEqual(withFoodGoal({}), {});
 });
 
-test('Progress shows the food goal and the food week for someone with food but no workouts', () => {
-  const goals = { ...GOALS, food: protein(140) };
-  const foodOnly = progressSections(false, goalProgress(goals, [], lib, FOOD, NOW), foodWeek(FOOD, NOW).logged);
-  assert.equal(foodOnly.food, true);
-  assert.deepEqual(foodOnly.goals?.muscles, []);
-  assert.deepEqual(foodOnly.goals?.custom, []);
-  assert.deepEqual(foodOnly.goals?.food, { goal: protein(140), hit: 2, logged: 3, met: false });
-
-  assert.equal(progressSections(false, goalProgress(GOALS, [], lib, FOOD, NOW), 0).goals, undefined);
-  assert.equal(progressSections(false, undefined, 0).food, false);
-  const both = progressSections(true, goalProgress(goals, WORKOUTS, lib, FOOD, NOW), 3);
-  assert.ok(both.goals!.muscles.length > 0 && both.goals!.food);
-});
-
 test('goal progress as plain lines for the coach and the planner, without food', () => {
   const lines = goalProgressLines(goalProgress({ ...GOALS, food: { kind: 'protein', target: 160 } }, WORKOUTS, lib, [], NOW));
   assert.deepEqual(lines, [
@@ -197,4 +174,23 @@ test('goal progress as plain lines for the coach and the planner, without food',
     'Bench Press: 220.5 of 225 lbs',
     'Running: 2 of 3 days a week',
   ]);
+});
+
+test("Food's goal rows: the main goal first, one per kind, and the picker's list packed back", () => {
+  const protein = { kind: 'protein' as const, target: 160 };
+  const cut = { kind: 'cut' as const, target: 2200 };
+  const fiber = { kind: 'fiber' as const, target: 30 };
+  assert.deepEqual(foodGoalRows({ food: protein, foodGoals: [cut, fiber, { kind: 'bulk', target: 3000 }] }), [protein, cut, fiber]);
+  assert.deepEqual(foodGoalRows({ food: cut, foodGoals: [protein] }), [cut, protein]);
+  assert.deepEqual(foodGoalRows(undefined), []);
+  assert.deepEqual(packFoodGoals([fiber, cut, protein]), { food: protein, foodGoals: [fiber, cut] });
+  assert.deepEqual(packFoodGoals([fiber, cut]), { food: cut, foodGoals: [fiber] });
+  assert.deepEqual(packFoodGoals([protein]), { food: protein, foodGoals: undefined });
+  assert.deepEqual(packFoodGoals([]), { food: undefined, foodGoals: undefined });
+  assert.equal(foodTarget({ kind: 'lowgi', target: 3 }), '3 meals');
+  assert.equal(foodTarget(fiber), '30 g');
+  assert.equal(foodValue(fiber, { protein: 100, kcal: 2000, fiber: 18 }), 18);
+  assert.equal(foodValue(fiber, { protein: 100, kcal: 2000 }), 0);
+  assert.equal(foodKnown(fiber, { protein: 100, kcal: 2000 }), false);
+  assert.equal(foodMet({ kind: 'lowgi', target: 2 }, { protein: 0, kcal: 0, lowGiMeals: 2 }), true);
 });

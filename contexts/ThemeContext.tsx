@@ -2,14 +2,16 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { AccessibilityInfo, AppState, useColorScheme } from 'react-native';
 import { format } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
-import { darkTheme, lightTheme, darkPalette, lightPalette, Palette } from '../constants/theme';
+import { colorsOf, paperThemeOf, Palette, PaperTheme } from '../constants/theme';
+import { paletteOf, type Palette as ColourPalette } from '../constants/palettes';
 import { weekSky, WeekSky } from '../services/sky';
 
 interface ThemeContextType {
   isDarkMode: boolean;
   colors: Palette;
-  theme: typeof lightTheme;
+  theme: PaperTheme;
   sky: WeekSky;
+  palette: ColourPalette; // the colour scheme from Settings › App colours
   reduceTransparency: boolean;
 }
 
@@ -17,13 +19,14 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const today = () => format(new Date(), 'yyyy-MM-dd');
 
-// Appearance follows the iPhone (HIG: no app-specific appearance setting)
+// Appearance follows the iPhone (HIG: no app-specific appearance setting); the colour scheme is the user's pick
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const isDarkMode = useColorScheme() === 'dark';
   const workouts = useWorkoutStore(s => s.workouts);
   const schedule = useWorkoutStore(s => s.schedule);
   const weeklyTarget = useWorkoutStore(s => s.settings.weeklyTarget);
   const startedAt = useWorkoutStore(s => s.settings.onboardedAt);
+  const palette = paletteOf(useWorkoutStore(s => s.settings.palette));
   const [day, setDay] = useState(today);
   const [reduceTransparency, setReduceTransparency] = useState(false);
 
@@ -40,15 +43,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sky = useMemo(
-    () => weekSky(workouts, schedule, new Date(), { weeklyTarget, startedAt }),
-    [workouts, schedule, weeklyTarget, startedAt, day]
+    () => weekSky(workouts, schedule, new Date(), { weeklyTarget, startedAt }, palette.sky),
+    [workouts, schedule, weeklyTarget, startedAt, day, palette]
   );
+  const colors = useMemo(() => colorsOf(palette, isDarkMode), [palette, isDarkMode]);
+  const theme = useMemo(() => paperThemeOf(palette, isDarkMode), [palette, isDarkMode]);
 
   const value: ThemeContextType = {
     isDarkMode,
-    colors: isDarkMode ? darkPalette : lightPalette,
-    theme: isDarkMode ? darkTheme : lightTheme,
+    colors,
+    theme,
     sky,
+    palette,
     reduceTransparency,
   };
 

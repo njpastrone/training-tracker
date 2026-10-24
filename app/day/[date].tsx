@@ -60,9 +60,9 @@ export default function DayDetailScreen() {
     });
   };
 
-  // Plan a day in History's chat bar
+  // Plan a day in Training's chat bar
   const planThisDay = () =>
-    router.navigate({ pathname: '/(tabs)/history', params: { request: `A workout on ${format(dateObj, 'EEEE, MMMM d')}` } });
+    router.navigate({ pathname: '/(tabs)/training', params: { request: `A workout on ${format(dateObj, 'EEEE, MMMM d')}` } });
 
   const removePlanned = () => {
     if (!planned) return;
@@ -116,8 +116,8 @@ export default function DayDetailScreen() {
             )}
             <View style={styles.actions}>
               {isToday(dateObj) && (
-                // Start lives on the Log tab, which shows today's planned workout
-                <Pill icon="play.fill" label="Start on Log" onPress={() => router.navigate('/(tabs)')} />
+                // Start lives on Today, which shows today's planned workout
+                <Pill icon="play.fill" label="Start on Today" onPress={() => router.navigate('/(tabs)')} />
               )}
               <Pill variant="glass" label="Remove" onPress={removePlanned} />
             </View>

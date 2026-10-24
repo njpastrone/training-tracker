@@ -4,7 +4,7 @@ import { displayName, resolveId } from './exerciseIdentity';
 import { trainingWindow, usualPerWeek, ymd } from './pace';
 import type { Exercise, ExerciseLibrary, MuscleGroup, WeightUnit, Workout } from '../types/workout';
 
-// The facts everything on the Progress tab (and later the check-in) is built from. Local and
+// The facts everything on the Training tab (and the check-in) is built from. Local and
 // deterministic, no AI. Detail is optional in this app: every exercise counts by when and how
 // often it was done, numbers are extras, and a missing number is unknown, never zero.
 

@@ -28,8 +28,8 @@ DESIGN-SYSTEM.md  # UI component standards and design guidelines
 ## Key Features
 1. **Natural Language Input**: Users describe workouts in plain text
 2. **AI Parsing**: Claude API extracts structured workout data
-3. **Workout History**: Calendar of logged and planned days (each day opens its day screen) and every day by month
-4. **Progress**: Goals (each muscle N× a week, minimum sets, your own lift and frequency goals) checked against the last 7 days, last done and how often per exercise, PRs where there are numbers, days since each muscle group, and natural-language corrections
+3. **Four tabs, Today · Training · Food · Chat** (DESIGN-SYSTEM.md): Today shows what was done today side by side, the next action and tomorrow; Training and Food are twins (the goal and this week, a breakdown, a trend with one coach line, "More" doors to the calendar, exercises, goals, photos, Apple Health, food details)
+4. **Training**: this week's muscle grid with sets, lifts with PRs and next targets, your own goals, the weekly check-in behind the coach line, planning and natural-language corrections in its bar
 5. **Chat**: The fourth tab is the log as one thread (`stores/chatStore.ts`): every bar's logs, plans and questions land there; questions from any bar are answered there by the coach; Settings is behind its gear
 6. **Local Storage**: Data persists on device
 

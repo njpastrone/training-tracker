@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleProp, StyleSheet, TextInput, View, ViewProps, ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SymbolView, SFSymbol } from 'expo-symbols';
 import { useTheme } from '../contexts/ThemeContext';
@@ -37,11 +38,12 @@ interface PillProps {
   loading?: boolean;
   size?: 'regular' | 'small';
   style?: StyleProp<ViewStyle>;
+  color?: string; // a filled pill in a tab's hue instead of sunrise
 }
 
 // 50 pt pill button: sunrise for the main action, glass for the rest.
 // To size one to its label, put it in a row: alignSelf on the pill makes Yoga stretch it down the screen.
-export function Pill({ label, onPress, icon, variant = 'filled', disabled, loading, size = 'regular', style }: PillProps) {
+export function Pill({ label, onPress, icon, variant = 'filled', disabled, loading, size = 'regular', style, color }: PillProps) {
   const { colors } = useTheme();
   const filled = variant === 'filled';
   const fg = filled ? colors.onSunrise : colors.text;
@@ -71,7 +73,7 @@ export function Pill({ label, onPress, icon, variant = 'filled', disabled, loadi
       style={({ pressed }) => [small ? styles.pillSmall : styles.pill, { opacity: disabled ? 0.45 : pressed ? 0.8 : 1 }, style]}
     >
       {filled ? (
-        <View style={[styles.pillInner, small && styles.pillInnerSmall, { backgroundColor: colors.sunrise }]}>{content}</View>
+        <View style={[styles.pillInner, small && styles.pillInnerSmall, { backgroundColor: color ?? colors.sunrise }]}>{content}</View>
       ) : (
         <GlassSurface interactive style={[styles.pillInner, small && styles.pillInnerSmall]}>
           {content}
@@ -127,12 +129,14 @@ interface ComposerProps {
   placeholder: string;
   busy?: boolean;
   disabled?: boolean;
+  accent?: string | [string, string]; // the send button: the tab's hue, or Today's two
 }
 
 // Messages-style glass capsule. Dictation is the keyboard's mic key.
-export function Composer({ value, onChangeText, onSend, placeholder, busy, disabled }: ComposerProps) {
+export function Composer({ value, onChangeText, onSend, placeholder, busy, disabled, accent }: ComposerProps) {
   const { colors } = useTheme();
   const canSend = !!value.trim() && !busy && !disabled;
+  const hues: [string, string] = typeof accent === 'string' ? [accent, accent] : accent ?? [colors.sunrise, colors.sunrise];
   return (
     <GlassSurface
       style={[
@@ -156,8 +160,9 @@ export function Composer({ value, onChangeText, onSend, placeholder, busy, disab
         disabled={!canSend}
         accessibilityRole="button"
         accessibilityLabel="Send"
-        style={[styles.send, { backgroundColor: canSend || busy ? colors.sunrise : colors.dim }]}
+        style={[styles.send, { backgroundColor: colors.dim }]}
       >
+        {(canSend || busy) && <LinearGradient colors={hues} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.send]} />}
         {busy ? (
           <ActivityIndicator color={colors.onSunrise} />
         ) : (

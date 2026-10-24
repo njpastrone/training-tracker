@@ -84,7 +84,7 @@ export async function askCoach(question: string, thread: CoachMessage[] = [], no
 }
 
 // ---------------------------------------------------------------- routing
-// A message typed into the Log or Progress composer that reads as a question goes to the coach
+// A message typed into the Today, Training or Food composer that reads as a question goes to the coach
 // before the parser is called (one coach slot). Text it can't place goes to the parser, and only when
 // that finds nothing and it looksLikeQuestion does it go to the coach: the one two-slot path.
 
