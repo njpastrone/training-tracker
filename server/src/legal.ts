@@ -4,7 +4,7 @@
 // section names privacy@lifttextapp.com, the address the website's waitlist (site.ts) points to.
 // Keep what they say about data in step with what the app and this Worker actually send and keep.
 
-const UPDATED = 'October 18, 2026';
+const UPDATED = 'October 24, 2026';
 
 const page = (title: string, body: string) => `<!doctype html>
 <html lang="en">
@@ -49,7 +49,7 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <p>Everything you log or set up: workouts, food, plans, templates, your schedule, goals, settings, your Chat history, and the things you asked the coach to remember. Backups you export, and the weekly backup, are files in the Files app (On My iPhone › LiftText › Backups) that only you can share. If iCloud Backup is on for your iPhone, Apple includes LiftText's data, except progress photos, in your iPhone's backup, under Apple's privacy policy.</p>
 <p><strong>Progress photos.</strong> Photos you take or choose on the Progress photos screen are kept in a private folder inside LiftText that opens only with Face ID or your iPhone passcode, and they can't be read while your iPhone is locked. They're left out of LiftText's backups and of your iPhone's iCloud and computer backups, so they're lost if your iPhone is lost, replaced or erased. Photos you take aren't saved to your camera roll. When you choose one from Photos, LiftText gets a copy of only that photo, and the original stays in Photos. LiftText uses the camera only to take these photos.</p>
 <p><strong>Apple Health</strong>, only if you turn it on in Settings › Apple Health. LiftText reads the workouts other apps and devices saved and your body weight, shows them on Progress, and doesn't keep what it reads. If you turn on Save workouts to Apple Health, each workout you log from then on is saved to Apple Health (its date, a start and end time, and whether it was strength or cardio), and changed or deleted there when you change or delete it in LiftText. What's in Apple Health is under Apple's Health settings and privacy policy, including Health's own iCloud sync if you use it. You choose what LiftText may read and save on Apple's Health permission screen, and can change it anytime in the Health app (your profile › Apps › LiftText).</p>
-<p>LiftText doesn't use your contacts or location.</p>
+<p><strong>Find food near you</strong>, only if you use it. It looks for places with Apple Maps on your iPhone. You choose how: your current location (we ask for "approximate" only, and only while you look), a place you save (Home, Work), or a neighborhood you type. Your location, your saved addresses and the neighborhood you typed stay on your iPhone, are left out of LiftText's backups, and are never sent to our server; the search itself is made through Apple Maps on your iPhone under Apple's privacy policy. Settings › Where to look changes or removes them, and Clear all data deletes them. LiftText doesn't use your contacts, and uses your location only on your iPhone, only for this, and never in the background.</p>
 
 <h2>What leaves your phone, and why</h2>
 <p><strong>Only with AI reading on.</strong> When you log, fix a card, plan a week or ask the coach, LiftText sends to our server, which passes it to Anthropic:</p>
@@ -59,8 +59,9 @@ const privacy = (contact: string) => page('Privacy Policy', `
 <li>your weight unit and the date</li>
 <li>when you plan a week: a summary of your recent training and your goals</li>
 <li>when you ask the coach: a summary of your last 4 weeks of training and food, your goals, the things you asked it to remember, your food preferences, your question, your earlier questions to it that day with its answers, and what the question needs (for example one exercise's history or a day's meals)</li>
+<li>when you look for food nearby: the names and kinds of up to 20 places near you that Apple Maps found on your iPhone, roughly how far each is (a bucket like "under 500 m", never a coordinate), your food preferences, what you've logged eating today, and, when no places were found, the neighborhood words you typed</li>
 </ul>
-<p>Your full history, your name, your progress photos and anything from Apple Health are never sent. We use this only to turn what you type into a workout or food log, plan your week and answer your questions.</p>
+<p>Your full history, your name, your location, your addresses, your progress photos and anything from Apple Health are never sent. We use this only to turn what you type into a workout or food log, plan your week, answer your questions and suggest food near you. Nothing you search for nearby is kept by us.</p>
 <p><strong>With every AI request</strong>, the app also sends a random ID it made for this install and, on a real iPhone, a signature from a key Apple's App Attest service checked, which proves the request comes from a genuine copy of LiftText. Neither is linked to who you are. We use them to limit how many AI requests each phone makes a day and to stop abuse of our server.</p>
 <p><strong>Always:</strong> the app checks for updates with Expo (our update service), which sees your phone's OS, the app version and a random update ID. Apple collects crash and usage data from TestFlight and the App Store as your iPhone's settings allow, under Apple's privacy policy.</p>
 
@@ -131,7 +132,7 @@ const terms = (contact: string) => page('Terms of Use', `
 </ul>
 
 <h2>Not medical advice</h2>
-<p>LiftText is a log, not a doctor, coach or dietitian. Plans, suggested weights, food numbers and answers are suggestions, not medical, nutrition or training advice. Start lighter than you think, stop if something hurts, and check with a doctor before you start a new program or if you have an injury or a health condition. You exercise at your own risk.</p>
+<p>LiftText is a log, not a doctor, coach or dietitian. Plans, suggested weights, food numbers, nearby food picks and answers are suggestions, not medical, nutrition or training advice. A nearby pick's protein, calories, price, "spike" and seed-oil notes are estimates from what that kind of place usually serves: "spike" is a judgment from carbs, not a measure of your blood sugar, and oils are as the restaurant publishes them or unknown. Check the menu if it matters to your health. Start lighter than you think, stop if something hurts, and check with a doctor before you start a new program or if you have an injury or a health condition. You exercise at your own risk.</p>
 
 <h2>AI can be wrong</h2>
 <p>AI reads what you type and can get it wrong: exercises, sets, weights, foods and amounts. Review every card before you save it. Food numbers are estimates.</p>

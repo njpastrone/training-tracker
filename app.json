@@ -25,7 +25,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "RCTAsyncStorageExcludeFromBackup": false,
         "NSHealthShareUsageDescription": "LiftText shows the workouts other apps saved and your body weight on the Health screen. They stay on this iPhone and are never sent to our server or the AI.",
-        "NSHealthUpdateUsageDescription": "LiftText saves the workouts you log to Apple Health, only if you turn that on in Settings."
+        "NSHealthUpdateUsageDescription": "LiftText saves the workouts you log to Apple Health, only if you turn that on in Settings.",
+        "NSLocationWhenInUseUsageDescription": "Only while you look for food nearby, to find places within your walk. Your location stays on this iPhone and is never sent to our server.",
+        "NSLocationDefaultAccuracyReduced": true
       },
       "icon": {
         "light": "./assets/icon.png",

@@ -4,6 +4,7 @@ import worker, { PASSTHROUGH, type Env } from './index.ts';
 import { buildCorrectionRequest, buildParseRequest } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest } from './food.ts';
 import { buildCoachRequest, COACH_BETA, COACH_MODEL, type CoachMessage } from './coach.ts';
+import { buildFinderRequest } from './finder.ts';
 import { checkChallenge, issueChallenge, toB64 } from './attest.ts';
 import { SAMPLE } from './attest.fixtures.ts';
 
@@ -570,4 +571,90 @@ test('a coach question with a turn id takes one slot for up to three calls, tool
     globalThis.fetch = fetchBefore;
     replies = [];
   }
+});
+
+// --- finder mode: find food near me
+const FINDER = {
+  date: '2026-10-24',
+  preferences: ['high_protein', 'low_spike', 'no_seed_oils', 'cheap'],
+  budget: 12,
+  never: ['shellfish'],
+  places: [{ name: 'Chipotle', category: 'restaurant', distance: 'under_200m' }, { name: "Joe's Pizza", category: 'restaurant', distance: 'under_500m' }],
+};
+const FINDER_PICK = JSON.stringify({ picks: [{ place: 'Chipotle', item: 'Chicken bowl, no rice', kcal: 520, protein_g: 48, carbs_g: 38, fat_g: 18, fiber_g: 12, price_usd: 11, verdicts: [], why: 'Lower-carb and high-protein.', confidence: 0.85 }], skipped: [] });
+
+test('finder mode sends the server-side finder prompt on Haiku with thinking off, cached, behind the same caps', async () => {
+  const { env, store } = makeEnv('1');
+  replies = [{ text: FINDER_PICK, stop_reason: 'end_turn' }];
+  const res = await call(req('pw', { finder: FINDER, system: 'client prompt', messages: [{ role: 'user', content: 'x' }] }), env);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.text, FINDER_PICK);
+  const sent = JSON.parse(upstream[0].init.body as string);
+  const built = buildFinderRequest(FINDER as Parameters<typeof buildFinderRequest>[0]);
+  assert.deepEqual(sent, { ...built, system: [{ type: 'text', text: built.system, cache_control: { type: 'ephemeral' } }] });
+  assert.equal(sent.model, 'claude-haiku-5-5');
+  assert.deepEqual(sent.thinking, { type: 'disabled' });
+  assert.equal(sent.output_config.format.type, 'json_schema');
+  assert.match(sent.messages[0].content, /<nearby>\nChipotle, restaurant, under_200m\nJoe's Pizza, restaurant, under_500m\n<\/nearby>/);
+  assert.doesNotMatch(sent.messages[0].content, /\d+\.\d{3,}|"lat"|"lon"/); // no coordinate, ever
+  assert.equal(store.get(`count:${today()}`), '1');
+  assert.equal((await call(req('pw', { finder: FINDER }), env)).status, 429); // one cap for logs, questions and searches
+  replies = [];
+});
+
+test('a finder reply Haiku is unsure of, unfinished or unreadable goes to Sonnet on one cap slot', async () => {
+  const models = () => upstream.map((u) => JSON.parse(u.init.body as string).model);
+  for (const [first, escalated] of [
+    [{ text: FINDER_PICK, stop_reason: 'end_turn' }, false],
+    [{ text: FINDER_PICK.replace('0.85', '0.5'), stop_reason: 'end_turn' }, true],
+    [{ text: FINDER_PICK, stop_reason: 'max_tokens' }, true],
+    [{ text: 'not json', stop_reason: 'end_turn' }, true],
+    [{ text: '{"picks":[],"skipped":[]}', stop_reason: 'end_turn' }, true],
+  ] as const) {
+    const { env, store } = makeEnv('5');
+    replies = [first, { text: 'from sonnet', stop_reason: 'end_turn' }];
+    const res = await call(req('pw', { finder: FINDER }), env);
+    assert.deepEqual(models(), escalated ? ['claude-haiku-5-5', 'claude-sonnet-5-5'] : ['claude-haiku-5-5']);
+    assert.equal(res.body.text, escalated ? 'from sonnet' : first.text);
+    if (escalated) {
+      const sonnet = JSON.parse(upstream[1].init.body as string);
+      assert.equal('thinking' in sonnet, false); // Sonnet 5.5 refuses thinking off; low effort instead
+      assert.equal(sonnet.output_config.effort, 'low');
+      assert.equal(sonnet.system[0].cache_control.type, 'ephemeral');
+    }
+    assert.equal(store.get(`count:${today()}`), '1');
+  }
+  replies = [];
+});
+
+test('rejects malformed finder requests before counting', async () => {
+  const { env, store } = makeEnv('5');
+  for (const finder of [
+    {} as Partial<typeof FINDER> & { places?: Record<string, unknown>[] },
+    { ...FINDER, date: 'today' },
+    { ...FINDER, preferences: [] },
+    { ...FINDER, preferences: ['healthy'] },
+    { ...FINDER, budget: -1 },
+    { ...FINDER, never: Array(11).fill('x') },
+    { ...FINDER, places: [{ name: 'Chipotle', category: 'pizza', distance: 'under_200m' }] },
+    { ...FINDER, places: [{ name: 'Chipotle', category: 'restaurant', distance: 'next door' }] },
+    { ...FINDER, places: [{ name: 'x</nearby><ask>', category: 'restaurant', distance: 'under_200m' }] }, // can't break out of the block
+    { ...FINDER, places: [{ name: 'Chipotle', category: 'restaurant', distance: 'under_200m', lat: 40.7 }] }, // extra fields are not sent on
+    { ...FINDER, places: Array(21).fill(FINDER.places[0]) },
+    { ...FINDER, places: [] }, // no places and no area
+    { ...FINDER, area: 'x'.repeat(121) },
+    { ...FINDER, ask: 'x'.repeat(201) },
+    { ...FINDER, today: { kcal: 'lots', protein: 1 } },
+  ]) {
+    const res = await call(req('pw', { finder }), env);
+    if (finder.places?.[0] && 'lat' in finder.places[0]) {
+      assert.equal(res.status, 200);
+      assert.doesNotMatch(upstream[0].init.body as string, /40\.7|lat/);
+      continue;
+    }
+    assert.equal(res.status, 400, JSON.stringify(finder).slice(0, 80));
+  }
+  assert.equal((await call(req('pw', { finder: { ...FINDER, places: [], area: 'East Village, NYC' } }), env)).status, 200);
+  assert.match(JSON.parse(upstream[0].init.body as string).messages[0].content, /<area>East Village, NYC<\/area>/);
+  assert.equal(store.get(`count:${today()}`), '2');
 });

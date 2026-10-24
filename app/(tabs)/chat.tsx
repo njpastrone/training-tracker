@@ -8,6 +8,7 @@ import { UserBubble } from '../../components/Chat';
 import CoachCard, { ThinkingCard } from '../../components/CoachCard';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
+import FinderCard from '../../components/FinderCard';
 import PlanCard from '../../components/PlanCard';
 import { LiftChart, LoggedCard, MovedCard, MovePickCard, OpenerCard, PlannedCard } from '../../components/ThreadCards';
 import { dayLabel } from '../../components/WorkoutCard';
@@ -17,6 +18,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useCoach } from '../../hooks/useCoach';
+import { FIND_CHIP, useFinder } from '../../hooks/useFinder';
+import { asksNearby } from '../../services/finder';
 import { useLogDraft } from '../../hooks/useLogDraft';
 import { usePlanner } from '../../hooks/usePlanner';
 import { getPlans } from '../../services/planner';
@@ -38,7 +41,7 @@ const DEFAULT_TWEAKS = ['Easier', 'Harder', '45 min max', 'Different days', 'Add
 export default function ChatScreenTab() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { question } = useLocalSearchParams<{ question?: string }>();
+  const { question, find } = useLocalSearchParams<{ question?: string; find?: string }>();
   const { workouts, foodEntries, schedule, templates, exerciseLibrary, settings, markWorkoutCompleted, loadSchedule, loadTemplates } = useWorkoutStore();
   const { items, skippedOpener, skipOpener } = useChatStore();
   const [pages, setPages] = useState(1);
@@ -47,11 +50,14 @@ export default function ChatScreenTab() {
   const today = format(now, 'yyyy-MM-dd');
 
   const coach = useCoach();
+  const finder = useFinder();
   const todaysSchedule = schedule.find(s => s.date === today && !s.completed && !s.skipped);
   // A question the coach couldn't answer goes back in the bar to try again, unless the bar is fixing
   // a card by then (sending it would apply the question as a fix)
   const reviewingRef = useRef(false);
   const ask = async (q: string) => {
+    // "Find healthy food near me" is the one-button finder, not a coach question
+    if (asksNearby(q)) return finder.run();
     if (!(await coach.ask(q)) && !reviewingRef.current) log.setText(q);
   };
   const log = useLogDraft({
@@ -80,18 +86,24 @@ export default function ChatScreenTab() {
     ask(question);
     router.setParams({ question: '' });
   }, [question]);
+  // Done on Where to look leads straight to the finder
+  useEffect(() => {
+    if (!find) return;
+    finder.run();
+    router.setParams({ find: '' });
+  }, [find]);
 
   const trends = useMemo(() => new Map(digest(workouts, exerciseLibrary, settings.weightUnit).liftTrends.map(t => [t.id, t])), [workouts, exerciseLibrary, settings.weightUnit]);
   const opener = pickOpener({ workouts, schedule, templates, library: exerciseLibrary, unit: settings.weightUnit, threadEmpty: items.length === 0, skippedOpener }, now);
   const comebackChips = openerChips(opener);
   const askStarters = useMemo(() => askChips(workouts, exerciseLibrary, settings.weightUnit, settings.goals?.food?.kind === 'protein'), [workouts, exerciseLibrary, settings.weightUnit, settings.goals?.food?.kind]);
-  const starters = comebackChips.length ? toChips(comebackChips) : askStarters;
+  const starters = comebackChips.length ? toChips(comebackChips) : [...toChips([FIND_CHIP]), ...askStarters];
 
   const shown = items.slice(-PAGE * pages);
   const reviewing = !!log.sent || !!log.draft || !!log.food;
   reviewingRef.current = !!log.draft || !!log.food;
   const planning = !!planner.sent || !!planner.draft;
-  const working = reviewing || planning || coach.busy;
+  const working = reviewing || planning || coach.busy || finder.busy;
 
   const startPlanned = () => {
     const template = opener?.kind === 'planned' && templates.find(t => t.id === opener.templateId);
@@ -117,16 +129,21 @@ export default function ChatScreenTab() {
           onChangeText: log.setText,
           onSend: () => {
             coach.clearError();
+            finder.clearError();
             const text = log.text.trim();
+            if (asksNearby(text)) {
+              log.setText('');
+              return finder.run();
+            }
             if (!PLAN.test(text)) return log.parse(); // a question goes to the coach (routeComposer)
             log.setText('');
             planner.send(text);
           },
           placeholder: 'Log something or ask',
-          chips: log.text.trim() ? [] : coach.chips.length ? toChips(coach.chips) : starters,
-          onChip: ask,
-          busy: log.busy === 'parse' || coach.busy || planner.busy,
-          error: log.error ?? planner.error ?? coach.error,
+          chips: log.text.trim() ? [] : finder.chips.length ? toChips(finder.chips) : coach.chips.length ? toChips(coach.chips) : starters,
+          onChip: text => (finder.chips.includes(text) ? finder.refine(text) : ask(text)),
+          busy: log.busy === 'parse' || coach.busy || planner.busy || finder.busy,
+          error: log.error ?? planner.error ?? coach.error ?? finder.error,
         };
 
   return (
@@ -150,6 +167,18 @@ export default function ChatScreenTab() {
             {item.kind === 'logged' && <LoggedCard item={item} />}
             {item.kind === 'planned' && <PlannedCard item={item} />}
             {item.kind === 'moved' && <MovedCard item={item} />}
+            {item.kind === 'nearby' && (
+              <View style={styles.answer}>
+                <FinderCard
+                  result={item.result}
+                  logged={!!item.logged}
+                  busy={finder.busy}
+                  onWhere={where => finder.run(item.result.ask, where, item.id)}
+                  onDirections={finder.directions}
+                  onLog={() => finder.log(item.id)}
+                />
+              </View>
+            )}
             {item.kind === 'answer' && (
               <View style={styles.answer}>
                 <CoachCard
@@ -173,6 +202,13 @@ export default function ChatScreenTab() {
           <>
             <UserBubble text={coach.pending} />
             <ThinkingCard title="Thinking about your log…" />
+          </>
+        )}
+
+        {finder.pending && (
+          <>
+            <UserBubble text={finder.pending} />
+            <ThinkingCard title="Looking nearby…" />
           </>
         )}
 

@@ -16,9 +16,10 @@ const SENT = [
   'Your weight unit and the date',
   'When you plan a week: a summary of your recent training and your goals',
   'When you ask the coach: a summary of your last 4 weeks of training and food (the numbers on Progress), your goals, the things you asked it to remember, your food preferences, your question, your earlier questions to it that day with its answers, and what the question needs (one exercise\'s history, a day\'s meals)',
+  'When you look for food nearby: the names and kinds of places near you that Apple Maps found on your iPhone, roughly how far they are, your food preferences, what you logged eating today, and, when no places were found, the area words you typed',
   'A random ID for this phone',
 ];
-const NOT_SENT = ['Your full workout or food history: only a summary and what a question needs', 'Who you are', 'Your progress photos', 'Anything from Apple Health (workouts, body weight)'];
+const NOT_SENT = ['Your full workout or food history: only a summary and what a question needs', 'Who you are', 'Your progress photos', 'Anything from Apple Health (workouts, body weight)', 'Your location or a saved address'];
 
 // Asks once, before the first AI call, whether typed text may go to Anthropic, and whether the user is
 // 18 or older (AI is 18+; under 18 it stays off). Settings opens it again.
@@ -52,7 +53,7 @@ export default function AiConsentSheet() {
           Use AI to read your logs?
         </Text>
         <Text variant="bodyLarge" style={{ color: colors.textSecondary }}>
-          LiftText sends what you type to Anthropic's Claude AI, through our server, to turn it into exercises, sets and reps, the food you ate into amounts and macros, and to answer questions about your training and food.
+          LiftText sends what you type to Anthropic's Claude AI, through our server, to turn it into exercises, sets and reps, the food you ate into amounts and macros, to answer questions about your training and food, and to pick food near you that fits your preferences.
         </Text>
 
         <View style={styles.section}>
