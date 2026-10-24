@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import type { CoachCards, CoachReply } from '../services/ask';
 import type { EntryRef } from '../services/moveLog';
+import type { FinderResult } from '../services/finder';
 
 // The Chat tab's thread: your log as one conversation, kept on this phone (and in backups) until
 // cleared. Only finished things land here: what you sent plus what came of it. Log and plan items
@@ -26,7 +27,8 @@ export type NewChatItem =
   | { kind: 'logged'; workoutIds: string[]; foodEntryIds: string[]; day: string }
   | { kind: 'planned'; dates: string[]; planId?: string }
   | { kind: 'moved'; entry: EntryRef; from: string; to: string; label: string } // label: what it was called when moved
-  | { kind: 'answer'; question: string; turn: CoachTurnState };
+  | { kind: 'answer'; question: string; turn: CoachTurnState }
+  | { kind: 'nearby'; result: FinderResult; logged?: string }; // Find food near you; logged: the food entry made from the best pick
 export type ChatItem = NewChatItem & Stamp;
 
 interface ChatState {
@@ -34,6 +36,7 @@ interface ChatState {
   skippedOpener?: string; // the day "Not today" was tapped
   add: (...items: NewChatItem[]) => void;
   patch: (id: string, change: Partial<CoachTurnState>) => void;
+  patchNearby: (id: string, change: { result?: FinderResult; logged?: string }) => void;
   skipOpener: (day: string) => void;
   clear: () => void;
 }
@@ -50,6 +53,7 @@ export const useChatStore = create<ChatState>()(
       },
       patch: (id, change) =>
         set((s) => ({ items: s.items.map((i) => (i.id === id && i.kind === 'answer' ? { ...i, turn: { ...i.turn, ...change } } : i)) })),
+      patchNearby: (id, change) => set((s) => ({ items: s.items.map((i) => (i.id === id && i.kind === 'nearby' ? { ...i, ...change } : i)) })),
       skipOpener: (day) => set({ skippedOpener: day }),
       clear: () => set({ items: [], skippedOpener: undefined }),
     }),

@@ -13,6 +13,7 @@ import {
 } from '../services/exerciseIdentity';
 import { withFoodGoal } from '../services/goals';
 import { useChatStore } from './chatStore';
+import { usePlacesStore } from './placesStore';
 import type { EntryRef } from '../services/moveLog';
 import { format } from 'date-fns';
 
@@ -349,6 +350,7 @@ export const useWorkoutStore = create<WorkoutState>()(
           error: null,
         });
         useChatStore.getState().clear();
+        usePlacesStore.getState().clear();
       },
 
       setLoading: (loading) => set({ isLoading: loading }),

@@ -19,6 +19,7 @@ import { forgetFact } from '../services/coachCards';
 import { importSummary, pickExport, plural, readExport } from '../services/importHistory';
 import { healthAvailable, requestHealthAccess } from '../services/health';
 import { prefsSummary } from '../services/foodPrefs';
+import { usePlacesStore, whereChoices } from '../stores/placesStore';
 import type { WeightUnit } from '../types/workout';
 
 export default function SettingsScreen() {
@@ -29,6 +30,8 @@ export default function SettingsScreen() {
   const [isClearing, setIsClearing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [lastWeekly] = useState(lastWeeklyBackupDate);
+  const where = usePlacesStore();
+  const whereLabels = whereChoices(where).map(c => (c.key === 'live' ? 'live location while you look' : c.label));
 
   const handleExport = () => {
     shareBackup().catch((error) => Alert.alert("Couldn't export", error.message));
@@ -209,6 +212,12 @@ export default function SettingsScreen() {
             onPress={() => router.push('/food-prefs')}
           />
           <Row
+            icon="mappin.and.ellipse"
+            title="Where to look"
+            subtitle={whereLabels.length ? `${whereLabels.join(' · ')}. All kept on this iPhone.` : 'For food nearby: live location, Home, Work or an area. All kept on this iPhone.'}
+            onPress={() => router.push('/location')}
+          />
+          <Row
             icon="logo"
             title="AI reading"
             subtitle={
@@ -346,8 +355,8 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle={`Version ${Constants.expoConfig?.version}`} />
-          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts, chat history and progress photos are saved only on this phone, and nothing from Apple Health is ever sent. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember, your food preferences and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
-          <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving" onPress={() => Linking.openURL(legalUrl('terms'))} />
+          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts, chat history and progress photos are saved only on this phone, and nothing from Apple Health is ever sent. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember, your food preferences and what the question needs, never the whole log. Finding food nearby uses Apple Maps on this iPhone; your location never leaves it, only the names of nearby places and your food preferences are sent. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
+          <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving. Protein, prices, spike and seed oils are estimates." onPress={() => Linking.openURL(legalUrl('terms'))} />
         </SkyCard>
         </SkySheet>
       </ScrollView>
