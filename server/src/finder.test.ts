@@ -62,12 +62,14 @@ test('readFinderReply keeps listed places with numbers, fills missing verdicts a
       pick({ confidence: 0.3 }), // too unsure to show
       pick({ kcal: null }), // no numbers
       pick({ item: 'Shrimp bowl with shellfish broth' }), // the never list is a filter
+      pick({ item: 'Chicken bowl, no shellfish, skip the shrimp', confidence: 0.45 }), // avoiding it is fine
       null,
     ],
     skipped: [{ place: "Joe's Pizza", why: 'refined carbs, low protein' }, { place: '', why: 'x' }],
   });
   const read = readFinderReply(text, input)!;
-  assert.equal(read.picks.length, 2);
+  assert.equal(read.picks.length, 3);
+  assert.equal(read.picks[2].item, 'Chicken bowl, no shellfish, skip the shrimp');
   assert.equal(read.picks[0].place, 'Chipotle');
   assert.deepEqual(read.picks[0].verdicts.map((v) => v.verdict), ['hit', 'hit', 'hit', 'miss', 'hit']);
   assert.equal(read.picks[0].fiber, 12);

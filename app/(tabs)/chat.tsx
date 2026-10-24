@@ -57,7 +57,7 @@ export default function ChatScreenTab() {
   const reviewingRef = useRef(false);
   const ask = async (q: string) => {
     // "Find healthy food near me" is the one-button finder, not a coach question
-    if (asksNearby(q)) return finder.run(q === FIND_CHIP ? undefined : q);
+    if (asksNearby(q)) return finder.run();
     if (!(await coach.ask(q)) && !reviewingRef.current) log.setText(q);
   };
   const log = useLogDraft({
@@ -133,7 +133,7 @@ export default function ChatScreenTab() {
             const text = log.text.trim();
             if (asksNearby(text)) {
               log.setText('');
-              return finder.run(text);
+              return finder.run();
             }
             if (!PLAN.test(text)) return log.parse(); // a question goes to the coach (routeComposer)
             log.setText('');

@@ -43,4 +43,23 @@ in `evals/food`; scored only when a pick matches a reference). A case's score is
 
 ## Results
 
-See the table at the bottom of this file once a run has been recorded.
+Measured 2026-10-24 with `--cli` (the Claude Code login: thinking and the JSON schema not pinned, so
+this is close to production, not identical), 38 cases, one run:
+
+| | Haiku 5.5 thinking off, Sonnet 5.5 when unsure |
+|---|---|
+| Mean score (checks passed ÷ run) | 1.00 |
+| Cases passing every check | 97% (37 of 38; the one miss was a scorer nit on "skip the rice, cheese and sour cream", fixed since) |
+| Readable, places from the list, numbers make sense, no health claims | 100% each |
+| kcal and protein within 20% of published, where a pick matched a reference (4 picks) | 100% / 100% |
+| Escalated to Sonnet | 16% (independents, the grocery store, the Korean place, a town with no list) |
+| p50 latency | 8.4 s |
+| Cost per search (CLI-measured, uncached) | about $0.003 |
+
+Picks matched the report's: Chipotle chicken bowl with no rice and extra beans, a lettuce-wrapped burger
+at Five Guys or Shake Shack, CAVA greens bowl, 12-count grilled nuggets at Chick-fil-A (200 kcal, 38 g:
+exact), a half rotisserie chicken at the grocery store, eggs and deli turkey with no bread at the
+independent deli at confidence 0.4. Chipotle's seed-oil verdict was "miss" every time, Chick-fil-A's
+"miss" or "unknown". The never list held in the picks; the one slip was in a skipped place's reason.
+Before this set was tuned, the first run found a real reader bug: an order that said "no cheese" was
+dropped by a never list holding "cheese" (`withoutNegated` in `server/src/finder.ts` fixes it).

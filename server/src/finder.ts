@@ -204,6 +204,10 @@ const num = (v: unknown, max: number) => (typeof v === 'number' && Number.isFini
 const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : '');
 const words = (s: string, n: number) => s.split(/\s+/).slice(0, n).join(' ');
 const fold = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+// The order with its "no X", "without X", "skip the X", "hold the X", "instead of X" phrases removed. The
+// reader stops a phrase at a comma ("no cheese, shrimp bowl" keeps the shrimp); `loose` lets it run on
+// through a list ("skip the rice, cheese and sour cream"), for the eval's reading of a whole reply.
+export const withoutNegated = (item: string, loose = false) => item.replace(loose ? /\b(?:no|without|skip(?: the)?|hold(?: the)?|minus|instead of|not|never)\b[^;.()]*/gi : /\b(?:no|without|skip(?: the)?|hold(?: the)?|minus|instead of|not|never)\b[^,;.()]*/gi, ' ');
 
 // A verdict the numbers can check is held to them: a "hit" that the pick's own estimate contradicts becomes
 // a miss, and a miss the numbers clear stays a miss (the model may know something the number doesn't)
@@ -249,8 +253,9 @@ export function readFinderReply(text: string, input: Pick<FinderInput, 'preferen
     const price = num(e.price_usd, 500);
     const confidence = num(e.confidence, 1) ?? 0;
     if (!place || !item || kcal === undefined || protein === undefined || carbs === undefined || fat === undefined || price === undefined || confidence < SHOW_FROM) return [];
-    // The never list is a filter: an order that names one is out, whatever the model scored it
-    if (never.some((n) => fold(item).includes(n))) return [];
+    // The never list is a filter: an order that names one is out, whatever the model scored it. "No cheese",
+    // "without sour cream", "skip the shrimp" avoid the thing, so those phrases don't count.
+    if (never.some((n) => fold(withoutNegated(item)).includes(n))) return [];
     const base = { place, item, kcal, protein, carbs, fat, ...(fiber !== undefined ? { fiber } : {}), price, why: words(dropClaims(str(e.why, 300)), 30), confidence };
     const given = new Map(
       (Array.isArray(e.verdicts) ? (e.verdicts as Record<string, unknown>[]) : [])
