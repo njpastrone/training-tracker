@@ -180,6 +180,8 @@ test('a goal row: each day met, partly or missed, today as a value, and whether 
   assert.equal(protein.logged, 4);
   assert.equal(protein.today, 136);
   assert.equal(foodLogKnows(GOAL, totals), true);
+  assert.equal(foodLogKnows(GOAL, new Map()), true);
+  assert.equal(foodLogKnows({ kind: 'cut', target: 2000 }, new Map()), true);
   // A cut: at or under is met, just over is partly
   const cut = goalWeek({ kind: 'cut', target: 1000 }, totals, NOW);
   assert.deepEqual(cut.cells.slice(0, 3), ['missed', 'met', 'met']);
