@@ -13,6 +13,7 @@ test('a salmon, lentil and spinach dinner hits every preference; price and time 
   assert.deepEqual(card.rows.map(r => r.verdict), ['hit', 'hit', 'hit', 'hit', 'hit', 'hit']);
   assert.equal(card.headline, 'Likely hits 6 of 6');
   assert.equal(card.rows.find(r => r.pref === 'noSeedOils')?.why, 'olive oil');
+  assert.equal(card.rows.find(r => r.pref === 'lowSpike')?.why, 'lentils');
   assert.equal(card.rows.find(r => r.pref === 'cheap')?.label, '~$9');
   assert.equal(card.rows.find(r => r.pref === 'cooking')?.why, 'you cook up to 20');
 });
@@ -29,6 +30,12 @@ test('white rice with little fiber reads as a likely spike, mayonnaise as seed o
   assert.equal(by.cooking.verdict, 'miss');
   assert.equal(by.protein.verdict, 'hit');
   assert.equal(card.headline, 'Likely hits 2 of 6');
+});
+
+test('fiber is summed across the meal, so a bean meal reads as high fiber', () => {
+  const card = scoreMeal({ items: items('1 cup black beans, 1 cup brown rice') }, { matters: ['highFiber'], never: [] });
+  assert.equal(card.rows[0].verdict, 'hit');
+  assert.match(card.rows[0].label, /^~\d+ g fiber$/);
 });
 
 test('peanut oil is named and left to the user, not a miss', () => {

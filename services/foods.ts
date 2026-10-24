@@ -366,9 +366,11 @@ export function nextUnit(food: Food, current?: FoodUnit): FoodUnit {
 }
 
 // Totals for a list of items
+// Fiber is summed when any item has it (USDA items do; an estimate may not)
 export function sumMacros(items: { macros: Macros }[]): Macros {
-  const t = items.reduce((s, { macros: m }) => ({ kcal: s.kcal + m.kcal, protein: s.protein + m.protein, carbs: s.carbs + m.carbs, fat: s.fat + m.fat }), { kcal: 0, protein: 0, carbs: 0, fat: 0 });
-  return { kcal: Math.round(t.kcal), protein: Math.round(t.protein), carbs: Math.round(t.carbs), fat: Math.round(t.fat) };
+  const t = items.reduce((s, { macros: m }) => ({ kcal: s.kcal + m.kcal, protein: s.protein + m.protein, carbs: s.carbs + m.carbs, fat: s.fat + m.fat, fiber: s.fiber + (m.fiber ?? 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+  const fiber = items.some(i => i.macros.fiber !== undefined) ? { fiber: Math.round(t.fiber) } : {};
+  return { kcal: Math.round(t.kcal), protein: Math.round(t.protein), carbs: Math.round(t.carbs), fat: Math.round(t.fat), ...fiber };
 }
 
 // "42 g protein · 520 kcal": protein first, the number a lifter acts on
