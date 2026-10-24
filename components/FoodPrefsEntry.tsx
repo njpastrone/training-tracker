@@ -8,19 +8,31 @@ import { useWorkoutStore } from '../stores/workoutStore';
 import { DEFAULT_MATTERS, MAKE_IT_QUESTION, prefsSummary } from '../services/foodPrefs';
 import { foodByDay } from '../services/progress';
 import { Pill } from './Glass';
+import FindNearbyButton from './FindNearbyButton';
 
 // The food surface's one slot for preferences (data/lt-ui-g/report.md §3.1, §3.3): until preferences
-// exist, the one-time set-up prompt (Not now hides it for good); after, one line on what is left today
-// and the Make it entry, which asks the coach on Chat. Shown only where food data already exists. Built
-// for any food surface to mount; the Food tab puts it under its coach line.
+// exist, the one-time set-up prompt (Not now hides the prompt for good); after, one line on what is left
+// today and Make it, which asks the coach on Chat. Find nearby, which runs the finder there
+// (hooks/useFinder.ts) on the sheet's defaults until preferences are set, shows in every state. Shown
+// only where food data already exists. Built for any food surface to mount; the Food tab puts it under
+// its coach line.
 export default function FoodPrefsEntry({ today = format(new Date(), 'yyyy-MM-dd') }: { today?: string }) {
   const { colors } = useTheme();
   const router = useRouter();
   const { settings, updateSettings, foodEntries } = useWorkoutStore();
   const prefs = settings.foodPrefs;
+  const findNearby = (
+    <FindNearbyButton size="small" variant="glass" label="Find nearby" onPress={() => router.navigate({ pathname: '/(tabs)/chat', params: { find: '1' } })} />
+  );
 
   if (!prefs) {
-    if (settings.foodPrefsPromptDismissed) return null;
+    if (settings.foodPrefsPromptDismissed) {
+      return (
+        <View style={[styles.block, { borderTopColor: colors.dim }]}>
+          <View style={styles.actions}>{findNearby}</View>
+        </View>
+      );
+    }
     return (
       <View style={[styles.block, { borderTopColor: colors.dim }]}>
         <Text variant="titleMedium" style={{ color: colors.text }}>How do you like to eat?</Text>
@@ -37,6 +49,7 @@ export default function FoodPrefsEntry({ today = format(new Date(), 'yyyy-MM-dd'
             }}
           />
           <Pill size="small" variant="glass" label="Not now" onPress={() => updateSettings({ foodPrefsPromptDismissed: true })} />
+          {findNearby}
         </View>
       </View>
     );
@@ -51,6 +64,7 @@ export default function FoodPrefsEntry({ today = format(new Date(), 'yyyy-MM-dd'
       <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{line}</Text>
       <View style={styles.actions}>
         <Pill size="small" variant="glass" icon="fork.knife" label="Make it" onPress={() => router.navigate({ pathname: '/(tabs)/chat', params: { question: MAKE_IT_QUESTION } })} />
+        {findNearby}
       </View>
     </View>
   );

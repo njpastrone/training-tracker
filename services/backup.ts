@@ -13,6 +13,7 @@ export const BACKUP_KEYS = [
   '@training-tracker/schedule',
   '@training-tracker/plans',
   '@training-tracker/chat', // stores/chatStore.ts: the Chat tab's thread
+  // Not here on purpose: '@training-tracker/places' (stores/placesStore.ts), where to look for food nearby. Addresses stay on the phone.
 ];
 const STORE_KEY = BACKUP_KEYS[0];
 export const BACKUP_VERSION = 1;
@@ -87,7 +88,9 @@ const chatItemOk = (i: any) =>
         ? strings(i.dates)
         : i.kind === 'moved'
           ? hasStrings(i, 'from', 'to', 'label') && hasStrings(i.entry, 'kind', 'id')
-          : i.kind === 'answer' && typeof i.question === 'string' && isObject(i.turn) && typeof i.turn.raw === 'string' && hasStrings(i.turn.reply, 'answer') && Array.isArray(i.turn.reply.chips));
+          : i.kind === 'nearby'
+            ? isObject(i.result) && listOf(i.result.picks, (p) => hasStrings(p, 'place', 'item') && Array.isArray(p.verdicts)) && Array.isArray(i.result.preferences)
+            : i.kind === 'answer' && typeof i.question === 'string' && isObject(i.turn) && typeof i.turn.raw === 'string' && hasStrings(i.turn.reply, 'answer') && Array.isArray(i.turn.reply.chips));
 // Shape of each array key's elements, checked down to the fields the screens dereference
 const ITEM_CHECKS: Record<string, (item: any) => boolean> = {
   '@training-tracker/templates': (t) => hasStrings(t, 'id', 'name') && exercisesOk(t.exercises) && Array.isArray(t.muscleGroups),

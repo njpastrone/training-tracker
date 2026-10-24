@@ -2,6 +2,7 @@ import { fitsPrompt } from './identity.ts';
 import { buildCorrectionRequest, buildParseRequest, type ParseOptions } from './parse.ts';
 import { buildFoodCorrectionRequest, buildFoodRequest, FOOD_ESCALATION_MODEL, needsEscalation, type DraftFoodForModel } from './food.ts';
 import { buildCoachRequest, COACH_BETA, MAX_CALLS_PER_QUESTION, MAX_PACK_CHARS, validThread } from './coach.ts';
+import { buildFinderRequest, CATEGORIES, DISTANCES, FINDER_ESCALATION_MODEL, MAX_NEVER, MAX_PLACES, needsFinderEscalation, PREFERENCES, type FinderInput } from './finder.ts';
 import { checkChallenge, issueChallenge, verifyAssertion, verifyAttestation } from './attest.ts';
 import { legalPage } from './legal.ts';
 import { homePage, joinWaitlist } from './site.ts';
@@ -160,18 +161,19 @@ export default {
     if (path === '/attest/register') return registerKey(request, env);
 
     const text = await request.text();
-    let body: { system?: unknown; messages?: unknown; parse?: unknown; food?: unknown; coach?: unknown };
+    let body: { system?: unknown; messages?: unknown; parse?: unknown; food?: unknown; coach?: unknown; finder?: unknown };
     try {
       body = JSON.parse(text);
     } catch {
       return json(400, { error: 'Invalid JSON.' });
     }
-    const { system, messages, parse, food, coach } = body ?? {};
+    const { system, messages, parse, food, coach, finder } = body ?? {};
     const validDate = (date: unknown): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date);
     // Food mode: like parse mode, for what the user ate. `foods` are the table entries the log
     // mentions (the app matches them); with draft and fix it applies a typed fix to the food draft.
     let upstream: Record<string, unknown>;
     let escalateFoods: number | undefined; // a food log's candidate count: Haiku's reply may go to Sonnet
+    let finderInput: FinderInput | undefined; // a nearby-food search: Haiku's reply may go to Sonnet
     let betas: string | undefined; // beta features the upstream request opts into
     let passThrough = false; // the app's own prompt: the reply is used as-is, so a cut-off one is an error
     let turnId: string | undefined; // a coach question's id: its model calls share one cap slot
@@ -190,6 +192,25 @@ export default {
       // One round of tools: once the thread holds tool results, the model answers
       if (thread.some((m) => Array.isArray(m.content))) upstream.tool_choice = { type: 'none' };
       betas = COACH_BETA;
+    } else if (finder !== undefined) {
+      // Finder mode: "find food near me". The phone sends its preferences and the names, kinds and
+      // distance buckets of places Apple Maps found on the iPhone (never a coordinate or address), or
+      // the neighbourhood it typed when there is no place list. Nothing here is stored.
+      const { date, preferences, budget, never, places, area, ask, today } = (finder ?? {}) as Record<string, unknown>;
+      const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T => list.includes(v as T);
+      const placeOk = (p: unknown) => typeof p === 'object' && p !== null && shortText((p as { name?: unknown }).name) && oneOf(CATEGORIES, (p as { category?: unknown }).category) && oneOf(DISTANCES, (p as { distance?: unknown }).distance);
+      const money = (v: unknown) => v === undefined || (typeof v === 'number' && v > 0 && v <= 500);
+      const text = (v: unknown, max: number) => v === undefined || (typeof v === 'string' && v.length <= max && fitsPrompt(v));
+      const eaten = (v: unknown) => v === undefined || (typeof v === 'object' && v !== null && ['kcal', 'protein', 'proteinGoal'].every((k) => { const n = (v as Record<string, unknown>)[k]; return n === undefined ? k === 'proteinGoal' : typeof n === 'number' && n >= 0 && n <= 20_000; }));
+      if (
+        !validDate(date) || !Array.isArray(preferences) || !preferences.length || preferences.length > PREFERENCES.length || !preferences.every((p) => oneOf(PREFERENCES, p)) || !money(budget) ||
+        (never !== undefined && !(Array.isArray(never) && never.length <= MAX_NEVER && never.every(shortText))) ||
+        !Array.isArray(places) || places.length > MAX_PLACES || !places.every(placeOk) || !text(area, 120) || !text(ask, 200) || (!places.length && !area) || !eaten(today)
+      ) {
+        return json(400, { error: 'Invalid request.' });
+      }
+      finderInput = { date, preferences: [...new Set(preferences as FinderInput['preferences'])], budget: budget as number | undefined, never: never as string[] | undefined, places: places as FinderInput['places'], area: area as string | undefined, ask: ask as string | undefined, today: today as FinderInput['today'] };
+      upstream = buildFinderRequest(finderInput);
     } else if (food !== undefined) {
       const { input, date, foods = [], draft, fix } = (food ?? {}) as Record<string, unknown>;
       if (!validDate(date) || !Array.isArray(foods) || foods.length > MAX_FOOD_CANDIDATES || !foods.every(shortText)) {
@@ -292,12 +313,16 @@ export default {
       return { status: 200, stop: data.stop_reason, text: data.content.filter((c) => c.type === 'text').map((c) => c.text).join(''), content: data.content };
     };
 
-    // The food and parse prompts are long and the same on every log: cache them
-    if (escalateFoods !== undefined || parse !== undefined) upstream.system = [{ type: 'text', text: upstream.system, cache_control: { type: 'ephemeral' } }];
+    // The food, finder and parse prompts are long and the same on every call: cache them
+    if (escalateFoods !== undefined || finderInput !== undefined || parse !== undefined) upstream.system = [{ type: 'text', text: upstream.system, cache_control: { type: 'ephemeral' } }];
     let reply = await send(upstream);
     // A food reply Haiku failed, didn't finish or isn't sure of goes to Sonnet, on the same cap slot
     if (escalateFoods !== undefined && (reply.text === undefined || needsEscalation(reply.stop, reply.text, escalateFoods))) {
       reply = await send({ ...upstream, model: FOOD_ESCALATION_MODEL });
+    }
+    // A finder reply Haiku can't read, didn't finish or isn't sure of goes to Sonnet, on the same cap slot
+    if (finderInput !== undefined && (reply.text === undefined || needsFinderEscalation(reply.stop, reply.text, finderInput))) {
+      reply = await send({ ...buildFinderRequest(finderInput, FINDER_ESCALATION_MODEL), system: upstream.system });
     }
     if (reply.text === undefined) return json(502, { error: `AI service error (${reply.status}).` });
     if (parse !== undefined && reply.stop === 'max_tokens') return json(502, { error: 'AI service error (max_tokens).' });
