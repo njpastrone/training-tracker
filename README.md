@@ -6,7 +6,7 @@ A mobile workout and food log built with Expo (React Native) that lets you log w
 
 - **Natural Language Input** - Just type what you did: "Hit chest today - bench press 3x10 at 185, incline dumbbell press, cable flyes"
 - **AI-Powered Parsing** - Claude API extracts exercises, sets, reps, weights, and muscle groups automatically
-- **Four tabs, Today · Training · Food · Chat** - Today shows what you did today (training and food side by side), the next thing to do (start today's plan, log the next meal) and tomorrow's plan, with one coach line. Training and Food are twins: the goal and this week on top (a week strip; planned days dashed; Month › opens the calendar), a breakdown (Training: the muscle grid with sets; Food: your goals, a row each), a trend with one coach line (Training: lifts, PRs and next targets; Food: protein over 4 weeks), and a row of doors to the rest (plan, exercises, goals, photos, Apple Health; food goal, all meals, top sources, body weight). Training is coral, Food is mint, so the colour says which tab you're on
+- **Four tabs, Today · Training · Food · Chat** - Today shows what you did today (training and food side by side), the next thing to do (start today's plan, log the next meal) and tomorrow's plan, with one coach line. Training and Food are twins: the goal and this week on top (a week strip; planned days dashed; Month › opens the calendar), a breakdown (Training: the muscle grid with sets; Food: your goals, a row each), a trend with one coach line (Training: lifts, PRs and next targets; Food: protein over 4 weeks), and a row of doors to the rest (plan, exercises, goals, photos, Apple Health; food goals, all meals, top sources, body weight). Training is coral, Food is mint, so the colour says which tab you're on
 - **Calendar** - Logged and planned days, and every day by month (Month › on Training or Food)
 - **Workout Planner** - Ask for a plan ("plan a re-entry week", "PPL split", or paste your own workouts), tweak it, then save it to the in-app calendar
 - **Training** - This week's muscle grid with sets, the three latest lifts with PRs and next numbers, your own goals, and a coach line written on your phone (tap it for the weekly check-in: wins, the one thing to watch, the next 7 days); its bar plans your week or adds a workout you forgot ("did legs six days ago")
@@ -133,7 +133,7 @@ training-tracker/
 │   ├── (tabs)/             # Tab navigation screens
 │   │   ├── index.tsx       # Today (home): done today, next up, tomorrow
 │   │   ├── training.tsx    # Training: this week, the muscle grid, lifts, doors; planning and corrections
-│   │   ├── food.tsx        # Food: this week, today by meal, the protein trend, doors
+│   │   ├── food.tsx        # Food: this week, your goals, the protein trend, doors
 │   │   └── chat.tsx        # Chat: your log as one thread, and the coach
 │   ├── calendar.tsx        # The calendar and every day by month
 │   ├── food-goals.tsx      # The food goal picker; meals.tsx: today by meal and the last days with food

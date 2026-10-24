@@ -3,7 +3,7 @@
 ## Overview
 This document outlines the next major features to be implemented in the Training Tracker app. Both features are designed to be lightweight, non-invasive, and integrate seamlessly with existing functionality.
 
-The tabs are **Today · Training · Food · Chat** (DESIGN-SYSTEM.md). Training (`app/(tabs)/training.tsx`) holds goals checked against the log (`services/goals.ts`, `services/week.ts`, set in `app/goals.tsx`), lifts with PRs and next targets, and natural-language corrections for missed workouts; Food (`app/(tabs)/food.tsx`) holds today by meal and the protein trend. Private progress photos (`app/photos.tsx`, behind Face ID) and Apple Health (`app/health.tsx`; saving logged workouts) shipped in one native build.
+The tabs are **Today · Training · Food · Chat** (DESIGN-SYSTEM.md). Training (`app/(tabs)/training.tsx`) holds goals checked against the log (`services/goals.ts`, `services/week.ts`, set in `app/goals.tsx`), lifts with PRs and next targets, and natural-language corrections for missed workouts; Food (`app/(tabs)/food.tsx`) holds your food goals and the protein trend. Private progress photos (`app/photos.tsx`, behind Face ID) and Apple Health (`app/health.tsx`; saving logged workouts) shipped in one native build.
 
 ## Feature 1: Intra-Workout Trainer
 
