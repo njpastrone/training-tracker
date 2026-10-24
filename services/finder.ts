@@ -157,7 +157,10 @@ export const pickEntry = (pick: FinderPick, now: Date = new Date()): FoodEntry =
   createdAt: now.toISOString(),
 });
 
-// A message that asks for the finder ("find me healthy food near me", "food nearby")
+// A message that asks for the finder ("find me healthy food near me", "where can I eat near me"): a
+// request with a food word and a nearby phrase; anything that reports eating stays a log
 export const asksNearby = (text: string) =>
-  !/^\s*(had|ate|i had|i ate|just had|just ate)\b/i.test(text) &&
-  ((/\b(food|eat|meal|lunch|dinner|breakfast|snack|hungry)\b/i.test(text) && /\b(near ?by|near me|around me|around here|close by)\b/i.test(text)) || /^\s*find (me )?(healthy )?food\b/i.test(text));
+  !/\b(had|ate|eaten|was|were|got|grabbed|picked up|(breakfast|lunch|dinner) at)\b|:/i.test(text) &&
+  /\b(find|get me|where|what'?s good|what should i eat|any|suggest|recommend|looking for|hungry)\b/i.test(text) &&
+  /\b(food|eat|meal|lunch|dinner|breakfast|snack|hungry)\b/i.test(text) &&
+  /\b(near ?by|near me|around me|around here|close by)\b/i.test(text);

@@ -108,8 +108,8 @@ test('a pick logs as one estimated food; the chip phrases ask for the finder', (
   assert.deepEqual(entry.items[0].macros, { kcal: 520, protein: 48, carbs: 38, fat: 18, fiber: 12 });
   assert.equal(entry.items[0].source, 'estimate');
   assert.equal(entry.items[0].said, 'Chipotle: Chicken bowl, no rice');
-  for (const t of ['Find healthy food near me', 'find me food nearby', 'somewhere to eat around here', 'Find food']) assert.equal(asksNearby(t), true, t);
-  for (const t of ['2 eggs and toast', 'what should I eat tonight?', 'bench 3x5 225', 'near miss on the squat', "what's a good gym near me", 'had food from the cart close by']) assert.equal(asksNearby(t), false, t);
+  for (const t of ['Find healthy food near me', 'find me healthy food near me', 'find me food nearby', 'where can I eat near me', "what's good for lunch nearby"]) assert.equal(asksNearby(t), true, t);
+  for (const t of ['2 eggs and toast', 'what should I eat tonight?', 'bench 3x5 225', 'near miss on the squat', "what's a good gym near me", 'had food from the cart close by', 'breakfast at the cafe close by: oatmeal and coffee', 'lunch nearby was a burrito bowl']) assert.equal(asksNearby(t), false, t);
 });
 
 test('readFoodPrefs: defaults until the sheet sets them, bad values ignored', () => {

@@ -20,14 +20,18 @@ private class OneShotLocation: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyReduced
         self.manager = manager
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { self.finish(nil) }
         switch manager.authorizationStatus {
         case .notDetermined: manager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
+        case .authorizedWhenInUse, .authorizedAlways: self.request(manager)
         default: self.finish(nil)
         }
       }
     }
+  }
+
+  private func request(_ manager: CLLocationManager) {
+    manager.requestLocation()
+    DispatchQueue.main.asyncAfter(deadline: .now() + 30) { self.finish(nil) }
   }
 
   private func finish(_ location: CLLocation?) {
@@ -41,7 +45,7 @@ private class OneShotLocation: NSObject, CLLocationManagerDelegate {
     guard continuation != nil else { return }
     switch manager.authorizationStatus {
     case .notDetermined: break
-    case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
+    case .authorizedWhenInUse, .authorizedAlways: request(manager)
     default: finish(nil)
     }
   }
