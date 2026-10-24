@@ -387,6 +387,14 @@ export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate
   }));
 }
 
+// The food draft moved to one day (offset from the logging date). Its band moves with it; bands from several days
+// that disagree have no one answer for the merged day, so they're dropped.
+export function moveFoodDraft(food: FoodDraft, offset: number): FoodDraft {
+  const { gi, ...rest } = food;
+  const bands = [...new Set(Object.values(gi ?? {}))];
+  return { ...rest, items: food.items.map((i) => ({ ...i, dayOffset: offset || undefined })), ...(bands.length === 1 ? { gi: { [offset]: bands[0] } } : {}) };
+}
+
 // How a meal's gi band reads on screen: how the meal fits a low-GI preference, never what it does to anyone's
 // blood sugar or health. Always an estimate, so "likely".
 export const GI_LABEL: Record<GiBand, string> = { low: 'likely steady', medium: 'in between', high: 'higher-carb' };

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
-  buildFoodCandidates, candidateNames, foodEntriesFromDraft, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
+  buildFoodCandidates, candidateNames, foodEntriesFromDraft, moveFoodDraft, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
   resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices, nextUnit, mealsOf,
 } from './foods';
 
@@ -260,4 +260,18 @@ test('a log over two days saves one entry per day, each with its own gi band', (
     ['2026-10-07', ['Egg'], 'low'],
   ]);
   assert.equal('gi' in foodEntriesFromDraft({ items: [{ name: 'Egg', qty: 2, macros: m, source: 'usda' }] as any, confidence: 1 }, '2 eggs', '2026-10-07')[0], false);
+});
+
+test('moving a food draft to another day takes its gi band along', () => {
+  // "did legs two days ago, had a big plate of pasta after", then moved to yesterday
+  const m = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  const pasta = { name: 'Pasta', qty: 1, macros: m, source: 'estimate', dayOffset: -2 } as any;
+  const moved = moveFoodDraft({ items: [pasta], confidence: 0.9, gi: { '-2': 'high' } }, -1);
+  assert.deepEqual([moved.items[0].dayOffset, moved.gi], [-1, { '-1': 'high' }]);
+  const [entry] = foodEntriesFromDraft(moved, 'pasta', '2026-10-07');
+  assert.deepEqual([entry.date, entry.gi], ['2026-10-06', 'high']);
+  assert.deepEqual(moveFoodDraft({ items: [pasta], confidence: 0.9, gi: { '-2': 'high' } }, 0).gi, { 0: 'high' });
+  const egg = { name: 'Egg', qty: 2, macros: m, source: 'usda' } as any;
+  assert.equal('gi' in moveFoodDraft({ items: [pasta, egg], confidence: 0.9, gi: { '-2': 'high', 0: 'low' } }, -1), false);
+  assert.equal('gi' in moveFoodDraft({ items: [egg], confidence: 0.9 }, -1), false);
 });

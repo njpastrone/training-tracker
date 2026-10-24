@@ -8,6 +8,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../contexts/ThemeContext';
 import { fonts, muscleGroupColors, spacing } from '../constants/theme';
 import { workoutSummary } from '../services/format';
+import { moveFoodDraft } from '../services/foods';
 import { editDraft, pickInDraft, removeFromDraft, unpickInDraft } from '../services/draft';
 import { likelyExercises, pickWords, sentenceCase, shownName } from '../services/exerciseIdentity';
 import { useWorkoutStore } from '../stores/workoutStore';
@@ -102,7 +103,7 @@ export default function ParsedCard({ draft, date, title, onChange, onSave, onDis
     const offset = Math.min(0, differenceInCalendarDays(day, parseISO(date)));
     onChange({ ...draft, exercises: draft.exercises.map(e => ({ ...e, dayOffset: offset || undefined })) });
     // Food logged in the same message moves with it
-    if (food) onFoodChange?.({ ...food, items: food.items.map(i => ({ ...i, dayOffset: offset || undefined })) });
+    if (food) onFoodChange?.(moveFoodDraft(food, offset));
   };
 
   const dayTag = (offset?: number) =>
