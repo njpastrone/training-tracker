@@ -8,7 +8,7 @@ const SUPPORT = 'support@lifttextapp.com';
 const MAX_BODY = 2048;
 const MAX_EMAIL = 254;
 // Each signup costs up to three KV writes (the email, the day's count, the address's count) out of the
-// 1000 a day the free plan shares with the AI caps (wrangler.jsonc), so the day's signups are capped too.
+// Workers Paid KV write budget shared with the AI caps (wrangler.jsonc), so the day's signups are capped too.
 const DAILY_SIGNUPS = 25;
 const SIGNUPS_PER_ADDRESS = 5;
 

@@ -73,7 +73,7 @@ A mobile workout and food log built with Expo (React Native) that lets you log w
 
 ## API Server
 
-The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model and effort per request (one per path in `server/src/`: Haiku 5.5 for workout and food logs, see `server/src/parse.ts` and `food.ts`; the app's own prompts such as the planner and the template parser go to `PASSTHROUGH` in `server/src/index.ts`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 20, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 300). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
+The app never holds the Claude API key. A Cloudflare Worker in `server/` keeps the key as a secret, picks the model and effort per request (one per path in `server/src/`: Haiku 5.5 for workout and food logs, see `server/src/parse.ts` and `food.ts`; the app's own prompts such as the planner and the template parser go to `PASSTHROUGH` in `server/src/index.ts`), caps `max_tokens`, checks a shared app password, and enforces daily request caps per UTC day: one per app install (`DEVICE_DAILY_CAP` in `server/wrangler.jsonc`, default 40, keyed on a random id the app makes once and sends as `x-install-id`) and one across everyone (`DAILY_REQUEST_CAP`, default 1000). App builds from before install ids all share one small bucket (`LEGACY_DAILY_CAP`, default 30) and still count against the global cap.
 
 The app password ships inside the app, so treat it as a speed bump, not a lock; the daily cap is what limits the bill if a build leaks. The install id is made up by the app too, so someone with the password can rotate ids to get past the per-install cap; the global cap still bounds the bill, but they can use it up for everyone. App Attest (below) is the lock: with it enforced, only a genuine copy of the app on a real iPhone gets served, and the per-device cap is keyed on a key Apple attested instead of the install id.
 
@@ -109,7 +109,7 @@ EXPO_PUBLIC_API_URL=https://training-tracker-api.<your-subdomain>.workers.dev
 EXPO_PUBLIC_APP_PASSWORD=<the password you chose>
 ```
 
-Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (keep `DAILY_REQUEST_CAP` under 330: each request is three KV writes, and the free plan allows 1000 writes/day). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
+Restart `npm start` so Expo picks up the new values. To change the daily caps, edit `DEVICE_DAILY_CAP`, `LEGACY_DAILY_CAP` or `DAILY_REQUEST_CAP` and run `npx wrangler deploy` again (each request is three KV writes; the Worker runs on the Workers Paid plan, which includes 1M KV writes a month, so 1000 a day is about 90k a month, and the Anthropic monthly spend limit is the real ceiling). To rotate the password, re-run `npx wrangler secret put APP_PASSWORD` and update `.env.local`.
 
 Server tests (Node 22.18+): `cd server && npm test`
 

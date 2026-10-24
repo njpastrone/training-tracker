@@ -11,12 +11,14 @@
   "workers_dev": true,
   "vars": {
     // Max Claude requests per UTC day across all users. Each request is three KV writes (this count,
-    // the device's, and the App Attest counter), and the free plan allows 1000 writes/day, so keep
-    // this under 330. 300 / 20 per device means it takes 15 devices at their limit to block everyone else.
+    // the device's, and the App Attest counter); the Workers Paid plan includes 1M KV writes a month,
+    // so 1000 a day is about 90k writes a month. The Anthropic monthly spend limit is the real ceiling.
+    // 1000 / 40 per device means it takes 25 devices at their limit to block everyone else.
     // Website waitlist sign-ups take up to 75 more a day (DAILY_SIGNUPS in src/site.ts).
-    "DAILY_REQUEST_CAP": "300",
+    "DAILY_REQUEST_CAP": "1000",
     // Max Claude requests per UTC day from one app install (the app's x-install-id header).
-    "DEVICE_DAILY_CAP": "20",
+    // Food logs, coach questions, "Make it" and finder searches all count, so 40 fits a full day.
+    "DEVICE_DAILY_CAP": "40",
     // Max Claude requests per UTC day shared by all app builds that send no x-install-id.
     "LEGACY_DAILY_CAP": "30",
     // App Attest (see README): "log-only" (check and log, never refuse) or "enforce" (refuse requests
