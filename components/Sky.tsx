@@ -4,21 +4,20 @@ import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { useTheme } from '../contexts/ThemeContext';
-import { SKY } from '../services/sky';
 import { fonts, radius, spacing } from '../constants/theme';
 
 // A screen on the sky. Light mode tracks the last 7 days of training (services/sky.ts); Dark Mode is night.
 // Native tabs inset the scroll view for the tab bar, so only the top edge is padded by default.
 // A tab's `glow` is its hue (two for Today: training left, food right), a soft wash at the top so the colour says which tab this is.
 export function SkyScreen({ children, edges = ['top'], glow }: { children: React.ReactNode; edges?: Edge[]; glow?: string[] }) {
-  const { isDarkMode, sky } = useTheme();
-  const stops = isDarkMode ? SKY.night : sky.stops;
+  const { isDarkMode, sky, palette } = useTheme();
+  const stops = isDarkMode ? palette.sky.night : sky.stops;
   return (
     <View style={[styles.fill, { backgroundColor: stops[3] }]}>
       {/* ponytail: one 45% fade for every screen; the spec's 30% for short headers can come later if the calendar or Settings look washed out */}
       <LinearGradient colors={stops} locations={[0, 0.15, 0.3, 0.45]} style={StyleSheet.absoluteFill} />
       <LinearGradient
-        colors={isDarkMode ? ['rgba(42,39,102,0.9)', 'rgba(42,39,102,0)'] : ['rgba(255,248,232,0.75)', 'rgba(255,248,232,0)']}
+        colors={[isDarkMode ? palette.glow.dark : palette.glow.light, (isDarkMode ? palette.glow.dark : palette.glow.light).replace(/[\d.]+\)$/, '0)')]}
         start={{ x: 0.85, y: 0 }}
         end={{ x: 0.35, y: 0.45 }}
         style={StyleSheet.absoluteFill}

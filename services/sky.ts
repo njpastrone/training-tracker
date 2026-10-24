@@ -7,7 +7,7 @@ import { trainingWindow, usualPerWeek, onPace, perWeekRate, ymd } from './pace';
 
 export type SkyStops = [string, string, string, string]; // top, middle, low, base
 
-// Palette G (twilight skies with a lavender cast): saturated at the top, the base by about 45% of the screen
+// The classic sky, palette G (twilight skies with a lavender cast): saturated at the top, the base by about 45% of the screen
 export const SKY = {
   dawn: ['#FFB4A0', '#F9CFE0', '#E8E0FA', '#F8F6FF'] as SkyStops,
   day: ['#8AA8FF', '#BCC9FF', '#E0E3FF', '#F6F5FF'] as SkyStops,
@@ -32,7 +32,8 @@ export interface SkyPrefs {
   startedAt?: string; // yyyy-MM-dd
 }
 
-export function weekSky(workouts: { date: string }[], schedule: { date: string }[], now: Date = new Date(), prefs: SkyPrefs = {}): WeekSky {
+// `sky` is the scheme's gradients (constants/palettes.ts); the classic ones by default
+export function weekSky(workouts: { date: string }[], schedule: { date: string }[], now: Date = new Date(), prefs: SkyPrefs = {}, sky: typeof SKY = SKY): WeekSky {
   const dates = workouts.map(w => w.date);
   const win = trainingWindow(dates, 7, now);
   const done = win.trained.size;
@@ -59,7 +60,7 @@ export function weekSky(workouts: { date: string }[], schedule: { date: string }
     : !firstWeek && !onPace(perWeekRate(done, win.elapsed), target, win.elapsed);
 
   const phase: SkyPhase = progress >= 1 ? 'day' : behind ? 'dusk' : 'dawn';
-  const stops = phase === 'dusk' ? SKY.dusk : mixStops(SKY.dawn, SKY.day, progress);
+  const stops = phase === 'dusk' ? sky.dusk : mixStops(sky.dawn, sky.day, progress);
   return { phase, progress, done, target, planned, stops };
 }
 

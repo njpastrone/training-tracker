@@ -1,88 +1,14 @@
 import { Platform } from 'react-native';
 import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper';
+import { PALETTES, type Palette as ColourPalette, type Tokens } from './palettes';
 
 // Daylight design tokens. See DESIGN-SYSTEM.md.
 // Content sits on a sky (services/sky.ts) that tracks the training week; cards are a
-// translucent material over it; Liquid Glass is for controls only.
-
-// Light: text levels, card material, sunrise accent, cobalt for planned, mint for success
-export const lightColors = {
-  text: '#0E1430',
-  textSecondary: '#3E4766',
-  textTertiary: '#5F6889',
-  card: 'rgba(255,255,255,0.62)',
-  cardLine: 'rgba(255,255,255,0.8)',
-  glass: 'rgba(255,255,255,0.5)',
-  glassLine: 'rgba(255,255,255,0.85)',
-  dim: 'rgba(14,20,48,0.06)',
-  sunrise: '#D2441C',
-  sunriseSoft: '#FF7A4F',
-  onSunrise: '#FFFFFF',
-  cobalt: '#3560F0',
-  indigo: '#5534C8', // you: your messages, the selected tab
-  onIndigo: '#FFFFFF',
-  mint: '#13865A',
-  // The twins' hues (DESIGN-SYSTEM.md, Colour): Training is coral (sunrise), Food is mint; each hero is a gradient from A to B
-  trainA: '#C43B12',
-  trainB: '#F58543',
-  trainSoft: 'rgba(232,98,47,0.16)',
-  food: '#0E8F66',
-  foodA: '#0A7656',
-  foodB: '#1FBF8E',
-  foodSoft: 'rgba(14,143,102,0.16)',
-  chatSoft: 'rgba(85,52,200,0.14)',
-  onHero: '#FFFFFF',
-  onHeroSoft: 'rgba(255,255,255,0.8)',
-  heroTrack: 'rgba(255,255,255,0.22)',
-  error: '#D70015',
-  warning: '#B25E00',
-  // Solid surfaces: Reduce Transparency, sheets, and screens not yet on the sky
-  background: '#F6F5FF',
-  surface: '#F7F9FF',
-  border: '#D5DCEF',
-  disabled: '#A3AAC4',
-  overlay: 'rgba(14,20,48,0.4)',
-};
-
-// Dark: always night
-export const darkColors: typeof lightColors = {
-  text: '#F3F5FF',
-  textSecondary: '#B0B7D6',
-  textTertiary: '#8189AE',
-  card: 'rgba(255,255,255,0.075)',
-  cardLine: 'rgba(255,255,255,0.13)',
-  glass: 'rgba(255,255,255,0.10)',
-  glassLine: 'rgba(255,255,255,0.18)',
-  dim: 'rgba(255,255,255,0.06)',
-  sunrise: '#FF7F57',
-  sunriseSoft: '#FF9D7A',
-  onSunrise: '#2A1208',
-  cobalt: '#8EA6FF',
-  indigo: '#A995FF',
-  onIndigo: '#0A1030',
-  mint: '#52D9A0',
-  trainA: '#A12E0B',
-  trainB: '#E5652C',
-  trainSoft: 'rgba(255,127,87,0.2)',
-  food: '#3BE2A3',
-  foodA: '#075841',
-  foodB: '#14A478',
-  foodSoft: 'rgba(59,226,163,0.18)',
-  chatSoft: 'rgba(169,149,255,0.18)',
-  onHero: '#FFFFFF',
-  onHeroSoft: 'rgba(255,255,255,0.8)',
-  heroTrack: 'rgba(255,255,255,0.22)',
-  error: '#FF6961',
-  warning: '#FFB340',
-  background: '#1E1A44',
-  surface: '#1C2142',
-  border: '#2E3460',
-  disabled: '#5A6189',
-  overlay: 'rgba(0,0,0,0.6)',
-};
+// translucent material over it; Liquid Glass is for controls only. The colours themselves live in
+// constants/palettes.ts, one scheme at a time; this file maps a scheme onto Paper and the old names.
 
 // ponytail: old token names for screens not yet restyled; remove once every screen uses the names above
-const aliases = (c: typeof lightColors) => ({
+const aliases = (c: Tokens) => ({
   ...c,
   primary: c.sunrise,
   primaryLight: c.sunriseSoft,
@@ -92,9 +18,10 @@ const aliases = (c: typeof lightColors) => ({
   surfaceVariant: c.surface,
   borderLight: c.border,
 });
-export const lightPalette = aliases(lightColors);
-export const darkPalette = aliases(darkColors);
-export type Palette = typeof lightPalette;
+export type Palette = ReturnType<typeof aliases>;
+// The colours of one scheme in light or dark, with the old names
+export const colorsOf = (palette: ColourPalette, dark: boolean): Palette => aliases(dark ? palette.dark : palette.light);
+export const lightPalette = colorsOf(PALETTES.classic, false);
 
 // Muscle groups: soft dots, not a rainbow of chips
 export const muscleGroupColors: Record<string, string> = {
@@ -112,6 +39,9 @@ export const muscleGroupColors: Record<string, string> = {
   cardio: '#3FA7D6',
   full_body: '#7C8DB5', // slate, so done-orange stays unique
 };
+
+// Food goals get a dot each too (components/FoodGoalsCard.tsx): protein, calories, low-GI meals, fiber
+export const foodGoalColors = { protein: '#F0764F', calories: '#E3B33A', lowgi: '#9B7BF0', fiber: '#2E9E7B' };
 
 // Food categories get the same small dots as muscle groups
 export const foodCategoryColors: Record<string, string> = {
@@ -168,7 +98,7 @@ const paperFonts = configureFonts({
   },
 });
 
-const paperColors = (c: typeof lightColors) => ({
+const paperColors = (c: Tokens) => ({
   primary: c.sunrise,
   onPrimary: c.onSunrise,
   primaryContainer: c.dim,
@@ -190,19 +120,14 @@ const paperColors = (c: typeof lightColors) => ({
   backdrop: c.overlay,
 });
 
-export const lightTheme = {
-  ...MD3LightTheme,
+// The Paper theme for one scheme in light or dark
+export const paperThemeOf = (palette: ColourPalette, dark: boolean) => ({
+  ...(dark ? MD3DarkTheme : MD3LightTheme),
   roundness: 6,
   fonts: paperFonts,
-  colors: { ...MD3LightTheme.colors, ...paperColors(lightColors) },
-};
-
-export const darkTheme = {
-  ...MD3DarkTheme,
-  roundness: 6,
-  fonts: paperFonts,
-  colors: { ...MD3DarkTheme.colors, ...paperColors(darkColors) },
-};
+  colors: { ...(dark ? MD3DarkTheme : MD3LightTheme).colors, ...paperColors(dark ? palette.dark : palette.light) },
+});
+export type PaperTheme = ReturnType<typeof paperThemeOf>;
 
 // 8 pt grid; 20 pt screen margins, 12 pt between cards
 export const spacing = {

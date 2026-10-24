@@ -1,4 +1,5 @@
 import type { Metric } from '../data/catalog';
+import type { PaletteId } from '../constants/palettes';
 
 // Muscle group categories
 export type MuscleGroup =
@@ -92,6 +93,7 @@ export interface UserSettings {
   appleHealth?: AppleHealthSettings; // Settings › Apple Health; what Health holds is never stored here (services/health.ts)
   foodPrefs?: FoodPrefs; // how you like to eat (app/food-prefs.tsx); sent to the coach only with a question, like facts, never stored by the Worker
   foodPrefsPromptDismissed?: boolean; // "Not now" on the food surface's set-up prompt: it doesn't come back
+  palette?: PaletteId; // Settings › App colours (constants/palettes.ts); unset = the default scheme
 }
 
 // How you like to eat (services/foodPrefs.ts): what every meal idea is checked against one by one, a

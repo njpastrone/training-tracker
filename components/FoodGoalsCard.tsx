@@ -1,13 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '../contexts/ThemeContext';
-import { fonts, spacing } from '../constants/theme';
-import { foodGoalFamily, foodGoalName, foodTarget, type FoodGoalFamily } from '../services/goals';
+import { fonts, foodGoalColors, spacing } from '../constants/theme';
+import { foodGoalFamily, foodGoalName, foodTarget } from '../services/goals';
 import type { GoalCell, GoalWeek } from '../services/week';
 import { CardHead, Link } from './Hue';
 
-// Each food goal's dot, the same small palette as muscle and food dots
-const DOT: Record<FoodGoalFamily, string> = { protein: '#F0764F', calories: '#E3B33A', lowgi: '#9B7BF0', fiber: '#2E9E7B' };
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
 
 // Food's breakdown: your goals, one row each in the same shape: dot and name, days at goal this week,
@@ -19,7 +17,7 @@ export default function FoodGoalsCard({ rows, onEdit }: { rows: GoalWeek[]; onEd
     <>
       <CardHead label="Your goals" right={<Link label="Edit goals" onPress={onEdit} />} />
       {rows.map((r, i) => {
-        const colour = DOT[foodGoalFamily(r.goal.kind)];
+        const colour = foodGoalColors[foodGoalFamily(r.goal.kind)];
         const kcal = r.goal.kind === 'cut' || r.goal.kind === 'bulk';
         const unit = r.goal.kind === 'lowgi' ? ` meal${r.goal.target === 1 ? '' : 's'}` : kcal ? '' : ' g';
         const days = `${r.hit} of ${r.logged} day${r.logged === 1 ? '' : 's'}${r.goal.kind === 'cut' ? ' under' : ''}`;

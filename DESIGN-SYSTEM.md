@@ -19,33 +19,33 @@ LiftText is iOS-26-native: content sits on a soft sky, Liquid Glass is used for 
   - `day` when done ≥ target;
   - `dusk` when behind pace: with a plan and no days a week picked, fewer done than planned days already gone by; otherwise (and never in a new user's first 7 days), fewer than the weekly target expects for the days counted so far (today counts once trained, days before your first workout never count);
   - otherwise `dawn`, blended toward day by `done / target`.
-- **Gradients (palette G, top → middle → low → base):** dawn `#FFB4A0 → #F9CFE0 → #E8E0FA → #F8F6FF`, day `#8AA8FF → #BCC9FF → #E0E3FF → #F6F5FF`, dusk `#FF9F7E → #E7A6CF → #C9BDF2 → #F3F1FF`, night `#0D0B2A → #1A1640 → #2A1F52 → #1E1A44`. The gradient reaches the base at 45% of the screen and the base fills below it. A glow at the top right in every phase: warm white by day, `#2A2766` at night. Title and subtitle text on every stop meets 4.5:1 (`services/sky.test.mts`).
+- **Gradients (Classic's, palette G, top → middle → low → base; Deep and cool has its own in `constants/palettes.ts`):** dawn `#FFB4A0 → #F9CFE0 → #E8E0FA → #F8F6FF`, day `#8AA8FF → #BCC9FF → #E0E3FF → #F6F5FF`, dusk `#FF9F7E → #E7A6CF → #C9BDF2 → #F3F1FF`, night `#0D0B2A → #1A1640 → #2A1F52 → #1E1A44`. The gradient reaches the base at 45% of the screen and the base fills below it. A glow at the top right in every phase: warm white by day, `#2A2766` at night. Title and subtitle text on every stop meets 4.5:1 (`services/sky.test.mts`).
 - The sky is static per visit: it changes when data changes or the app returns on a new day. No ambient animation.
 
 `ThemeContext` exposes it as `useTheme().sky`. Render screens with `<SkyScreen>` (components/Sky.tsx).
 
 ## Colour
 
-Tokens live in `constants/theme.ts` (`lightColors`, `darkColors`); read them with `useColors()`.
+Colours come in **palettes** (`constants/palettes.ts`): one scheme is a name, a light and a dark set of the tokens below, the sky's four gradients and the glow at the top of a screen. Settings › App colours switches schemes live (`settings.palette`, on the phone only); `ThemeContext` hands the chosen one out, so read tokens with `useColors()` (or `useTheme().palette` for the sky and glow) and never import a colour directly. Two ship: **Classic** (the default: coral Training, mint Food, the Daylight sky) and **Deep and cool** (deep indigo Training, teal Food, a cool sky, near-navy at night). Both pass WCAG AA on every text pair (`data/lt-ui-b/report.md`, round 6 finals), which is why Classic's heroes hold their light end where white text still reads. **To add a palette:** copy an entry in `PALETTES`, give it an id and name, change the values and keep every token (`services/palettes.test.mts` fails on a missing one), add the id to `PaletteId`, and check every text pair in both modes against 4.5:1 (3:1 for the 14 pt bold disc numbers). The table shows Classic.
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
 | `text` | `#0E1430` | `#F3F5FF` | Primary text |
 | `textSecondary` | `#3E4766` | `#B0B7D6` | Secondary text, links and section actions ("All days ›", "Edit") |
-| `textTertiary` | `#5F6889` | `#8189AE` | Labels, hints |
+| `textTertiary` | `#5F6889` | `#8E96BD` | Labels, hints |
 | `card` / `cardLine` | white 62% / 80% | white 7.5% / 13% | Content card material and its edge |
 | `glass` / `glassLine` | white 50% / 85% | white 10% / 18% | Glass controls |
 | `dim` | ink 6% | white 6% | Tracks, dividers, quiet fills |
-| `sunrise` | `#D2441C` | `#FF7F57` | The one action on a screen, and done: a trained day, a goal met ✓, the sun. Never links, labels, partial progress, unmet goals or your messages |
+| `sunrise` | `#C93F17` | `#FF7F57` | The one action on a screen, and done: a trained day, a goal met ✓, the sun. Never links, labels, partial progress, unmet goals or your messages |
 | `indigo` / `onIndigo` | `#5534C8` / `#FFFFFF` | `#A995FF` / `#0A1030` | You: your messages, the selected tab |
 | `sunriseSoft` | `#FF7A4F` | `#FF9D7A` | Gradients, glows |
 | `onSunrise` | `#FFFFFF` | `#2A1208` | Text on sunrise (≈4.5:1) |
 | `cobalt` | `#3560F0` | `#8EA6FF` | AI notes and date tags in parsed cards (planned is an ink dashed ring now) |
 | `mint` | `#13865A` | `#52D9A0` | Only the checkmark in the save and undo toasts |
-| `trainA` / `trainB` / `trainSoft` | `#C43B12` / `#F58543` / coral 16% | `#A12E0B` / `#E5652C` / coral 20% | Training's hue: the hero gradient's two ends and the glow at the top of the tab. `sunrise` is its flat colour (the tab icon, the send button, ✓ in the grid) |
-| `food` / `foodA` / `foodB` / `foodSoft` | `#0E8F66` / `#0A7656` / `#1FBF8E` / mint 16% | `#3BE2A3` / `#075841` / `#14A478` / mint 18% | Food's hue: the flat colour, the hero gradient's two ends and the glow |
+| `trainA` / `trainB` / `trainSoft` | `#AE3410` / `#C73F15` / coral 16% | `#A12E0B` / `#C0471A` / coral 20% | Training's hue: the hero gradient's two ends and the glow at the top of the tab. `sunrise` is its flat colour (the tab icon, the send button, ✓ in the grid) |
+| `food` / `foodA` / `foodB` / `foodSoft` | `#0B7A57` / `#075C43` / `#0C7E5C` / mint 16% | `#3BE2A3` / `#075841` / `#0D7E5C` / mint 18% | Food's hue: the flat colour, the hero gradient's two ends and the glow |
 | `chatSoft` | indigo 14% | indigo 18% | Chat's glow; its send button and tab icon are `indigo` |
-| `onHero` / `onHeroSoft` / `heroTrack` | white / white 80% / white 22% | same | Type and ring tracks on a hero gradient; labels stay at 80% so they read on the light end of mint |
+| `onHero` / `onHeroSoft` / `heroTrack` | white / white 92% / white 22% | same | Type and ring tracks on a hero gradient; labels at 92% so the strip letters read on the light end |
 | `error` / `warning` | `#D70015` / `#B25E00` | `#FF6961` / `#FFB340` | Destructive, caution |
 | `background` / `surface` / `border` | `#F6F5FF` / `#F7F9FF` / `#D5DCEF` | `#1E1A44` / `#1C2142` / `#2E3460` | Solid fallbacks (Reduce Transparency, sheets) |
 

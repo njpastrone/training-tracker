@@ -7,6 +7,7 @@ import Constants from 'expo-constants';
 import { format, parseISO } from 'date-fns';
 import { SkyScreen, SkyCard, SkySheet, LargeTitle, SectionLabel } from '../components/Sky';
 import { Pill, Segmented } from '../components/Glass';
+import { PALETTES, PALETTE_IDS, paletteOf } from '../constants/palettes';
 import Row from '../components/Row';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useChatStore } from '../stores/chatStore';
@@ -194,6 +195,14 @@ export default function SettingsScreen() {
               value={String(settings.weeklyTarget ?? '')}
               options={[...DAYS_OPTIONS]}
               onChange={value => updateSettings({ weeklyTarget: Number(value) })}
+            />
+          </View>
+          <Row icon="paintpalette" title="App colours" subtitle={paletteOf(settings.palette).name} />
+          <View style={styles.below}>
+            <Segmented
+              value={paletteOf(settings.palette).id}
+              options={PALETTE_IDS.map(id => ({ value: id, label: PALETTES[id].name }))}
+              onChange={palette => updateSettings({ palette })}
             />
           </View>
           <Row
