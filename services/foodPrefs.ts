@@ -25,7 +25,7 @@ export const COOKING = [0, 10, 20, 40] as const;
 // The common allergens and dislikes as chips; each word stands for the foods it covers
 export const NEVER_CHIPS: Record<string, RegExp> = {
   shellfish: /\b(shellfish|shrimp|prawns?|crab|lobster|clams?|mussels?|oysters?|scallops?|crawfish|crayfish|calamari|squid)\b/i,
-  dairy: /\b(dairy|cheese|whey|casein|kefir|cottage|paneer|ghee|skyr|(?<!\b(?:almond|oat|coconut|soy|rice|cashew|peanut|cocoa|nut|seed)\s)(?:milk|butter|cream|yogurt|yoghurt))\b/i,
+  dairy: /\b(dairy|buttermilk|half and half|cheese|whey|casein|kefir|cottage|paneer|ghee|skyr|(?<!\b(?:almond|oat|coconut|soy|rice|cashew|peanut|cocoa|nut|seed)\s)(?:milk|butter|cream|yogurt|yoghurt))\b/i,
   gluten: /\b(gluten|wheat|bread|toast|pasta|noodles?|flour|barley|rye|bagels?|tortillas?|couscous|seitan|crackers?|cereal|pita|naan)\b/i,
   nuts: /\b(nuts?|almonds?|walnuts?|cashews?|pecans?|pistachios?|hazelnuts?|peanuts?|macadamia)\b/i,
   pork: /\b(pork|bacon|ham|prosciutto|pancetta|chorizo|salami|pepperoni)\b/i,
@@ -55,7 +55,7 @@ export const swapQuestion = (meal: string, foods: string[]) => `I had ${foods.jo
 
 // ---------------------------------------------------------------- scorecard
 
-export type Verdict = 'hit' | 'miss' | 'unknown' | 'info'; // info: shown, never scored
+export type Verdict = 'hit' | 'miss' | 'unknown';
 export interface ScoreRow {
   pref: FoodPreference | 'cooking';
   label: string; // "Low spike likely", "~$9"
@@ -138,9 +138,8 @@ export function scoreMeal(facts: MealFacts, prefs: FoodPrefs): Scorecard {
       case 'cheap': {
         if (eaten) break;
         const budget = prefs.budget;
-        if (!budget) {
-          if (facts.price !== undefined) row(p, `~$${facts.price}`, 'info', 'an estimate');
-        } else if (facts.price === undefined) row(p, 'Price unknown', 'unknown', 'no estimate');
+        if (!budget) break;
+        if (facts.price === undefined) row(p, 'Price unknown', 'unknown', 'no estimate');
         else row(p, `~$${facts.price}`, facts.price <= budget ? 'hit' : 'miss', `${facts.price <= budget ? 'under' : 'over'} $${budget}`);
         break;
       }
@@ -158,10 +157,9 @@ export function scoreMeal(facts: MealFacts, prefs: FoodPrefs): Scorecard {
   }
 
   const hits = rows.filter(r => r.verdict === 'hit').length;
-  const of = rows.filter(r => r.verdict !== 'info').length;
   const likely = rows.some(r => r.verdict === 'unknown' || r.pref === 'cheap' || r.pref === 'cooking' || r.pref === 'lowSpike' || r.pref === 'noSeedOils');
-  const headline = of ? `${eaten ? 'Hit' : likely ? 'Likely hits' : 'Hits'} ${hits} of ${of}` : '';
-  return { hits, of, likely, headline, rows };
+  const headline = rows.length ? `${eaten ? 'Hit' : likely ? 'Likely hits' : 'Hits'} ${hits} of ${rows.length}` : '';
+  return { hits, of: rows.length, likely, headline, rows };
 }
 
 // A logged meal's one line, "Hit 3 of 4 of your preferences · spike likely · rice, oils not published · not

@@ -74,10 +74,10 @@ test('the summary line and the swap question read as the design has them', () =>
   assert.equal(swapQuestion('Midday', ['chicken breast', 'white rice']), "I had chicken breast, white rice for midday. What's a version that fits my food preferences next time?");
 });
 
-test('with no budget set the price is shown as an estimate, never scored against a default', () => {
+test('with no budget set the price is never scored against a default', () => {
   const card = scoreMeal({ items: items('6 oz salmon, 1 cup lentils'), price: 14 }, { matters: ['protein', 'cheap'], never: [] });
-  assert.deepEqual(card.rows.find(r => r.pref === 'cheap'), { pref: 'cheap', label: '~$14', verdict: 'info', why: 'an estimate' });
-  assert.equal(card.headline, 'Likely hits 1 of 1');
+  assert.equal(card.rows.find(r => r.pref === 'cheap'), undefined);
+  assert.equal(card.headline, 'Hits 1 of 1');
   assert.equal(scoreMeal({ items: items('6 oz salmon') }, { matters: ['cheap'], never: [] }).rows.length, 0);
 });
 
@@ -96,5 +96,5 @@ test('plant milks and nut butters are not dairy', () => {
   for (const name of ['almond milk', 'oat milk', 'coconut milk', 'soy milk', 'peanut butter', 'almond butter', 'cocoa butter']) {
     assert.equal(neverSuggested([{ name }], dairy), undefined, name);
   }
-  for (const name of ['Milk, whole', 'butter', 'Greek yogurt', 'ice cream']) assert.equal(neverSuggested([{ name }], dairy), 'dairy', name);
+  for (const name of ['Milk, whole', 'butter', 'Greek yogurt', 'ice cream', 'Buttermilk', 'Half and half']) assert.equal(neverSuggested([{ name }], dairy), 'dairy', name);
 });
