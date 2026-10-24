@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper';
-import { PALETTES, type Palette as ColourPalette, type Tokens } from './palettes';
+import { type Palette as ColourPalette, type Tokens } from './palettes';
 
 // Daylight design tokens. See DESIGN-SYSTEM.md.
 // Content sits on a sky (services/sky.ts) that tracks the training week; cards are a
@@ -21,7 +21,6 @@ const aliases = (c: Tokens) => ({
 export type Palette = ReturnType<typeof aliases>;
 // The colours of one scheme in light or dark, with the old names
 export const colorsOf = (palette: ColourPalette, dark: boolean): Palette => aliases(dark ? palette.dark : palette.light);
-export const lightPalette = colorsOf(PALETTES.classic, false);
 
 // Muscle groups: soft dots, not a rainbow of chips
 export const muscleGroupColors: Record<string, string> = {
