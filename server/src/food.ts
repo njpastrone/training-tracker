@@ -20,7 +20,7 @@ const SYSTEM_PROMPT = `You turn someone's free-text food log into structured dat
 <output>
 Reply with only a compact JSON object on one line, no markdown or other text: items (array), gi, confidence (0 to 1).
 Each item has: said, food, name, qty, unit, grams, dayOffset, kcal, protein, carbs, fat, fiber. Anything that doesn't apply is null (dayOffset is 0 unless another day is meant).
-gi is your estimate of the whole meal's glycemic load as one word, "low", "medium" or "high", judged from how much carbohydrate it has, how refined it is, and how much protein, fat and fiber come with it: eggs, meat, fish, cheese, nuts, salads and non-starchy vegetables, lentils and beans are low; refined starch or sugar as the bulk of the meal (white rice, pasta, white bread, potatoes, sugary drinks, juice, sweets, pastries) is high; whole grains, oats, fruit, dairy, or a starch eaten with plenty of protein, fat or fiber are medium. null when no food was eaten.
+gi is your estimate of the whole meal's glycemic load as one word, "low", "medium" or "high", judged from how much carbohydrate it has, how refined it is, and how much protein, fat and fiber come with it: eggs, meat, fish, cheese, nuts, salads and non-starchy vegetables, lentils and beans are low; refined starch or sugar as the bulk of the meal (white rice, pasta, white bread, potatoes, sugary drinks, juice, sweets, pastries) is high; whole grains, oats, fruit, dairy, or a starch eaten with plenty of protein, fat or fiber are medium. null when no food was eaten. When the items cover more than one day, gi is one word per dayOffset instead: {"-1":"high","0":"low"}.
 confidence is how sure you are of what was eaten and how much. Estimated numbers, fiber and gi are rough by nature and never lower it.
 A food named with no amount ("toast", "some rice") is a complete log: it's one typical serving. Give the item with qty and unit null (except additions, see amounts), and grams (and an estimate's numbers) for that serving. Never leave an item without numbers because no amount was given.
 </output>
@@ -143,6 +143,8 @@ export interface RawFoodItem {
 // The model's one-word estimate of a meal's glycemic load (how much starch and sugar, how refined, what comes with it)
 export type GiBand = 'low' | 'medium' | 'high';
 const GI_BANDS: GiBand[] = ['low', 'medium', 'high'];
+// A log's band for each day it covers, keyed by dayOffset (0 = the logging date)
+export type GiByDay = Record<number, GiBand>;
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined);
 const macro = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined);
@@ -150,7 +152,7 @@ const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : unde
 
 // Model text → items with bad values dropped (`sent` counts the items before dropping); null when the
 // text holds no usable JSON object. `foods` is the candidate count: a key outside it is dropped (the item then needs a name).
-export function readFoodItems(text: string, foods: number): { items: RawFoodItem[]; sent: number; confidence: number; gi?: GiBand; reply?: string } | null {
+export function readFoodItems(text: string, foods: number): { items: RawFoodItem[]; sent: number; confidence: number; gi?: GiByDay; reply?: string } | null {
   // Trailing commas are the one JSON slip models make: drop them rather than lose the log
   const parse = (s: string): { items?: unknown; confidence?: unknown; gi?: unknown; reply?: unknown } | undefined => {
     try {
@@ -186,11 +188,15 @@ export function readFoodItems(text: string, foods: number): { items: RawFoodItem
     };
     return [Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined)) as RawFoodItem];
   });
+  // gi is one word for a one-day log, or one word per dayOffset; a lone word over several days is no day's band
+  const days = [...new Set(items.map((i) => i.dayOffset ?? 0))];
+  const gis = raw.gi && typeof raw.gi === 'object' ? (raw.gi as Record<number, unknown>) : days.length === 1 ? { [days[0]]: raw.gi } : {};
+  const gi: GiByDay = Object.fromEntries(days.flatMap((d) => (GI_BANDS.includes(gis[d] as GiBand) ? [[d, gis[d] as GiBand]] : [])));
   return {
     items,
     sent: raw.items.length,
     confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.5,
-    ...(items.length && GI_BANDS.includes(raw.gi as GiBand) ? { gi: raw.gi as GiBand } : {}),
+    ...(Object.keys(gi).length ? { gi } : {}),
     ...(str(raw.reply) ? { reply: str(raw.reply) } : {}),
   };
 }

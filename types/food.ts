@@ -1,7 +1,7 @@
 // Food logging: the built-in food table (data/foods.ts), what a parse returns, and what is saved.
 
-import type { GiBand } from '../server/src/food';
-export type { GiBand };
+import type { GiBand, GiByDay } from '../server/src/food';
+export type { GiBand, GiByDay };
 
 // Friendly groups shown as a small coloured dot, like muscle groups
 export type FoodCategory =
@@ -69,7 +69,7 @@ export interface FoodItem {
 export interface FoodDraft {
   items: (FoodItem & { dayOffset?: number })[];
   confidence: number; // 0-1
-  gi?: GiBand; // the model's estimate of the meal's glycemic load; unset when it gave none
+  gi?: GiByDay; // the model's estimate of each day's glycemic load, by dayOffset; unset when it gave none
 }
 
 // One saved food log for a day: a meal, a snack, or everything typed at once

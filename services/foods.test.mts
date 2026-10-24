@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { cases as workoutCases } from '../evals/parse/cases';
 import {
-  buildFoodCandidates, candidateNames, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
+  buildFoodCandidates, candidateNames, foodEntriesFromDraft, itemFor, localFoodParse, macroLine, matchFood, mentionsFood, mentionsWorkout,
   resolveItems, setQty, setUnit, splitLog, sumMacros, usualPortions, alternatives, swapFood, unitChoices, nextUnit, mealsOf,
 } from './foods';
 
@@ -242,4 +242,22 @@ test('a day\'s food reads as meals: one per logged message, oldest first, named 
     ['a', 'Morning', '8:10 am', 26], ['b', 'Midday', '1:05 pm', 62], ['c', 'Evening', '7:30 pm', 40],
   ]);
   assert.equal(mealsOf([entry('d', '2026-10-09T16:00:00', 1)])[0].name, 'Afternoon');
+});
+
+test('a log over two days saves one entry per day, each with its own gi band', () => {
+  // "yesterday a big plate of pasta, today 2 eggs"
+  const m = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+  const entries = foodEntriesFromDraft({
+    items: [
+      { name: 'Pasta', qty: 1, grams: 500, macros: m, source: 'estimate', dayOffset: -1 },
+      { foodId: 'egg', name: 'Egg', qty: 2, grams: 100, macros: m, source: 'usda' },
+    ] as any,
+    confidence: 0.9,
+    gi: { '-1': 'high', 0: 'low' },
+  }, 'yesterday a big plate of pasta, today 2 eggs', '2026-10-07');
+  assert.deepEqual(entries.map(e => [e.date, e.items.map(i => i.name), e.gi]), [
+    ['2026-10-06', ['Pasta'], 'high'],
+    ['2026-10-07', ['Egg'], 'low'],
+  ]);
+  assert.equal('gi' in foodEntriesFromDraft({ items: [{ name: 'Egg', qty: 2, macros: m, source: 'usda' }] as any, confidence: 1 }, '2 eggs', '2026-10-07')[0], false);
 });

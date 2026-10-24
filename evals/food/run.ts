@@ -114,7 +114,7 @@ async function runCase(c: FoodCase): Promise<Result[]> {
   const score = (calls: Awaited<ReturnType<typeof ask>>[], system: string): Result => {
     const { text, stop, error } = calls[calls.length - 1];
     const read = error ? null : readFoodItems(text, candidates.length);
-    const predicted = read ? { items: resolveItems(read.items, candidates), gi: read.gi } : null;
+    const predicted = read ? { items: resolveItems(read.items, candidates), gi: Object.values(read.gi ?? {})[0] } : null; // cases are one day
     const cost = calls.reduce((t, k) => t + k.cost, 0);
     const ms = calls.reduce((t, k) => t + k.ms, 0);
     const why = error ?? (stop !== 'end_turn' ? `stop_reason ${stop}` : read ? undefined : 'unreadable JSON');

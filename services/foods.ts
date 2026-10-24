@@ -9,7 +9,8 @@ import type { RawFoodItem } from '../server/src/food';
 import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, GiBand, Macros } from '../types/food';
 import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume, own } from './foodUnits';
 import { englishFoodWords } from './foodWords';
-import { format, parseISO } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 const MAX_CANDIDATES = 50;
 
@@ -371,6 +372,19 @@ export function sumMacros(items: { macros: Macros }[]): Macros {
   const t = items.reduce((s, { macros: m }) => ({ kcal: s.kcal + m.kcal, protein: s.protein + m.protein, carbs: s.carbs + m.carbs, fat: s.fat + m.fat, fiber: s.fiber + (m.fiber ?? 0) }), { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
   const fiber = items.some(i => i.macros.fiber !== undefined) ? { fiber: Math.round(t.fiber) } : {};
   return { kcal: Math.round(t.kcal), protein: Math.round(t.protein), carbs: Math.round(t.carbs), fat: Math.round(t.fat), ...fiber };
+}
+
+// One food entry per day the food draft covers, dated relative to baseDate (YYYY-MM-DD), each with that day's gi band
+export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate: string): FoodEntry[] {
+  const offsets = [...new Set(food.items.map((i) => i.dayOffset ?? 0))].sort((a, b) => a - b);
+  return offsets.map((offset) => ({
+    id: uuidv4(),
+    date: format(addDays(parseISO(baseDate), offset), 'yyyy-MM-dd'),
+    items: food.items.filter((i) => (i.dayOffset ?? 0) === offset).map(({ dayOffset, ...i }) => ({ ...i, id: uuidv4() })),
+    rawInput,
+    createdAt: new Date().toISOString(),
+    ...(food.gi?.[offset] ? { gi: food.gi[offset] } : {}),
+  }));
 }
 
 // How a meal's gi band reads on screen: how the meal fits a low-GI preference, never what it does to anyone's

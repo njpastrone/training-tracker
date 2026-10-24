@@ -26,12 +26,12 @@ test('readFoodItems keeps valid picks and estimates and drops bad values', () =>
       { food: null, name: null, said: null }, // nothing to show
       null,
     ],
-    gi: 'high',
+    gi: { '-1': 'high', 0: 'low' },
     confidence: 0.9,
   });
   const read = readFoodItems(text, 3)!;
   assert.equal(read.confidence, 0.9);
-  assert.equal(read.gi, 'high');
+  assert.deepEqual(read.gi, { '-1': 'high', 0: 'low' });
   assert.deepEqual(read.items, [
     { said: '2 eggs', food: 0, qty: 2, grams: 100 },
     { said: 'a Big Mac', name: 'Big Mac', qty: 1, grams: 219, dayOffset: -1, estimate: { kcal: 590, protein: 25, carbs: 46, fat: 34, fiber: 3 } },
@@ -41,7 +41,11 @@ test('readFoodItems keeps valid picks and estimates and drops bad values', () =>
   assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1",},],"confidence":0.9,}', 1)!.items.length, 1); // trailing commas
   assert.equal(readFoodItems('{"items":"x"}', 3), null);
   assert.equal(readFoodItems('{"items":[],"reply":"About 40 g."}', 0)!.reply, 'About 40 g.');
-  // gi: one of the three words, only with food; an estimate without fiber has none
+  // gi: one of the three words, only with food; a lone word is one day's; an estimate without fiber has none
+  assert.deepEqual(readFoodItems('{"items":[{"said":"egg","food":"f1"}],"gi":"low"}', 1)!.gi, { 0: 'low' });
+  assert.deepEqual(readFoodItems('{"items":[{"said":"egg","food":"f1","dayOffset":-1}],"gi":"high"}', 1)!.gi, { '-1': 'high' });
+  assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1"},{"said":"rice","food":"f1","dayOffset":-1}],"gi":"high"}', 1)!.gi, undefined);
+  assert.deepEqual(readFoodItems('{"items":[{"said":"egg","food":"f1"}],"gi":{"0":"low","-2":"high"}}', 1)!.gi, { 0: 'low' });
   assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1"}],"gi":"steady"}', 1)!.gi, undefined);
   assert.equal(readFoodItems('{"items":[],"gi":"low"}', 1)!.gi, undefined);
   assert.equal('fiber' in readFoodItems('{"items":[{"name":"Mac","kcal":500,"protein":20,"carbs":40,"fat":20}]}', 0)!.items[0].estimate!, false);
