@@ -72,7 +72,7 @@ test('findNearby sends names, kinds and buckets with the preferences, never a co
 });
 
 test('today\'s food, the never list, a follow-up and driving go along; a saved place is used next time', async () => {
-  useWorkoutStore.getState().updateSettings({ foodPrefs: { matters: ['cheap', 'high_protein'], budget: 9, never: ['shellfish', ' '], walkMinutes: 5 }, goals: { muscles: [], custom: [], food: { kind: 'protein', target: 160 } } } as any);
+  useWorkoutStore.getState().updateSettings({ foodPrefs: { matters: ['cheap', 'protein'], budget: 9, never: ['shellfish', ' '] }, goals: { muscles: [], custom: [], food: { kind: 'protein', target: 160 } } } as any);
   useWorkoutStore.getState().addFoodEntry({ id: 'e1', date: '2026-10-24', items: [{ id: 'i1', name: 'Eggs', macros: { kcal: 300, protein: 25, carbs: 2, fat: 20 }, source: 'usda' }], rawInput: 'eggs', createdAt: '2026-10-24T08:00:00.000Z' });
   await findNearby({ ask: "I'm driving", now: new Date('2026-10-24T12:00:00') });
   const mode = sent[sent.length - 1] as { finder: Record<string, unknown> };
@@ -112,9 +112,10 @@ test('a pick logs as one estimated food; the chip phrases ask for the finder', (
   for (const t of ['2 eggs and toast', 'what should I eat tonight?', 'bench 3x5 225', 'near miss on the squat', "what's a good gym near me", 'had food from the cart close by', 'breakfast at the cafe close by: oatmeal and coffee', 'lunch nearby was a burrito bowl']) assert.equal(asksNearby(t), false, t);
 });
 
-test('readFoodPrefs: defaults until the sheet sets them, bad values ignored', () => {
+test('readFoodPrefs: the sheet\'s choices in the finder\'s words, defaults until it is set', () => {
   assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs' }), DEFAULT_PREFS);
-  assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs', foodPrefs: { matters: ['no_seed_oils', 'bogus'], budget: -3, never: 'x', walkMinutes: 15 } } as any), { matters: ['no_seed_oils'], budget: 12, never: [], walkMinutes: 15 });
+  assert.deepEqual(DEFAULT_PREFS.matters, ['high_protein', 'low_spike', 'simple', 'no_seed_oils', 'cheap']);
+  assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs', foodPrefs: { matters: ['highFiber', 'noSeedOils'], never: [' dairy '] } }), { matters: ['no_seed_oils', 'high_fiber'], budget: 12, never: ['dairy'], walkMinutes: 10 });
 });
 
 test('a long or padded place name keeps its distance and pin; the saved card has no distances or where it looked', async () => {
