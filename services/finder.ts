@@ -13,7 +13,8 @@ import type { FoodEntry } from '../types/food';
 // (modules/places), reduces them to names, kinds and distance buckets, and sends those with the food
 // preferences to the Worker's finder mode; the model picks an order at a few of them. Where the user is
 // never leaves the phone: not the coordinate, not an address, not the area they typed (except the words,
-// in area mode with no place list). Results are kept in the Chat thread like a coach answer; the places'
+// in area mode with no place list). Results are kept in the Chat thread like a coach answer, without
+// distances or where it looked; the places'
 // coordinates stay in memory here for Open in Maps and are gone when the app is.
 
 export const WALK_M_PER_MIN = 80; // a brisk walk
@@ -28,7 +29,7 @@ export class NoWhereError extends Error {
 
 export interface FinderResult {
   where: WhereKey;
-  whereLabel: string;
+  whereLabel?: string; // in memory only, like the distances: the Chat thread saves neither
   walkMinutes: number;
   preferences: Preference[];
   picks: (FinderPick & { distanceM?: number; minutes?: number })[]; // distance from the phone's own list
@@ -44,18 +45,21 @@ export const distanceBucket = (m: number): Distance => (m < 200 ? 'under_200m' :
 
 // What the Worker gets about the places: name, kind and bucket, nearest first, at most MAX_PLACES, one
 // per name (a chain with two branches is one entry, the nearer one)
+const placeName = (name: string) => name.trim().slice(0, 60);
+const placeKey = (name: string) => placeName(name).toLowerCase();
+
 export function reducePlaces(places: NearbyPlace[]): FinderPlace[] {
   const seen = new Set<string>();
   return [...places]
     .sort((a, b) => a.distanceM - b.distanceM)
     .filter((p) => {
-      const key = p.name.trim().toLowerCase();
+      const key = placeKey(p.name);
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     })
     .slice(0, MAX_PLACES)
-    .map((p) => ({ name: p.name.trim().slice(0, 60), category: CATEGORY[p.category] ?? 'other', distance: distanceBucket(p.distanceM) }));
+    .map((p) => ({ name: placeName(p.name), category: CATEGORY[p.category] ?? 'other', distance: distanceBucket(p.distanceM) }));
 }
 
 export const walkMinutes = (m: number) => Math.max(1, Math.round(m / WALK_M_PER_MIN));
@@ -65,7 +69,7 @@ const lastPlaces = new Map<string, NearbyPlace>();
 
 // Apple Maps on a place: its pin when this session found it, else a search for its name near the user
 export function mapsUrl(place: string): string {
-  const p = lastPlaces.get(place.toLowerCase());
+  const p = lastPlaces.get(placeKey(place));
   const q = encodeURIComponent(place);
   return p ? `maps://?q=${q}&ll=${p.lat},${p.lon}` : `maps://?q=${q}`;
 }
@@ -105,7 +109,7 @@ export async function findNearby({ where, ask, now = new Date() }: { where?: Whe
   const found = center && Places ? await Places.nearby(center.lat, center.lon, radius) : [];
   // The nearest branch of a name is the one the card means
   lastPlaces.clear();
-  for (const p of [...found].sort((a, b) => a.distanceM - b.distanceM)) if (!lastPlaces.has(p.name.toLowerCase())) lastPlaces.set(p.name.toLowerCase(), p);
+  for (const p of [...found].sort((a, b) => a.distanceM - b.distanceM)) if (!lastPlaces.has(placeKey(p.name))) lastPlaces.set(placeKey(p.name), p);
   const reduced = reducePlaces(found);
   const area = places.area?.text;
   if (!reduced.length && !(chosen.key === 'area' && area)) throw new Error('No food places found around there. Try a wider walk or another place.');
@@ -134,7 +138,7 @@ export async function findNearby({ where, ask, now = new Date() }: { where?: Whe
     walkMinutes: driving ? 0 : prefs.walkMinutes,
     preferences: prefs.matters,
     picks: read.picks.map((p) => {
-      const distanceM = lastPlaces.get(p.place.toLowerCase())?.distanceM;
+      const distanceM = lastPlaces.get(placeKey(p.place))?.distanceM;
       return { ...p, ...(distanceM !== undefined ? { distanceM: Math.round(distanceM), minutes: walkMinutes(distanceM) } : {}) };
     }),
     skipped: read.skipped,
@@ -154,4 +158,6 @@ export const pickEntry = (pick: FinderPick, now: Date = new Date()): FoodEntry =
 });
 
 // A message that asks for the finder ("find me healthy food near me", "food nearby")
-export const asksNearby = (text: string) => /\b(find|get|what'?s|whats|something|food)\b.*\b(near ?by|near me|around me|around here|close by)\b/i.test(text) || /^\s*find (me )?(healthy )?food\b/i.test(text);
+export const asksNearby = (text: string) =>
+  !/^\s*(had|ate|i had|i ate|just had|just ate)\b/i.test(text) &&
+  ((/\b(food|eat|meal|lunch|dinner|breakfast|snack|hungry)\b/i.test(text) && /\b(near ?by|near me|around me|around here|close by)\b/i.test(text)) || /^\s*find (me )?(healthy )?food\b/i.test(text));

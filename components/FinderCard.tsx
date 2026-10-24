@@ -107,7 +107,7 @@ export default function FinderCard({ result, logged, busy, onWhere, onDirections
 
         <Text variant="bodySmall" style={[styles.fine, { color: colors.textTertiary }]}>
           {result.guessed
-            ? `No place list this time: these are places the AI knows in ${result.whereLabel}, so check they're still there. `
+            ? `No place list this time: these are places the AI knows ${result.whereLabel ? `in ${result.whereLabel}` : 'around there'}, so check they're still there. `
             : 'Estimates from what these places usually serve, not exact nutrition; an independent place is a guess from the kind of place it is. '}
           "Spike" is a judgment from carbs, not a medical measure. Oils are as the restaurant publishes them, or unknown.
           {result.guessed ? '' : ' Places from Apple Maps on your iPhone.'}

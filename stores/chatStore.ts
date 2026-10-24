@@ -7,7 +7,7 @@ import type { EntryRef } from '../services/moveLog';
 import type { FinderResult } from '../services/finder';
 
 // The Chat tab's thread: your log as one conversation, kept on this phone (and in backups) until
-// cleared. Only finished things land here: what you sent plus what came of it. Log and plan items
+// cleared; a finder card is saved without its distances or where it looked. Only finished things land here: what you sent plus what came of it. Log and plan items
 // point to the real records, so an edit or a delete shows; nothing is copied.
 
 export interface CoachTurnState {
@@ -43,6 +43,13 @@ interface ChatState {
 
 export const CHAT_KEY = '@training-tracker/chat';
 
+// A finder card as saved: the picks without how far each was or where it looked, which stay in memory
+const withoutLocation = (i: ChatItem): ChatItem => {
+  if (i.kind !== 'nearby') return i;
+  const { whereLabel, ...result } = i.result;
+  return { ...i, result: { ...result, picks: result.picks.map(({ distanceM, minutes, ...p }) => p) } };
+};
+
 export const useChatStore = create<ChatState>()(
   persist(
     (set) => ({
@@ -60,7 +67,7 @@ export const useChatStore = create<ChatState>()(
     {
       name: CHAT_KEY,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (s) => ({ items: s.items, skippedOpener: s.skippedOpener }),
+      partialize: (s) => ({ items: s.items.map(withoutLocation), skippedOpener: s.skippedOpener }),
     }
   )
 );

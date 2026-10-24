@@ -9,22 +9,23 @@ import MapKit
 // One approximate fix: asks for When In Use permission the first time (the Info.plist marks the app as
 // wanting reduced accuracy, so the system prompt offers approximate location), then one reading.
 private class OneShotLocation: NSObject, CLLocationManagerDelegate {
-  private let manager = CLLocationManager()
+  private var manager: CLLocationManager?
   private var continuation: CheckedContinuation<CLLocation?, Never>?
-
-  override init() {
-    super.init()
-    manager.delegate = self
-    manager.desiredAccuracy = kCLLocationAccuracyReduced
-  }
 
   func read() async -> CLLocation? {
     await withCheckedContinuation { continuation in
-      self.continuation = continuation
-      switch manager.authorizationStatus {
-      case .notDetermined: manager.requestWhenInUseAuthorization()
-      case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
-      default: finish(nil)
+      DispatchQueue.main.async {
+        self.continuation = continuation
+        let manager = CLLocationManager()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyReduced
+        self.manager = manager
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { self.finish(nil) }
+        switch manager.authorizationStatus {
+        case .notDetermined: manager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
+        default: self.finish(nil)
+        }
       }
     }
   }
@@ -32,6 +33,8 @@ private class OneShotLocation: NSObject, CLLocationManagerDelegate {
   private func finish(_ location: CLLocation?) {
     continuation?.resume(returning: location)
     continuation = nil
+    manager?.delegate = nil
+    manager = nil
   }
 
   func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -53,16 +56,12 @@ private class OneShotLocation: NSObject, CLLocationManagerDelegate {
 }
 
 public class LiftTextPlacesModule: Module {
-  private var locator: OneShotLocation?
-
   public func definition() -> ModuleDefinition {
     Name("LiftTextPlaces")
 
     // Where the iPhone is, to about a kilometre, or null when the user said no or there is no fix yet
     AsyncFunction("currentLocation") { () async -> [String: Double]? in
-      let locator = OneShotLocation()
-      self.locator = locator // kept alive until the reading lands
-      guard let location = await locator.read() else { return nil }
+      guard let location = await OneShotLocation().read() else { return nil }
       return ["lat": location.coordinate.latitude, "lon": location.coordinate.longitude]
     }
 

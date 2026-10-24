@@ -24,8 +24,10 @@ const { usePlacesStore, whereChoices } = await import('../stores/placesStore.ts'
 const { useWorkoutStore } = await import('../stores/workoutStore.ts');
 const { findNearby, reducePlaces, distanceBucket, mapsUrl, pickEntry, asksNearby, NoWhereError } = await import('./finder.ts');
 const { readFoodPrefs, DEFAULT_PREFS } = await import('./foodPrefs.ts');
-// services/backup.ts pulls in expo-file-system; the backup key list is read from its text instead
-const backupKeys = (await import('node:fs')).readFileSync(new URL('./backup.ts', import.meta.url), 'utf8').match(/BACKUP_KEYS = \[([\s\S]*?)\];/)![1].replace(/\/\/.*$/gm, '');
+mock.module('expo-file-system', { namedExports: { File: class {}, Directory: class {}, Paths: {} } });
+mock.module('expo-sharing', { namedExports: { shareAsync: async () => {} } });
+const { createBackup } = await import('./backup.ts');
+const { useChatStore, CHAT_KEY } = await import('../stores/chatStore.ts');
 const { PLACES_KEY } = await import('../stores/placesStore.ts');
 
 test('reducePlaces: nearest first, one per name, kinds mapped, no coordinates', () => {
@@ -46,7 +48,7 @@ test('where to look: nothing set up throws; the chip used last wins; saved, live
   usePlacesStore.getState().savePlace({ label: 'Work', address: 'x', lat: 1, lon: 2 });
   usePlacesStore.getState().savePlace({ label: 'Home', address: 'y', lat: 3, lon: 4 });
   assert.deepEqual(whereChoices(usePlacesStore.getState()).map((c) => c.label), ['Home', 'Work', 'Where I am', 'East Village']);
-  assert.equal(backupKeys.includes(PLACES_KEY), false); // never in a backup file
+  assert.equal(PLACES_KEY in (await createBackup()).data, false); // never in a backup file
 });
 
 test('findNearby sends names, kinds and buckets with the preferences, never a coordinate, and joins distances back', async () => {
@@ -106,11 +108,28 @@ test('a pick logs as one estimated food; the chip phrases ask for the finder', (
   assert.deepEqual(entry.items[0].macros, { kcal: 520, protein: 48, carbs: 38, fat: 18, fiber: 12 });
   assert.equal(entry.items[0].source, 'estimate');
   assert.equal(entry.items[0].said, 'Chipotle: Chicken bowl, no rice');
-  for (const t of ['Find healthy food near me', 'find me food nearby', "what's good around here", 'Find food']) assert.equal(asksNearby(t), true, t);
-  for (const t of ['2 eggs and toast', 'what should I eat tonight?', 'bench 3x5 225', 'near miss on the squat']) assert.equal(asksNearby(t), false, t);
+  for (const t of ['Find healthy food near me', 'find me food nearby', 'somewhere to eat around here', 'Find food']) assert.equal(asksNearby(t), true, t);
+  for (const t of ['2 eggs and toast', 'what should I eat tonight?', 'bench 3x5 225', 'near miss on the squat', "what's a good gym near me", 'had food from the cart close by']) assert.equal(asksNearby(t), false, t);
 });
 
 test('readFoodPrefs: defaults until the sheet sets them, bad values ignored', () => {
   assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs' }), DEFAULT_PREFS);
   assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs', foodPrefs: { matters: ['no_seed_oils', 'bogus'], budget: -3, never: 'x', walkMinutes: 15 } } as any), { matters: ['no_seed_oils'], budget: 12, never: [], walkMinutes: 15 });
+});
+
+test('a long or padded place name keeps its distance and pin; the saved card has no distances or where it looked', async () => {
+  const long = `  ${'Sweetgreen '.repeat(7)}`;
+  const name = long.trim().slice(0, 60);
+  const before = places.nearby;
+  places.nearby = mock.fn(async () => [{ name: long, category: 'MKPOICategoryRestaurant', distanceM: 240, lat: 40.73, lon: -73.98 }]) as any;
+  reply = JSON.stringify({ picks: [{ place: name, item: 'Harvest bowl', kcal: 600, protein_g: 35, carbs_g: 50, fat_g: 25, price_usd: 14, verdicts: [], why: '', confidence: 0.8 }], skipped: [] });
+  const result = await findNearby({ where: 'area', now: new Date('2026-10-24T12:00:00') });
+  places.nearby = before;
+  assert.equal(result.picks[0].distanceM, 240);
+  assert.equal(mapsUrl(name), `maps://?q=${encodeURIComponent(name)}&ll=40.73,-73.98`);
+  useChatStore.getState().add({ kind: 'nearby', result });
+  assert.equal(useChatStore.getState().items.at(-1)!.kind === 'nearby' && (useChatStore.getState().items.at(-1) as any).result.picks[0].distanceM, 240); // still shown this session
+  const saved = JSON.stringify((await createBackup()).data[CHAT_KEY]);
+  assert.match(saved, /Harvest bowl/);
+  assert.doesNotMatch(saved, /distanceM|minutes|whereLabel|East Village/);
 });
