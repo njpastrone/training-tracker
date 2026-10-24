@@ -6,7 +6,7 @@ import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { CATALOG, normalizeWords, singularWords } from '../data/catalog';
 import { catalogHits, editDistance } from '../server/src/identity';
 import type { RawFoodItem } from '../server/src/food';
-import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
+import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, GiBand, Macros } from '../types/food';
 import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume, own } from './foodUnits';
 import { englishFoodWords } from './foodWords';
 import { format, parseISO } from 'date-fns';
@@ -372,6 +372,10 @@ export function sumMacros(items: { macros: Macros }[]): Macros {
   const fiber = items.some(i => i.macros.fiber !== undefined) ? { fiber: Math.round(t.fiber) } : {};
   return { kcal: Math.round(t.kcal), protein: Math.round(t.protein), carbs: Math.round(t.carbs), fat: Math.round(t.fat), ...fiber };
 }
+
+// How a meal's gi band reads on screen: how the meal fits a low-GI preference, never what it does to anyone's
+// blood sugar or health. Always an estimate, so "likely".
+export const GI_LABEL: Record<GiBand, string> = { low: 'likely steady', medium: 'in between', high: 'higher-carb' };
 
 // "42 g protein · 520 kcal": protein first, the number a lifter acts on
 export const macroLine = (m: Macros) => `${Math.round(m.protein)} g protein · ${Math.round(m.kcal).toLocaleString('en-US')} kcal`;

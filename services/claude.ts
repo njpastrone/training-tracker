@@ -174,7 +174,7 @@ export async function parseFood(input: string, date: string, fallbackText = inpu
     const req = buildFoodRequest(input, { date, foods });
     const text = await callClaude(req.system, req.messages[0].content, req.max_tokens, { food: { input, date, foods } });
     const read = readFoodItems(text, candidates.length);
-    return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence } : localFoodParse(fallbackText, usual);
+    return read ? { items: resolveItems(read.items, candidates, usual), confidence: read.confidence, ...(read.gi ? { gi: read.gi } : {}) } : localFoodParse(fallbackText, usual);
   } catch (error) {
     if (aiUnavailable(error)) return localFoodParse(fallbackText, usual);
     console.error('Error parsing food:', error);
@@ -195,7 +195,7 @@ export async function correctFood(draft: FoodDraft, fix: string, date: string): 
       const k = i.foodId ? candidates.findIndex((f) => f.id === i.foodId) : -1;
       return {
         food: k >= 0 ? `f${k + 1}` : null, said: i.said, name: i.name, qty: i.qty, unit: i.unit, grams: i.grams, dayOffset: i.dayOffset,
-        ...(k >= 0 ? {} : { kcal: i.macros.kcal, protein: i.macros.protein, carbs: i.macros.carbs, fat: i.macros.fat }),
+        ...(k >= 0 ? {} : { kcal: i.macros.kcal, protein: i.macros.protein, carbs: i.macros.carbs, fat: i.macros.fat, fiber: i.macros.fiber }),
       };
     });
     const req = buildFoodCorrectionRequest(items, fix, { date, foods });
@@ -204,7 +204,7 @@ export async function correctFood(draft: FoodDraft, fix: string, date: string): 
     if (!read) return null;
     // A question can come back with no items; it never empties the draft
     const usual = usualPortions(useWorkoutStore.getState().foodEntries);
-    const next = read.reply && read.items.length === 0 ? draft : { items: resolveItems(read.items, candidates, usual), confidence: read.confidence };
+    const next = read.reply && read.items.length === 0 ? draft : { items: resolveItems(read.items, candidates, usual), confidence: read.confidence, ...(read.gi ? { gi: read.gi } : {}) };
     return { draft: next, ...(read.reply ? { reply: read.reply } : {}) };
   } catch (error) {
     if (error instanceof ApiError) throw error;

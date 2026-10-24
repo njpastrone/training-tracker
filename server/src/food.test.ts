@@ -14,31 +14,37 @@ test('buildFoodCorrectionRequest sends every draft field, nulls included', () =>
   const req = buildFoodCorrectionRequest([{ food: 'f1', name: 'Egg', qty: 2 }], 'it was 3', { date: '2026-10-03', foods: ['Egg'] });
   assert.match(req.system, /<correction>/);
   assert.equal(req.model, 'claude-sonnet-5-5'); // fixes stay on Sonnet
-  assert.match(req.messages[0].content, /<draft>\{"items":\[\{"said":null,"food":"f1","name":"Egg","qty":2,"unit":null,"grams":null,"dayOffset":0,"kcal":null,"protein":null,"carbs":null,"fat":null\}\]\}<\/draft>\n<fix>it was 3<\/fix>/);
+  assert.match(req.messages[0].content, /<draft>\{"items":\[\{"said":null,"food":"f1","name":"Egg","qty":2,"unit":null,"grams":null,"dayOffset":0,"kcal":null,"protein":null,"carbs":null,"fat":null,"fiber":null\}\]\}<\/draft>\n<fix>it was 3<\/fix>/);
 });
 
 test('readFoodItems keeps valid picks and estimates and drops bad values', () => {
   const text = 'Here you go: ' + JSON.stringify({
     items: [
       { said: '2 eggs', food: 'f1', qty: 2, unit: null, grams: 100, dayOffset: 0, kcal: null },
-      { said: 'a Big Mac', food: null, name: 'Big Mac', qty: 1, grams: 219, kcal: 590, protein: 25, carbs: 46, fat: 34, dayOffset: -1 },
+      { said: 'a Big Mac', food: null, name: 'Big Mac', qty: 1, grams: 219, kcal: 590, protein: 25, carbs: 46, fat: 34, fiber: 3, dayOffset: -1 },
       { said: 'toast', food: 'f9', qty: -1, unit: ' slice ', grams: 'x' }, // key out of range, bad qty
       { food: null, name: null, said: null }, // nothing to show
       null,
     ],
+    gi: 'high',
     confidence: 0.9,
   });
   const read = readFoodItems(text, 3)!;
   assert.equal(read.confidence, 0.9);
+  assert.equal(read.gi, 'high');
   assert.deepEqual(read.items, [
     { said: '2 eggs', food: 0, qty: 2, grams: 100 },
-    { said: 'a Big Mac', name: 'Big Mac', qty: 1, grams: 219, dayOffset: -1, estimate: { kcal: 590, protein: 25, carbs: 46, fat: 34 } },
+    { said: 'a Big Mac', name: 'Big Mac', qty: 1, grams: 219, dayOffset: -1, estimate: { kcal: 590, protein: 25, carbs: 46, fat: 34, fiber: 3 } },
     { said: 'toast', unit: 'slice' },
   ]);
   assert.equal(readFoodItems('no json here', 3), null);
   assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1",},],"confidence":0.9,}', 1)!.items.length, 1); // trailing commas
   assert.equal(readFoodItems('{"items":"x"}', 3), null);
   assert.equal(readFoodItems('{"items":[],"reply":"About 40 g."}', 0)!.reply, 'About 40 g.');
+  // gi: one of the three words, only with food; an estimate without fiber has none
+  assert.equal(readFoodItems('{"items":[{"said":"egg","food":"f1"}],"gi":"steady"}', 1)!.gi, undefined);
+  assert.equal(readFoodItems('{"items":[],"gi":"low"}', 1)!.gi, undefined);
+  assert.equal('fiber' in readFoodItems('{"items":[{"name":"Mac","kcal":500,"protein":20,"carbs":40,"fat":20}]}', 0)!.items[0].estimate!, false);
   // A reply that corrects itself: the last whole object counts
   const twice = readFoodItems('{"items":[{"said":"egg","food":"f1","qty":1}],"confidence":0.9}\nCorrection: {"items":[{"said":"egg","food":"f1","qty":2}],"confidence":0.8}', 1)!;
   assert.deepEqual([twice.items[0].qty, twice.confidence], [2, 0.8]);

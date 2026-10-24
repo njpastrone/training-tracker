@@ -14,6 +14,8 @@
 // Rounding: item kcal to integers, macros to 0.1 g; ref = sum of the rounded items. kcal can exceed
 // 4/4/9 x macros (alcohol, fiber, USDA's own energy factors).
 
+import type { GiBand } from '../../server/src/food.ts';
+
 export interface RefItem { name: string; grams?: number; kcal: number; protein: number; carbs: number; fat: number; source: string }
 export interface FoodCase {
   id: string; // kebab-case, unique
@@ -24,6 +26,7 @@ export interface FoodCase {
   items: RefItem[]; // the reference breakdown, one per food eaten
   workout?: string[]; // mixed: the exercises/workout the log also describes (the food parser must ignore them)
   tolerance?: 'tight' | 'normal' | 'loose'; // scout.ts: the scout's own kcal tolerance for this case
+  gi?: GiBand[]; // the meal's glycemic-load bands that count as right (a borderline meal accepts two); unset = not scored
   note?: string; // why this case matters, if not obvious
 }
 
@@ -31,6 +34,7 @@ export const cases: FoodCase[] = [
   // --- simple ---
   {
     id: 'simple-eggs-banana',
+    gi: ['low', 'medium'],
     category: 'simple',
     input: '2 eggs and a banana',
     ref: { kcal: 277, protein: 13.5, carbs: 29.7, fat: 11 },
@@ -197,6 +201,7 @@ export const cases: FoodCase[] = [
   },
   {
     id: 'simple-spaghetti-marinara',
+    gi: ['high'],
     category: 'simple',
     input: '2 cups spaghetti with 1/2 cup marinara',
     ref: { kcal: 458, protein: 16.2, carbs: 86.3, fat: 4.4 },
@@ -206,6 +211,18 @@ export const cases: FoodCase[] = [
       { name: 'Marinara sauce', grams: 132, kcal: 66, protein: 1.8, carbs: 9.8, fat: 2.1,
         source: 'USDA SR 171192 "Sauce, pasta, spaghetti/marinara, ready-to-serve"; "1 serving 1/2 cup" = 132 g' },
     ],
+  },
+  {
+    id: 'simple-lentils-cup',
+    category: 'simple',
+    gi: ['low', 'medium'],
+    input: 'a cup of lentils',
+    ref: { kcal: 230, protein: 17.9, carbs: 39.9, fat: 0.8 },
+    items: [
+      { name: 'Lentils, cooked', grams: 198, kcal: 230, protein: 17.9, carbs: 39.9, fat: 0.8,
+        source: 'USDA SR 172421 "Lentils, mature seeds, cooked, boiled, without salt"; "1 cup" = 198 g' },
+    ],
+    note: 'Legumes: lots of carbs but fiber and protein with them; the band is low or medium, never high.',
   },
   {
     id: 'simple-shrimp-broccoli',
@@ -324,6 +341,7 @@ export const cases: FoodCase[] = [
   },
   {
     id: 'units-words-rice',
+    gi: ['high'],
     category: 'units',
     input: 'one and a half cups of rice',
     ref: { kcal: 308, protein: 6.4, carbs: 66.8, fat: 0.7 },
@@ -569,6 +587,7 @@ export const cases: FoodCase[] = [
   },
   {
     id: 'none-eggs-and-toast',
+    gi: ['low', 'medium'],
     category: 'no_amount',
     input: 'eggs and toast',
     ref: { kcal: 228, protein: 15.2, carbs: 14.6, fat: 11.6 },
@@ -704,6 +723,7 @@ export const cases: FoodCase[] = [
   },
   {
     id: 'branded-coke-can',
+    gi: ['high'],
     category: 'branded',
     input: 'a can of coke',
     ref: { kcal: 140, protein: 0, carbs: 39, fat: 0 },
@@ -1084,6 +1104,7 @@ export const cases: FoodCase[] = [
   },
   {
     id: 'home-chicken-caesar',
+    gi: ['low'],
     category: 'homemade',
     input: 'chicken caesar salad',
     ref: { kcal: 343, protein: 25.1, carbs: 9.6, fat: 22.9 },

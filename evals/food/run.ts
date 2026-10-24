@@ -114,7 +114,7 @@ async function runCase(c: FoodCase): Promise<Result[]> {
   const score = (calls: Awaited<ReturnType<typeof ask>>[], system: string): Result => {
     const { text, stop, error } = calls[calls.length - 1];
     const read = error ? null : readFoodItems(text, candidates.length);
-    const predicted = read ? { items: resolveItems(read.items, candidates) } : null;
+    const predicted = read ? { items: resolveItems(read.items, candidates), gi: read.gi } : null;
     const cost = calls.reduce((t, k) => t + k.cost, 0);
     const ms = calls.reduce((t, k) => t + k.ms, 0);
     const why = error ?? (stop !== 'end_turn' ? `stop_reason ${stop}` : read ? undefined : 'unreadable JSON');
@@ -164,6 +164,7 @@ const summary = Object.fromEntries(systems.map((s) => {
     logs: rs.length,
     ...Object.fromEntries(MACROS.map((k) => [`${k} 20%`, share(rs, (r) => r.hits[k])])),
     'all 4 20%': share(rs, (r) => r.all),
+    gi: share(rs.filter((r) => r.gi !== undefined), (r) => !!r.gi), // meals with a reference band
     ...Object.fromEntries(MACROS.map((k) => [`${k} 10%`, share(rs, (r) => r.tight[k])])),
     failed: rs.filter((r) => r.failed).length,
     escalated: share(rs, (r) => !!r.escalated),
@@ -181,10 +182,10 @@ const byCategory = Object.fromEntries(categories.map((cat) => [cat, Object.fromE
 }))]));
 
 if (args.verbose) {
-  for (const r of results.filter((r) => r.system === systems[0] && !r.hits.kcal)) {
+  for (const r of results.filter((r) => r.system === systems[0] && (!r.hits.kcal || r.gi === false))) {
     console.log(`\n✗ ${r.id} [${r.category}] ${r.error ? `ERROR ${r.error}` : ''}\n    "${r.input}"`);
     for (const m of r.misses) console.log(`    ${m}`);
-    for (const i of r.predicted?.items ?? []) console.log(`    · ${i.name} ${i.grams ?? '?'} g ${i.source} ${MACROS.map((k) => `${k} ${Math.round(i.macros[k])}`).join(' ')}`);
+    for (const i of r.predicted?.items ?? []) console.log(`    · ${i.name} ${i.grams ?? '?'} g ${i.source} ${MACROS.map((k) => `${k} ${Math.round(i.macros[k])}`).join(' ')}${i.macros.fiber !== undefined ? ` fiber ${Math.round(i.macros.fiber)}` : ''}`);
   }
   console.log('');
 }

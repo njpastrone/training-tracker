@@ -4,7 +4,7 @@ import { catalogById, type Metric } from '../data/catalog';
 import { displayName, resolveId } from './exerciseIdentity';
 import { differenceInCalendarDays, format, parseISO, subDays } from 'date-fns';
 import type { Exercise, ExerciseLibrary, WeightUnit, Workout } from '../types/workout';
-import type { FoodEntry, Macros } from '../types/food';
+import type { FoodEntry } from '../types/food';
 
 export interface Entry {
   date: string;
@@ -139,38 +139,32 @@ export function exerciseOverview(workouts: Workout[], library: ExerciseLibrary, 
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// Each day's food: protein and calories summed (rounded once, for the day), how many foods and meals (logged messages)
+// Each day's food: protein, calories and fiber summed (rounded once, for the day), how many foods and meals
+// (logged messages), and of those meals how many carry a gi band and how many of them are low. Fiber counts only
+// the foods that have a number (USDA foods and estimates since fiber was asked for); it's unset when none do.
 export interface FoodDayTotal {
   protein: number;
   kcal: number;
+  fiber?: number;
   foods: number;
   meals: number;
-  fiber?: number; // g, only when some food that day carries a fiber number
-  lowGiMeals?: number; // meals whose foods all carry a GI and average 55 or under, only when some meal carries GI numbers
-}
-
-export const LOW_GI = 55;
-
-// A meal's GI: the carb-weighted average of its foods', unknown unless every food has one
-export function mealGi(items: { macros: Macros; gi?: number }[]): number | undefined {
-  if (!items.length || items.some(i => i.gi === undefined)) return undefined;
-  const carbs = items.reduce((s, i) => s + i.macros.carbs, 0);
-  return carbs ? items.reduce((s, i) => s + i.gi! * i.macros.carbs, 0) / carbs : items.reduce((s, i) => s + i.gi!, 0) / items.length;
+  giMeals: number; // meals with a gi band (entries before the band existed have none)
+  lowGi: number; // of those, meals the model read as low
 }
 
 export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   const raw = new Map<string, FoodDayTotal>();
   for (const e of entries) {
-    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0, meals: 0 };
+    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0, meals: 0, giMeals: 0, lowGi: 0 };
     t.meals++;
+    if (e.gi) t.giMeals++;
+    if (e.gi === 'low') t.lowGi++;
     for (const i of e.items) {
       t.protein += i.macros.protein;
       t.kcal += i.macros.kcal;
-      t.foods++;
       if (i.macros.fiber !== undefined) t.fiber = (t.fiber ?? 0) + i.macros.fiber;
+      t.foods++;
     }
-    const gi = mealGi(e.items);
-    if (gi !== undefined) t.lowGiMeals = (t.lowGiMeals ?? 0) + (gi <= LOW_GI ? 1 : 0);
     raw.set(e.date, t);
   }
   for (const t of raw.values()) {

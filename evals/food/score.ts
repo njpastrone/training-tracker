@@ -2,6 +2,7 @@
 // Small numbers get a floor (a 1 g vs 2 g fat miss is not a 100% miss): see TOLERANCE.
 
 import type { FoodCase } from './cases.ts';
+import type { GiBand } from '../../server/src/food.ts';
 
 export type MacroKey = 'kcal' | 'protein' | 'carbs' | 'fat';
 export const MACROS: MacroKey[] = ['kcal', 'protein', 'carbs', 'fat'];
@@ -16,7 +17,8 @@ export const within = (k: MacroKey, got: number, ref: number, t = TOLERANCE) => 
 const SCOUT_TOLERANCE = { tight: [0.1, 25], normal: [0.2, 50], loose: [0.35, 75] } as const;
 
 export interface Predicted {
-  items: { name: string; macros: Record<MacroKey, number>; source: string; grams?: number }[];
+  items: { name: string; macros: Record<MacroKey, number> & { fiber?: number }; source: string; grams?: number }[];
+  gi?: GiBand; // the model's band for the meal
 }
 
 export interface CaseScore {
@@ -27,6 +29,7 @@ export interface CaseScore {
   itemsDiff: number; // predicted items minus reference items (diagnostic)
   misses: string[];
   atTolerance?: boolean; // kcal within the case's own tolerance, when it has one
+  gi?: boolean; // the meal's band is one the case accepts, when it has bands
 }
 
 export function scoreFoodCase(c: FoodCase, p: Predicted | null): CaseScore {
@@ -41,5 +44,7 @@ export function scoreFoodCase(c: FoodCase, p: Predicted | null): CaseScore {
   // The scout set's own kcal tolerance per case, as its scorer judges it
   const tol = c.tolerance && SCOUT_TOLERANCE[c.tolerance];
   const atTolerance = tol ? (empty ? items.length === 0 : Math.abs(got.kcal - c.ref.kcal) <= Math.max(tol[0] * c.ref.kcal, tol[1])) : undefined;
-  return { hits, tight, all: MACROS.every((k) => hits[k]), got, itemsDiff: items.length - c.items.length, misses, atTolerance };
+  const gi = c.gi ? c.gi.includes(p?.gi as GiBand) : undefined;
+  if (gi === false) misses.push(`gi: got ${p?.gi ?? 'none'}, want ${c.gi!.join(' or ')}`);
+  return { hits, tight, all: MACROS.every((k) => hits[k]), got, itemsDiff: items.length - c.items.length, misses, atTolerance, gi };
 }

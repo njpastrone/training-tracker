@@ -15,7 +15,9 @@ import type { FixReplyState } from '../components/ParsedCard';
 
 export type Draft = ParsedWorkoutResponse;
 
-// One food entry per day the food draft covers, dated relative to baseDate (YYYY-MM-DD)
+// One food entry per day the food draft covers, dated relative to baseDate (YYYY-MM-DD). The model's one gi band
+// is for the whole log, so every day's entry gets it.
+// ponytail: a log over several days gets one band; ask the model for one per day if people log that way
 export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate: string): FoodEntry[] {
   const offsets = [...new Set(food.items.map((i) => i.dayOffset ?? 0))].sort((a, b) => a - b);
   return offsets.map((offset) => ({
@@ -24,6 +26,7 @@ export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate
     items: food.items.filter((i) => (i.dayOffset ?? 0) === offset).map(({ dayOffset, ...i }) => ({ ...i, id: uuidv4() })),
     rawInput,
     createdAt: new Date().toISOString(),
+    ...(food.gi ? { gi: food.gi } : {}),
   }));
 }
 
