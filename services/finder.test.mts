@@ -23,7 +23,7 @@ mock.module('@react-native-async-storage/async-storage', { defaultExport: { getI
 const { usePlacesStore, whereChoices } = await import('../stores/placesStore.ts');
 const { useWorkoutStore } = await import('../stores/workoutStore.ts');
 const { findNearby, reducePlaces, distanceBucket, mapsUrl, pickEntry, asksNearby, NoWhereError } = await import('./finder.ts');
-const { readFoodPrefs, DEFAULT_PREFS } = await import('./foodPrefs.ts');
+const { finderPrefs, DEFAULT_PREFS } = await import('./foodPrefs.ts');
 mock.module('expo-file-system', { namedExports: { File: class {}, Directory: class {}, Paths: {} } });
 mock.module('expo-sharing', { namedExports: { shareAsync: async () => {} } });
 const { createBackup } = await import('./backup.ts');
@@ -112,10 +112,10 @@ test('a pick logs as one estimated food; the chip phrases ask for the finder', (
   for (const t of ['2 eggs and toast', 'what should I eat tonight?', 'bench 3x5 225', 'near miss on the squat', "what's a good gym near me", 'had food from the cart close by', 'breakfast at the cafe close by: oatmeal and coffee', 'lunch nearby was a burrito bowl']) assert.equal(asksNearby(t), false, t);
 });
 
-test('readFoodPrefs: the sheet\'s choices in the finder\'s words, defaults until it is set', () => {
-  assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs' }), DEFAULT_PREFS);
+test('finderPrefs: the sheet\'s choices in the finder\'s words, the sheet\'s defaults until it is set', () => {
+  assert.deepEqual(finderPrefs(undefined), DEFAULT_PREFS);
   assert.deepEqual(DEFAULT_PREFS.matters, ['high_protein', 'low_spike', 'simple', 'no_seed_oils', 'cheap']);
-  assert.deepEqual(readFoodPrefs({ weightUnit: 'lbs', foodPrefs: { matters: ['highFiber', 'noSeedOils'], never: [' dairy '] } }), { matters: ['no_seed_oils', 'high_fiber'], budget: 12, never: ['dairy'], walkMinutes: 10 });
+  assert.deepEqual(finderPrefs({ matters: ['highFiber', 'noSeedOils'], never: [' dairy '] }), { matters: ['no_seed_oils', 'high_fiber'], budget: 12, never: ['dairy'], walkMinutes: 10 });
 });
 
 test('a long or padded place name keeps its distance and pin; the saved card has no distances or where it looked', async () => {

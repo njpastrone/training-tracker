@@ -1,7 +1,7 @@
 import { foodById } from '../data/foods';
 import { sumMacros } from './foods';
 import type { FoodCategory, FoodItem } from '../types/food';
-import type { FoodPreference, FoodPrefs, UserSettings } from '../types/workout';
+import type { FoodPreference, FoodPrefs } from '../types/workout';
 import { PREFERENCES as FINDER_PREFERENCES, type Preference } from '../server/src/finder';
 
 // Food preferences (data/lt-ui-g/report.md §3.2-3.6): what matters to you, a budget, foods never to
@@ -174,8 +174,9 @@ export function mealCheck(card: Scorecard): { line: string; swap: boolean } {
 
 // ---------------------------------------------------------------- finder
 
-// The preferences the finder checks a pick against, in the finder's words, read from the sheet with
-// defaults for anyone who hasn't set it
+// The preferences the finder checks a pick against, in the finder's words. The sheet's values come in
+// through the store's one accessor (stores/workoutStore.ts readFoodPrefs / useFoodPrefs); anyone who
+// hasn't set it gets the sheet's own default list
 export interface FinderPrefs {
   matters: Preference[]; // in card order
   budget: number; // a meal should cost about this, $
@@ -188,8 +189,7 @@ const toFinder = (matters: FoodPreference[]) => FINDER_PREFERENCES.filter((p) =>
 
 export const DEFAULT_PREFS: FinderPrefs = { matters: toFinder(DEFAULT_MATTERS), budget: 12, never: [], walkMinutes: 10 };
 
-export function readFoodPrefs(settings: UserSettings): FinderPrefs {
-  const prefs = settings.foodPrefs;
+export function finderPrefs(prefs: FoodPrefs | undefined): FinderPrefs {
   const matters = toFinder(prefs?.matters ?? []);
   const never = (prefs?.never ?? []).map((s) => s.trim().slice(0, 40)).filter(Boolean).slice(0, 10);
   return { ...DEFAULT_PREFS, matters: matters.length ? matters : DEFAULT_PREFS.matters, budget: prefs?.budget ?? DEFAULT_PREFS.budget, never };

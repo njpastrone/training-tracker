@@ -3,11 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 import Places, { type NearbyPlace, type Point } from '../modules/places';
 import { buildFinderRequest, MAX_PLACES, readFinderReply, type Category, type Distance, type FinderInput, type FinderPick, type FinderPlace, type Preference } from '../server/src/finder';
 import { fitsPrompt } from '../server/src/identity';
-import { readFoodPrefs } from './foodPrefs';
+import { finderPrefs } from './foodPrefs';
 import { callWorker } from './claude';
 import { sumMacros } from './foods';
 import { usePlacesStore, whereChoices, type WhereKey } from '../stores/placesStore';
-import { useWorkoutStore } from '../stores/workoutStore';
+import { readFoodPrefs, useWorkoutStore } from '../stores/workoutStore';
 import type { FoodEntry } from '../types/food';
 
 // Find food near you (data/lt-food-data/report.md §3): the phone finds the places with Apple Maps
@@ -101,7 +101,7 @@ export async function findNearby({ where, ask, now = new Date() }: { where?: Whe
   const chosen = choices.find((c) => c.key === where) ?? choices.find((c) => c.key === places.last) ?? choices[0];
   if (!chosen) throw new NoWhereError();
   const { settings, foodEntries } = useWorkoutStore.getState();
-  const prefs = readFoodPrefs(settings);
+  const prefs = finderPrefs(readFoodPrefs()); // Settings › Food preferences, through the store's accessor
   const driving = /driv/i.test(ask ?? '');
   const radius = driving ? DRIVING_RADIUS_M : chosen.key === 'area' ? Math.max(AREA_RADIUS_M, prefs.walkMinutes * WALK_M_PER_MIN) : prefs.walkMinutes * WALK_M_PER_MIN;
 
