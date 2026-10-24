@@ -61,7 +61,6 @@ export interface FoodItem {
   unit?: FoodUnit;
   grams?: number; // total weight, when known
   macros: Macros;
-  gi?: number; // glycemic index, when the food log estimates it; a meal is low-GI at 55 or under (services/progress.ts)
   source: 'usda' | 'estimate'; // USDA numbers, or the AI's best guess (branded, restaurant, homemade)
 }
 

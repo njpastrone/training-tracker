@@ -196,11 +196,11 @@ test('a goal row: each day met, partly or missed, today as a value, and whether 
   assert.equal(withFiber.today, 32);
 });
 
-test('low-GI meals count only once the food log carries GI numbers', () => {
-  const gi = (date: string, time: string, g: number): FoodEntry => ({ ...meal(date, time, 20), items: [{ id: 'a', name: 'A', macros: { kcal: 300, protein: 20, carbs: 40, fat: 5 }, gi: g, source: 'estimate' }, { id: 'b', name: 'B', macros: { kcal: 100, protein: 5, carbs: 10, fat: 1 }, gi: 70, source: 'estimate' }] });
-  const day = foodByDay([gi('2026-10-23', '08:00', 40), gi('2026-10-23', '13:00', 65), meal('2026-10-23', '19:00', 30)]).get('2026-10-23')!;
-  assert.equal(day.lowGiMeals, 1); // 40×40+70×10 over 50 carbs = 46; 65×40+70×10 = 66; the plain meal has no GI
+test('low-GI meals count only once the food log carries gi bands', () => {
+  const gi = (date: string, time: string, band: 'low' | 'medium' | 'high'): FoodEntry => ({ ...meal(date, time, 20), gi: band });
+  const day = foodByDay([gi('2026-10-23', '08:00', 'low'), gi('2026-10-23', '13:00', 'high'), meal('2026-10-23', '19:00', 30)]).get('2026-10-23')!;
+  assert.equal(day.lowGiMeals, 1); // the plain meal has no band
   assert.equal(day.meals, 3);
   assert.equal(foodByDay([meal('2026-10-23', '08:00', 30)]).get('2026-10-23')!.lowGiMeals, undefined);
-  assert.equal(goalWeek({ kind: 'lowgi', target: 2 }, foodByDay([gi('2026-10-23', '08:00', 40), gi('2026-10-23', '13:00', 50)]), NOW).today, 2);
+  assert.equal(goalWeek({ kind: 'lowgi', target: 2 }, foodByDay([gi('2026-10-23', '08:00', 'low'), gi('2026-10-23', '13:00', 'low')]), NOW).today, 2);
 });
