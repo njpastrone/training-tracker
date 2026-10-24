@@ -92,7 +92,7 @@ export default function SettingsScreen() {
     const save = (unit: WeightUnit) => {
       const r = read(unit);
       importWorkouts(r.workouts, r.library);
-      Alert.alert('Imported', `${plural(r.preview.workouts, 'workout')} added to History.`);
+      Alert.alert('Imported', `${plural(r.preview.workouts, 'workout')} added to the calendar.`);
     };
     const label = (u: WeightUnit) => (u === 'kg' ? 'Import in kg' : 'Import in lb');
     const units: WeightUnit[] = settings.weightUnit === 'kg' ? ['kg', 'lbs'] : ['lbs', 'kg'];
@@ -136,7 +136,7 @@ export default function SettingsScreen() {
     });
   };
 
-  // Apple Health: reading shows on Progress only; saving copies each workout you log from now on
+  // Apple Health: reading shows on the Health screen only; saving copies each workout you log from now on
   const health = settings.appleHealth ?? {};
   const toggleHealthRead = async (on: boolean) => {
     if (on) await requestHealthAccess(false).catch(error => console.error('Apple Health access failed:', error));
@@ -274,9 +274,9 @@ export default function SettingsScreen() {
               <Row
                 first
                 icon="heart.text.square"
-                title="Show on Progress"
+                title="Show in LiftText"
                 subtitle="Workouts from other apps and your body weight. They stay on this iPhone and are never sent to our server or the AI."
-                right={<Switch value={!!health.connected} onValueChange={toggleHealthRead} trackColor={{ true: colors.sunrise }} accessibilityLabel="Show Apple Health on Progress" />}
+                right={<Switch value={!!health.connected} onValueChange={toggleHealthRead} trackColor={{ true: colors.sunrise }} accessibilityLabel="Show Apple Health in LiftText" />}
               />
               <Row
                 icon="square.and.arrow.down.on.square"

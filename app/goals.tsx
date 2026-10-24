@@ -43,7 +43,7 @@ const muscleList = (muscles: MuscleGroup[]) =>
     .map((m, i) => (i === 0 ? muscleName(m) : muscleName(m).toLowerCase()))
     .join(', ') || 'None';
 
-// Your goals, checked on Progress against the last 7 days of your log. Changes save as you make them.
+// Your goals, checked on Training against the last 7 days of your log. Changes save as you make them.
 // Training, then food (food first for people who only log food), then your own goals.
 export default function GoalsScreen() {
   const { colors } = useTheme();

@@ -3,7 +3,7 @@
 ## Overview
 This document outlines the next major features to be implemented in the Training Tracker app. Both features are designed to be lightweight, non-invasive, and integrate seamlessly with existing functionality.
 
-The Coach tab has been replaced by **Progress** (`app/(tabs)/progress.tsx`): goals checked against the last 7 days (`services/goals.ts`, set in `app/goals.tsx`), each exercise with when it was last done and how often, PRs only where numbers were logged, days since each muscle group was trained, and natural-language corrections for missed workouts. Private progress photos (`app/photos.tsx`, behind Face ID) and Apple Health (workouts from other apps and body weight on Progress; saving logged workouts) shipped in one native build.
+The tabs are **Today · Training · Food · Chat** (DESIGN-SYSTEM.md). Training (`app/(tabs)/training.tsx`) holds goals checked against the log (`services/goals.ts`, `services/week.ts`, set in `app/goals.tsx`), lifts with PRs and next targets, and natural-language corrections for missed workouts; Food (`app/(tabs)/food.tsx`) holds today by meal and the protein trend. Private progress photos (`app/photos.tsx`, behind Face ID) and Apple Health (`app/health.tsx`; saving logged workouts) shipped in one native build.
 
 ## Feature 1: Intra-Workout Trainer
 
@@ -11,7 +11,7 @@ The Coach tab has been replaced by **Progress** (`app/(tabs)/progress.tsx`): goa
 A lightweight, context-aware AI assistant that provides real-time guidance during workouts without requiring special modes or complex tracking.
 
 ### User Experience
-- **Access Point**: Small "Ask Coach" button on the main Log tab (near recent workouts section)
+- **Access Point**: Small "Ask Coach" button on the Today tab
 - **Context Awareness**: Automatically knows what exercises have been logged today
 - **Interface**: Chat-style questions live on the Chat tab (`app/(tabs)/chat.tsx`, the log as one thread; Phase 1 of the coach: answers from a summary of the last 4 weeks, `services/coachPack.ts`, plus read tools over the log run on the phone, `services/coachTools.ts`; a suggested workout or meals come back as cards that save on a tap, `services/coachCards.ts`; explicit memory in Settings › What LiftText knows; a question typed into any tab's bar is answered there). Plan: `data/lifttext-agentic/report.md` in the firstmate home
 

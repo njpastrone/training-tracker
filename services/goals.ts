@@ -1,13 +1,12 @@
 import { analyzeWeeklyVolume } from './coach';
 import { displayName } from './exerciseIdentity';
-import { daysAgo } from './format';
 import { trainingWindow } from './pace';
 import { format, subDays } from 'date-fns';
 import { entriesFor, foodWeek, inUnit, personalRecords, type Entry } from './progress';
 import type { CustomGoal, ExerciseLibrary, FoodGoal, Goals, MuscleGroup, Workout } from '../types/workout';
 import type { FoodEntry } from '../types/food';
 
-// Goals checked against the log over the same rolling last 7 days as the sky and the tiles
+// Goals checked against the log over the same rolling last 7 days as the sky
 // (services/pace.ts). Local and deterministic, no AI. Sets count only where they were written:
 // a missing count is unknown, never a guess, so a muscle with one shows its sets as a floor.
 
@@ -123,27 +122,9 @@ export function goalProgress(goals: Goals, workouts: Workout[], library: Exercis
   };
 }
 
-// What Progress shows: workout goals only once there are workouts; the food goal and the food
-// week whenever they apply, so someone who only logs food still sees them
-export function progressSections(hasWorkouts: boolean, goals: ReturnType<typeof goalProgress> | undefined, foodLogged: number) {
-  const shown = goals && (hasWorkouts ? goals : { ...goals, muscles: [], custom: [], timesMet: 0, setsMet: 0 });
-  return {
-    goals: shown && (shown.muscles.length > 0 || shown.custom.length > 0 || !!shown.food) ? shown : undefined,
-    food: foodLogged > 0,
-  };
-}
-
 // "8", "5½", and "5½+" when some sets weren't written down
 export const formatSets = (sets: number, missing: boolean) =>
   `${Math.floor(sets)}${sets % 1 ? '½' : ''}${missing ? '+' : ''}`.replace(/^0½/, '½');
-
-// When a muscle was last trained, for its tile: "Trained today", "Trained Tuesday" within the last 7 days,
-// "Trained 9 days ago" before that
-export function trainedLine(days: number | undefined, now: Date = new Date()): string {
-  if (days === undefined) return 'Not trained yet';
-  if (days <= 1 || days > 6) return `Trained ${daysAgo(days)}`;
-  return `Trained ${format(subDays(now, days), 'EEEE')}`;
-}
 
 export const muscleName = (g: MuscleGroup) => (g === 'full_body' ? 'Full body' : g.charAt(0).toUpperCase() + g.slice(1));
 

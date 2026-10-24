@@ -166,7 +166,7 @@ export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   return raw;
 }
 
-// The last 7 days of food, oldest first, for Progress and the food goal. Averages are over the
+// The last 7 days of food, oldest first, for the Food details screen and the food goal. Averages are over the
 // days with food logged: a day nothing was written down is unknown, not zero. `top` is where most
 // of the protein came from: up to 3 short names ("chicken breast", "egg"), most first.
 export function foodWeek(entries: FoodEntry[], now: Date = new Date()) {

@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goalProgress, goalProgressLines, formatSets, goalLines, progressSections, calorieLeft, withFoodGoal, trainedLine } from './goals';
+import { goalProgress, goalProgressLines, formatSets, goalLines, calorieLeft, withFoodGoal } from './goals';
 import { emptyLibrary } from './exerciseIdentity';
 import { foodWeek } from './progress';
 import { catalogById } from '../data/catalog';
@@ -74,15 +74,6 @@ test('a lift goal: heaviest set in each of the last 4 weeks, and the change sinc
   const [older] = goalProgress(GOALS, [...WORKOUTS, w('2026-09-01', ['bench-press', 5, 185])], lib, [], NOW).custom;
   assert.equal(older.change, 35.5);
   assert.equal(goalProgress(GOALS, WORKOUTS, lib, [], NOW).custom[1].weeks, undefined);
-});
-
-test('when a muscle was last trained reads as a day', () => {
-  assert.equal(trainedLine(undefined, NOW), 'Not trained yet');
-  assert.equal(trainedLine(0, NOW), 'Trained today');
-  assert.equal(trainedLine(1, NOW), 'Trained yesterday');
-  assert.equal(trainedLine(2, NOW), 'Trained Sunday');
-  assert.equal(trainedLine(6, NOW), 'Trained Wednesday');
-  assert.equal(trainedLine(9, NOW), 'Trained 9 days ago');
 });
 
 test('only the goals that are on are checked', () => {
@@ -170,20 +161,6 @@ test('a protein target from before the one food goal becomes a protein food goal
   const none = { settings: { weightUnit: 'lbs' as const, goals: GOALS } };
   assert.equal(withFoodGoal(none), none);
   assert.deepEqual(withFoodGoal({}), {});
-});
-
-test('Progress shows the food goal and the food week for someone with food but no workouts', () => {
-  const goals = { ...GOALS, food: protein(140) };
-  const foodOnly = progressSections(false, goalProgress(goals, [], lib, FOOD, NOW), foodWeek(FOOD, NOW).logged);
-  assert.equal(foodOnly.food, true);
-  assert.deepEqual(foodOnly.goals?.muscles, []);
-  assert.deepEqual(foodOnly.goals?.custom, []);
-  assert.deepEqual(foodOnly.goals?.food, { goal: protein(140), hit: 2, logged: 3, met: false });
-
-  assert.equal(progressSections(false, goalProgress(GOALS, [], lib, FOOD, NOW), 0).goals, undefined);
-  assert.equal(progressSections(false, undefined, 0).food, false);
-  const both = progressSections(true, goalProgress(goals, WORKOUTS, lib, FOOD, NOW), 3);
-  assert.ok(both.goals!.muscles.length > 0 && both.goals!.food);
 });
 
 test('goal progress as plain lines for the coach and the planner, without food', () => {

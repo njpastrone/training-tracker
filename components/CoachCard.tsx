@@ -93,7 +93,7 @@ function Workout({ workout, planned, onPlan }: { workout: WorkoutCard; planned?:
         </View>
       ))}
       {planned ? (
-        <Text variant="bodySmall" style={[styles.done, { color: colors.textSecondary }]}>Planned for {workout.when}. It's on Log when you're ready.</Text>
+        <Text variant="bodySmall" style={[styles.done, { color: colors.textSecondary }]}>Planned for {workout.when}. It's on Today when you're ready.</Text>
       ) : onPlan ? (
         <View style={styles.actions}>
           <Pill icon="calendar.badge.plus" size="small" label={`Plan for ${workout.when}`} onPress={onPlan} />

@@ -1,29 +1,35 @@
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, StyleSheet, Alert, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { MaterialIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
-import { format } from 'date-fns';
-import { SkyCard, SkySheet, LargeTitle } from '../../components/Sky';
+import { differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { SkyCard, LargeTitle } from '../../components/Sky';
 import { Pill } from '../../components/Glass';
 import { ChatScreen, logBar } from '../../components/ChatBar';
 import { UserBubble } from '../../components/Chat';
+import { Caps, CoachLine, HueCard, Ring } from '../../components/Hue';
 import ParsedCard from '../../components/ParsedCard';
 import FoodCard from '../../components/FoodCard';
 import { ThinkingCard } from '../../components/CoachCard';
-import TodaySummary, { RecentDays, UpNext } from '../../components/TodayTiles';
-import SunArc from '../../components/SunArc';
 import { UndoToast } from '../../components/SelectableWorkoutList';
 import { MovePickCard } from '../../components/ThreadCards';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useLogDraft } from '../../hooks/useLogDraft';
-import { spacing } from '../../constants/theme';
+import { fonts, spacing } from '../../constants/theme';
 import { templateService } from '../../services/templates';
-import { logChips } from '../../services/suggestions';
+import { logChips, usualMeals } from '../../services/suggestions';
 import { foodByDay } from '../../services/progress';
-import { ParsedWorkoutResponse } from '../../types/workout';
+import { daysAgo, workoutName, workoutTotals } from '../../services/format';
+import { calorieLeft, foodTarget, foodValue, muscleName } from '../../services/goals';
+import { digest, target } from '../../services/insights';
+import { resolveId } from '../../services/exerciseIdentity';
+import { gapMuscle, todayLine } from '../../services/coachLine';
+import { dayWord, mealBubbles, muscleWeek, nextUp, plannedDays } from '../../services/week';
+import type { FoodGoal, ParsedWorkoutResponse, Workout } from '../../types/workout';
 import LogoMark from '../../components/LogoMark';
 
 // "Show me an example" for a first-time user: detail on one lift, names for the rest. Never saved.
@@ -38,20 +44,16 @@ const exampleDraft = (kg: boolean): ParsedWorkoutResponse => ({
   confidence: 1,
 });
 
-const greeting = (hour: number) => (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening');
+const n = (v: number) => Math.round(v).toLocaleString('en-US');
+const count = (v: number, word: string) => `${v} ${word}${v === 1 ? '' : 's'}`;
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const SLOT_WORD: Record<string, string> = { Morning: 'breakfast', Midday: 'lunch', Evening: 'dinner' };
+const MEAL_NAME: Record<string, string> = { Morning: 'Breakfast', Midday: 'Lunch', Afternoon: 'A snack', Evening: 'Dinner' };
 
-export default function LogScreen() {
-  const {
-    workouts,
-    schedule,
-    getTodaysScheduledWorkout,
-    getTemplate,
-    markWorkoutSkipped,
-    markWorkoutCompleted,
-    loadSchedule,
-    loadTemplates,
-    settings,
-  } = useWorkoutStore();
+// What now: today's training and food side by side, the next thing to do, tomorrow, and one coach line.
+// Logging stays its bar: a workout, food, or both from one message.
+export default function TodayScreen() {
+  const { workouts, foodEntries, schedule, templates, exerciseLibrary, getTodaysScheduledWorkout, getTemplate, markWorkoutSkipped, markWorkoutCompleted, loadSchedule, loadTemplates, settings } = useWorkoutStore();
   const { colors } = useTheme();
   const router = useRouter();
   const [logged, setLogged] = useState<string | null>(null); // toast after saving
@@ -60,33 +62,52 @@ export default function LogScreen() {
 
   const now = new Date();
   const today = format(now, 'yyyy-MM-dd');
-
-  // Get today's scheduled workout
   const todaysSchedule = getTodaysScheduledWorkout();
   const scheduledTemplate = todaysSchedule ? getTemplate(todaysSchedule.templateId) : null;
-  // Chat bar chips: today's plan, your usual meal and your last different workouts to log again, or examples while you're new
-  const foodEntries = useWorkoutStore(s => s.foodEntries);
   const chips = useMemo(() => logChips(workouts, scheduledTemplate, new Date(), foodEntries), [workouts, scheduledTemplate, foodEntries]);
 
-  const upcoming = schedule.filter(s => s.date >= today && !s.completed && !s.skipped).sort((a, b) => a.date.localeCompare(b.date));
-  const hasUpcoming = upcoming.length > 0;
-  const next = upcoming.find(s => s.date > today); // Up next: the first planned day after today
-
-  // Tiles: Training for anyone who lifts or has a plan, Food for anyone who logs food or set a food goal
   const food = useMemo(() => foodByDay(foodEntries), [foodEntries]);
   const foodGoal = settings.goals?.food;
   const todays = workouts.filter(w => w.date === today);
-  const lifts = workouts.length > 0 || hasUpcoming;
+  const planned = useMemo(() => plannedDays(schedule, templates, workouts, today), [schedule, templates, workouts, today]);
+  const plannedToday = planned.find(p => p.date === today);
+  const next = planned.find(p => p.date > today);
+  // Tiles: Training for anyone who lifts or has a plan, Food for anyone who logs food or set a food goal
+  const lifts = workouts.length > 0 || planned.length > 0;
   const eats = foodEntries.length > 0 || !!foodGoal;
+
+  const bubbles = useMemo(() => mealBubbles(foodEntries.filter(e => e.date === today), foodGoal, now), [foodEntries, foodGoal, today]);
+  const toGo = bubbles.find(b => b.toGo);
+  const usual = useMemo(() => {
+    const slot = toGo && SLOT_WORD[toGo.name];
+    const u = slot && usualMeals(foodEntries, now).find(m => m.slot === slot);
+    if (!u) return undefined;
+    const names = u.entry.items.map(i => i.name.toLowerCase());
+    return { items: names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' and '), around: format(parseISO(u.entry.createdAt), 'h a').toLowerCase() };
+  }, [foodEntries, toGo?.name]);
+  const up = nextUp({ plannedToday, trainedToday: todays.length > 0, goal: foodGoal, today: food.get(today), bubbles, usual, plannedAhead: !!next });
+
+  // The coach line: what's left of the protein goal, and the goal muscle furthest off that a plan covers
+  const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
+  const rows = useMemo(() => muscleWeek(settings.goals, workouts, schedule, templates, exerciseLibrary, now), [settings.goals, workouts, schedule, templates, exerciseLibrary, today]);
+  const gap = gapMuscle(rows, d.daysSinceGroupTrained);
+  const line = todayLine({
+    left: foodGoal?.kind === 'protein' && (food.get(today) || toGo) ? Math.max(0, foodGoal.target - (food.get(today)?.protein ?? 0)) : undefined,
+    nextMeal: toGo && MEAL_NAME[toGo.name],
+    gap: gap && { group: gap.group, daysSince: d.daysSinceGroupTrained[gap.group], plan: planned.find(p => p.groups.includes(gap.group)) },
+    today,
+  });
+  // Tomorrow's first lift with its next number, as the check-in does
+  const trends = useMemo(() => new Map(d.liftTrends.map(t => [t.id, t])), [d]);
+  const nextLift = next && templates.find(t => t.id === next.templateId)?.exercises.map(e => e.exerciseId && trends.get(resolveId(e.exerciseId, exerciseLibrary))).find(Boolean);
 
   // Nothing logged yet: the first-run hint stands in for the tiles. After the first log the planner
   // is offered for the rest of the week.
   const firstRun = workouts.length === 0 && foodEntries.length === 0;
   const justStarted = !!settings.onboardedAt && workouts.length === 1 && workouts[0].date === today;
   const weeklyTarget = settings.weeklyTarget ?? 3;
-  // Planning happens in History's chat bar
-  const planRest = () =>
-    router.navigate({ pathname: '/(tabs)/history', params: { request: `The rest of this week, ${weeklyTarget} days a week.` } });
+  // Planning happens in Training's chat bar
+  const plan = (request: string) => router.navigate({ pathname: '/(tabs)/training', params: { request } });
 
   const log = useLogDraft({
     date: today,
@@ -117,7 +138,7 @@ export default function LogScreen() {
     return () => clearTimeout(timer);
   }, [logged]);
 
-  const handleStartScheduledWorkout = () => {
+  const startPlanned = () => {
     if (!scheduledTemplate) {
       Alert.alert("Couldn't find today's template", 'Try planning the day again.');
       return;
@@ -125,12 +146,12 @@ export default function LogScreen() {
     try {
       log.startFromTemplate(templateService.templateToWorkout(scheduledTemplate), scheduledTemplate.id);
     } catch (error) {
-      console.error('Error in handleStartScheduledWorkout:', error);
+      console.error('Error in startPlanned:', error);
       Alert.alert("Couldn't start the workout", 'Try again.');
     }
   };
 
-  const handleSkipScheduledWorkout = () => {
+  const skipPlanned = () => {
     if (!todaysSchedule) return;
     Alert.alert("Skip today's workout?", 'You can plan it again anytime.', [
       { text: 'Cancel', style: 'cancel' },
@@ -139,7 +160,7 @@ export default function LogScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await markWorkoutSkipped(todaysSchedule.date, 'User skipped'); // the Start / Skip row going away confirms it
+            await markWorkoutSkipped(todaysSchedule.date, 'User skipped'); // the Start row going away confirms it
           } catch (error) {
             Alert.alert("Couldn't skip the workout", 'Try again.');
           }
@@ -148,13 +169,25 @@ export default function LogScreen() {
     ]);
   };
 
+  // The Next up button: start the plan in the composer, put the usual meal in the bar, or plan tomorrow
+  const act = () => {
+    if (up.action === 'start') return startPlanned();
+    if (up.action === 'plan') return plan('A workout tomorrow');
+    const slot = toGo && SLOT_WORD[toGo.name];
+    const u = slot && usualMeals(foodEntries, now).find(m => m.slot === slot);
+    log.setText(u ? u.entry.items.map(i => i.said ?? i.name).join(', ') : '');
+  };
+
   const reviewing = !!log.sent || !!log.draft || !!log.food || !!example;
 
   return (
-    <ChatScreen bar={logBar(log, "What'd you do or eat today?", chips, () => setExample(null))} follow={reviewing} overlay={<UndoToast />}>
-      <LargeTitle title={greeting(now.getHours())} subtitle={format(now, 'EEEE, MMMM d')} />
-      {!reviewing && lifts && <SunArc />}
-      <SkySheet>
+    <ChatScreen
+      bar={logBar(log, "What'd you do or eat today?", chips, () => setExample(null))}
+      follow={reviewing}
+      overlay={<UndoToast />}
+      hue={{ glow: [colors.trainSoft, colors.foodSoft], accent: [colors.sunrise, colors.food] }}
+    >
+      <LargeTitle title="Today" subtitle={format(now, 'EEEE, MMMM d')} />
 
       {firstRun && !todaysSchedule ? (
         !reviewing && (
@@ -166,25 +199,70 @@ export default function LogScreen() {
             </Text>
             <View style={styles.firstActions}>
               <Pill variant="glass" size="small" label="Show me an example" onPress={() => setExample(exampleDraft(settings.weightUnit === 'kg'))} />
-              <Pill variant="glass" size="small" label="I haven't trained yet" onPress={planRest} />
+              <Pill variant="glass" size="small" label="I haven't trained yet" onPress={() => plan(`The rest of this week, ${weeklyTarget} days a week.`)} />
             </View>
           </SkyCard>
         )
       ) : (
         // The rest of the page hides while a parsed card is open (DESIGN-SYSTEM.md, ChatBar)
-        !reviewing && <TodaySummary
-          today={today}
-          training={lifts ? { todays, planned: todays.length ? undefined : scheduledTemplate ?? undefined, last: workouts.find(w => w.date < today) } : undefined}
-          food={eats ? { goal: foodGoal, day: food.get(today) } : undefined}
-        />
-      )}
+        !reviewing && (
+          <>
+            {/* Slot 1: done today, training and food side by side */}
+            <View style={styles.twins}>
+              {lifts && <TrainingTwin todays={todays} planned={plannedToday?.name} plannedCount={plannedToday?.exercises} last={workouts.find(w => w.date < today)} today={today} />}
+              {eats && <FoodTwin total={food.get(today)} goal={foodGoal} />}
+            </View>
 
-      {/* Today's planned workout, not logged yet: start it in the composer or skip it */}
-      {!reviewing && todaysSchedule && scheduledTemplate && todays.length === 0 && (
-        <View style={styles.planRow}>
-          <Pill size="small" icon="play.fill" label="Start workout" onPress={handleStartScheduledWorkout} style={styles.primaryAction} />
-          <Pill size="small" variant="glass" label="Skip" onPress={handleSkipScheduledWorkout} style={styles.secondaryAction} />
-        </View>
+            {/* Slot 2: the next action */}
+            <SkyCard card style={styles.tight}>
+              <View style={styles.row}>
+                <View style={styles.fill}>
+                  <Caps>Next up</Caps>
+                  <Text style={[styles.rowTitle, { color: colors.text }]}>{up.title}</Text>
+                  {up.sub && <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{up.sub}</Text>}
+                </View>
+                {up.action && (
+                  <Pill size="small" label={up.action === 'start' ? 'Start' : up.action === 'log' ? 'Log' : 'Plan'} color={up.action === 'log' ? colors.food : undefined} onPress={act} />
+                )}
+              </View>
+              {up.action === 'start' && (
+                <Pressable onPress={skipPlanned} accessibilityRole="button" hitSlop={10} style={styles.skip}>
+                  <Text variant="labelMedium" style={{ color: colors.textTertiary }}>Skip today</Text>
+                </Pressable>
+              )}
+            </SkyCard>
+
+            {/* Slot 3: tomorrow, or the next planned day */}
+            {lifts && (
+              <Pressable
+                onPress={() => (next ? router.push(`/day/${next.date}`) : plan('A workout tomorrow'))}
+                accessibilityRole="button"
+                accessibilityLabel={next ? `${capital(dayWord(next.date, today))}, ${next.name} planned, ${count(next.exercises, 'exercise')}` : 'Tomorrow, nothing planned'}
+                accessibilityHint={next ? 'Opens the day' : 'Plans it in Training'}
+              >
+                {({ pressed }) => (
+                  <SkyCard card style={[styles.tight, pressed && styles.pressed]}>
+                    <View style={styles.row}>
+                      <View style={[styles.planRing, { borderColor: next ? colors.sunrise : colors.textTertiary }]}>
+                        <Text style={[styles.planRingText, { color: next ? colors.sunrise : colors.textTertiary }]}>{format(parseISO(next?.date ?? today), 'EEEEEE')}</Text>
+                      </View>
+                      <View style={styles.fill}>
+                        <Caps>{next && differenceInCalendarDays(parseISO(next.date), parseISO(today)) !== 1 ? capital(dayWord(next.date, today)) : 'Tomorrow'}</Caps>
+                        <Text style={[styles.rowTitle, { color: colors.text }]}>{next ? `${next.name} · planned` : 'Nothing planned'}</Text>
+                        <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
+                          {next ? [count(next.exercises, 'exercise'), nextLift && `${nextLift.lift} next ${target(nextLift).next}`].filter(Boolean).join(' · ') : 'Plan it in Training'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.chevron, { color: colors.textTertiary }]}>›</Text>
+                    </View>
+                  </SkyCard>
+                )}
+              </Pressable>
+            )}
+
+            {line && <CoachLine line={line} />}
+          </>
+        )
       )}
 
       {logged && (
@@ -196,14 +274,14 @@ export default function LogScreen() {
         </Animated.View>
       )}
 
-      {!reviewing && !hasUpcoming && justStarted && !notNow && (
+      {!reviewing && !planned.length && justStarted && !notNow && (
         <SkyCard card>
           <Text variant="titleMedium" style={{ color: colors.text }}>Want to plan the rest of your week?</Text>
           <Text variant="bodyMedium" style={[styles.planText, { color: colors.textSecondary }]}>
             You're aiming for {weeklyTarget} days a week. I'll fit the rest around what you just did.
           </Text>
           <View style={styles.actions}>
-            <Pill icon="logo" label="Plan my week" onPress={planRest} style={styles.primaryAction} />
+            <Pill icon="logo" label="Plan my week" onPress={() => plan(`The rest of this week, ${weeklyTarget} days a week.`)} style={styles.primaryAction} />
             <Pill variant="glass" label="Not now" onPress={() => setNotNow(true)} style={styles.secondaryAction} />
           </View>
         </SkyCard>
@@ -266,18 +344,188 @@ export default function LogScreen() {
           reply={log.reply}
         />
       )}
-
-      {!reviewing && lifts && next && <UpNext date={next.date} today={today} template={getTemplate(next.templateId)} />}
-
-      {!reviewing && <RecentDays workouts={workouts} food={food} goal={foodGoal} today={today} />}
-      </SkySheet>
     </ChatScreen>
   );
 }
 
+// Training today in coral: the workout's name with a full ring once it's logged, the plan until then
+function TrainingTwin({ todays, planned, plannedCount, last, today }: { todays: Workout[]; planned?: string; plannedCount?: number; last?: Workout; today: string }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const done = todays.length > 0;
+  const groups = [...new Set(todays.flatMap(w => w.muscleGroups))];
+  const sets = workoutTotals(todays.flatMap(w => w.exercises)).sets;
+  const title = done ? workoutName(groups) : planned ?? 'Rest';
+  const sub = done
+    ? [`Done · ${count(todays.reduce((s, w) => s + w.exercises.length, 0), 'exercise')}`, groups.map(muscleName).join(', ')]
+    : planned
+      ? [`Planned · ${count(plannedCount ?? 0, 'exercise')}`, 'Start it in Next up']
+      : [last ? `Last: ${workoutName(last.muscleGroups)} ${daysAgo(differenceInCalendarDays(parseISO(today), parseISO(last.date)))}` : 'Nothing yet today', ''];
+  return (
+    <Pressable onPress={() => router.navigate('/(tabs)/training')} accessibilityRole="button" accessibilityLabel={`Training today: ${title}, ${sub.filter(Boolean).join(', ')}`} accessibilityHint="Opens Training" style={styles.fill}>
+      {({ pressed }) => (
+        <HueCard hue="train" style={[styles.twin, pressed && styles.pressed]}>
+          <View style={styles.twinHead}>
+            <Caps onHero>Training</Caps>
+            {done && sets > 0 && <Text style={[styles.em, { color: colors.onHero }]}>{sets} sets</Text>}
+          </View>
+          <Ring size={64} stroke={7} progress={done ? 1 : 0} track={colors.heroTrack} color={colors.onHero}>
+            {done ? (
+              <SymbolView name="checkmark" size={26} weight="bold" tintColor={colors.onHero} fallback={<MaterialIcons name="check" size={26} color={colors.onHero} />} style={styles.check} />
+            ) : (
+              <Text style={[styles.ringText, { color: colors.onHeroSoft }]}>{planned ? 'plan' : '–'}</Text>
+            )}
+          </Ring>
+          <Text style={[styles.big, { color: colors.onHero }]} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.s, { color: colors.onHeroSoft }]}>
+            <Text style={{ color: colors.onHero }}>{sub[0].split(' · ')[0]}</Text>
+            {sub[0].includes(' · ') ? ` · ${sub[0].split(' · ')[1]}` : ''}
+            {sub[1] ? `\n${sub[1]}` : ''}
+          </Text>
+        </HueCard>
+      )}
+    </Pressable>
+  );
+}
+
+// Food today in mint: the goal's number with its ring, what's left and the rest
+function FoodTwin({ total, goal }: { total?: { protein: number; kcal: number; meals: number }; goal?: FoodGoal }) {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const value = total ? (goal ? foodValue(goal, total) : total.protein) : 0;
+  const protein = !goal || goal.kind === 'protein';
+  const share = goal ? value / goal.target : 0;
+  const big = protein ? `${value} g` : n(value);
+  const of = goal ? `of ${foodTarget(goal)} ${protein ? 'protein' : 'kcal'}` : 'protein';
+  const rest = !total
+    ? 'Nothing logged yet'
+    : protein
+      ? `${goal ? (goal.target - value > 0 ? `${goal.target - value} g to go` : 'Goal met ✓') : ''}${goal ? ' · ' : ''}${n(total.kcal)} kcal`
+      : `${calorieLeft(goal!, total.kcal)} · ${total.protein} g protein`;
+  return (
+    <Pressable onPress={() => router.navigate('/(tabs)/food')} accessibilityRole="button" accessibilityLabel={`Food today: ${big} ${of}, ${rest}`} accessibilityHint="Opens Food" style={styles.fill}>
+      {({ pressed }) => (
+        <HueCard hue="food" style={[styles.twin, pressed && styles.pressed]}>
+          <View style={styles.twinHead}>
+            <Caps onHero>Food</Caps>
+            {!!total?.meals && <Text style={[styles.em, { color: colors.onHero }]}>{count(total.meals, 'meal')}</Text>}
+          </View>
+          <Ring size={64} stroke={7} progress={share} track={colors.heroTrack} color={colors.onHero}>
+            <Text style={[styles.ringText, { color: colors.onHero }]}>{goal ? `${Math.round(share * 100)}%` : '–'}</Text>
+          </Ring>
+          <Text style={[styles.big, { color: colors.onHero }]} numberOfLines={1}>
+            {big}
+            {!protein && <Text style={[styles.unit, { color: colors.onHeroSoft }]}> kcal</Text>}
+          </Text>
+          <Text style={[styles.s, { color: colors.onHeroSoft }]}>
+            {of}
+            {'\n'}
+            <Text style={{ color: colors.onHero }}>{rest}</Text>
+          </Text>
+        </HueCard>
+      )}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  fill: {
+    flex: 1,
+  },
   center: {
     textAlign: 'center',
+  },
+  twins: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: spacing.gap,
+  },
+  twin: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 0,
+  },
+  twinHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  em: {
+    fontFamily: fonts.rounded,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  check: {
+    width: 26,
+    height: 26,
+  },
+  ringText: {
+    fontFamily: fonts.rounded,
+    fontSize: 15,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  big: {
+    fontFamily: fonts.rounded,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    marginTop: spacing.sm,
+  },
+  unit: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  s: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  tight: {
+    paddingVertical: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 44,
+  },
+  rowTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  skip: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    minHeight: 24,
+    justifyContent: 'center',
+  },
+  planRing: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planRingText: {
+    fontFamily: fonts.rounded,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  chevron: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  pressed: {
+    opacity: 0.7,
   },
   toastWrap: {
     alignItems: 'center',
@@ -296,11 +544,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.gap,
-  },
-  planRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.gap,
   },
   primaryAction: {
     flex: 2,

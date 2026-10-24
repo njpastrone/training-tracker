@@ -9,12 +9,13 @@ import { fonts, radius, spacing } from '../constants/theme';
 
 // A screen on the sky. Light mode tracks the last 7 days of training (services/sky.ts); Dark Mode is night.
 // Native tabs inset the scroll view for the tab bar, so only the top edge is padded by default.
-export function SkyScreen({ children, edges = ['top'] }: { children: React.ReactNode; edges?: Edge[] }) {
+// A tab's `glow` is its hue (two for Today: training left, food right), a soft wash at the top so the colour says which tab this is.
+export function SkyScreen({ children, edges = ['top'], glow }: { children: React.ReactNode; edges?: Edge[]; glow?: string[] }) {
   const { isDarkMode, sky } = useTheme();
   const stops = isDarkMode ? SKY.night : sky.stops;
   return (
     <View style={[styles.fill, { backgroundColor: stops[3] }]}>
-      {/* ponytail: one 45% fade for every screen; the spec's 30% for short headers can come later if History or Settings look washed out */}
+      {/* ponytail: one 45% fade for every screen; the spec's 30% for short headers can come later if the calendar or Settings look washed out */}
       <LinearGradient colors={stops} locations={[0, 0.15, 0.3, 0.45]} style={StyleSheet.absoluteFill} />
       <LinearGradient
         colors={isDarkMode ? ['rgba(42,39,102,0.9)', 'rgba(42,39,102,0)'] : ['rgba(255,248,232,0.75)', 'rgba(255,248,232,0)']}
@@ -22,6 +23,15 @@ export function SkyScreen({ children, edges = ['top'] }: { children: React.React
         end={{ x: 0.35, y: 0.45 }}
         style={StyleSheet.absoluteFill}
       />
+      {glow?.map((hue, i) => (
+        <LinearGradient
+          key={i}
+          colors={[hue, hue.replace(/[\d.]+\)$/, '0)')]}
+          start={{ x: glow.length > 1 && i === 1 ? 1 : 0, y: 0 }}
+          end={{ x: glow.length > 1 ? 0.5 : 0.8, y: 0.4 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ))}
       <SafeAreaView edges={edges} style={styles.fill}>
         {children}
       </SafeAreaView>
@@ -43,23 +53,6 @@ export function SkySheet({ children }: { children: React.ReactNode }) {
       ]}
     >
       <SheetContext.Provider value={true}>{children}</SheetContext.Provider>
-    </View>
-  );
-}
-
-// A screen's one big number: "2 of 3", an optional sunrise note ("goal met ✓"), and what it counts
-export function Hero({ value, of, note, sub }: { value: string; of?: string; note?: string; sub: string }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.hero} accessible accessibilityLabel={[value, of, note, sub].filter(Boolean).join(' ')}>
-      <View style={styles.heroLine}>
-        <Text variant="displaySmall" style={{ color: colors.text, fontVariant: ['tabular-nums'] }}>
-          {value}
-          {of ? <Text variant="displaySmall" style={{ color: colors.textTertiary }}>{` ${of}`}</Text> : null}
-        </Text>
-        {note ? <Text variant="titleMedium" style={{ color: colors.sunrise }}>{note}</Text> : null}
-      </View>
-      <Text variant="bodyMedium" style={{ color: colors.textSecondary }}>{sub}</Text>
     </View>
   );
 }
@@ -146,16 +139,6 @@ const styles = StyleSheet.create({
   section: {
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth, // below, so the first section doesn't double the sheet's edge
-  },
-  hero: {
-    marginBottom: spacing.lg,
-    gap: 2,
-  },
-  heroLine: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    flexWrap: 'wrap',
-    columnGap: spacing.sm,
   },
   label: {
     fontFamily: fonts.rounded,

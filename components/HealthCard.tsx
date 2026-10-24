@@ -10,7 +10,7 @@ import { activityName, healthAvailable, readHealthWeek, type HealthWeek } from '
 import { formatDuration } from '../services/format';
 import { spacing } from '../constants/theme';
 
-// Apple Health on Progress, once it's on in Settings: workouts other apps and devices saved in the last 7 days
+// Apple Health, behind the Health and Body weight doors, once it's on in Settings: workouts other apps and devices saved in the last 7 days
 // and your body weight. Read fresh on each visit and held only here: never stored, backed up or sent anywhere.
 export default function HealthCard() {
   const { colors } = useTheme();
