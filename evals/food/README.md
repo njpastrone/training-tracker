@@ -47,6 +47,10 @@ passes only when nothing is logged. Items are not matched one to one: a meal spl
 adding up right still counts. Cases from the scout's set also show "kcal at its tolerance" (its own
 tight/normal/loose bar per case).
 
+A case with `gi` (the meal's glycemic-load bands that count as right: `['high']`, or `['low', 'medium']` for a
+borderline meal like lentils) also scores the model's one-word band for the meal; the `gi` column is the share
+of those cases it got right. "Phone first" meals carry no band, so that system scores it low by design.
+
 ## Gold sets
 
 - `cases.ts` (122) and `scout.ts` (the research scout's 199): the **dev** sets, used for tuning.
@@ -78,3 +82,17 @@ Measured 2026-10-08 with `--cli`. kcal and protein within 20%, kcal within 10%:
 
 About $0.002 per food log for the app's design uncached (thinking included), $0.008 on Sonnet 5.5 every
 log, $0.003 on Haiku 4.5. See FEATURES.md, "Food logging", for categories, cost and what's left.
+
+### Glycemic-load band and fiber (2026-10-24, `--cli`)
+
+The prompt now also asks for a `fiber` estimate on each estimated item and one `gi` band (low, medium, high) for
+the meal, in the same call. Nine dev cases carry reference bands (white rice, pasta, a big plate of pasta and a can
+of coke high; 2 eggs and a chicken caesar low; eggs and toast, eggs and a banana, a cup of lentils low or medium):
+9 of 9 right. On the dev set all 115 estimated items came back with fiber and all 309 meals with food got a band
+(102 low, 159 medium, 48 high). Macros held: dev 91% / 90% (kcal, protein within 20%) at $0.0020 per log with 11%
+escalated; held-out 85% / 84% / 67% (kcal within 10%), 15% escalated, $0.0026 per log, p50 5.3 s.
+
+The first draft of the prompt doubled escalation on the held-out set (11% → 24%, $0.0018 → $0.0033 per log): Haiku
+folded its doubt about the fiber and gi guesses into `confidence`. One sentence saying confidence is about what was
+eaten and how much, never about the estimates, brought it back to 15%. The remaining gap to the old prompt, measured
+in the same session (11% escalated, $0.0018, p50 4.5 s), is the extra output tokens and a few more escalations.

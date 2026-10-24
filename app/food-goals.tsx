@@ -23,7 +23,7 @@ const ORDER: FoodGoalFamily[] = ['protein', 'calories', 'lowgi', 'fiber'];
 const HELP: Record<FoodGoalFamily, string> = {
   protein: 'At least this much a day',
   calories: 'Cutting: stay under this a day. Bulking: reach at least it',
-  lowgi: 'Meals a day whose foods average a glycemic index of 55 or under',
+  lowgi: 'Meals a day the food log reads as low glycemic load',
   fiber: 'At least this much a day',
 };
 
@@ -56,7 +56,7 @@ export default function FoodGoalsScreen() {
             const goal = byFamily(f);
             const kcal = f === 'calories';
             const name = f === 'calories' ? 'Calories' : FOOD_GOAL_NAMES[DEFAULTS[f].kind];
-            const note = f === 'fiber' && !known.fiber ? 'Shows on Food once your food log carries fiber numbers' : f === 'lowgi' && !known.lowgi ? 'Shows on Food once your food log carries glycemic index estimates' : undefined;
+            const note = f === 'fiber' && !known.fiber ? 'Shows on Food once your food log carries fiber numbers' : f === 'lowgi' && !known.lowgi ? 'Shows on Food once your food log carries glycemic-load estimates' : undefined;
             return (
               <View key={f} style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.dim }]}>
                 <View style={styles.head}>

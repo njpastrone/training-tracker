@@ -1,5 +1,8 @@
 // Food logging: the built-in food table (data/foods.ts), what a parse returns, and what is saved.
 
+import type { GiBand, GiByDay } from '../server/src/food';
+export type { GiBand, GiByDay };
+
 // Friendly groups shown as a small coloured dot, like muscle groups
 export type FoodCategory =
   | 'meat_fish'
@@ -58,7 +61,6 @@ export interface FoodItem {
   unit?: FoodUnit;
   grams?: number; // total weight, when known
   macros: Macros;
-  gi?: number; // glycemic index, when the food log estimates it; a meal is low-GI at 55 or under (services/progress.ts)
   source: 'usda' | 'estimate'; // USDA numbers, or the AI's best guess (branded, restaurant, homemade)
 }
 
@@ -66,6 +68,7 @@ export interface FoodItem {
 export interface FoodDraft {
   items: (FoodItem & { dayOffset?: number })[];
   confidence: number; // 0-1
+  gi?: GiByDay; // the model's estimate of each day's glycemic load, by dayOffset; unset when it gave none
 }
 
 // One saved food log for a day: a meal, a snack, or everything typed at once
@@ -75,4 +78,5 @@ export interface FoodEntry {
   items: (FoodItem & { id: string })[];
   rawInput: string;
   createdAt: string; // ISO timestamp
+  gi?: GiBand; // always an estimate: the model's read of the meal as logged (edits to the food don't recompute it)
 }

@@ -38,3 +38,13 @@ test('a failed parse misses everything; not-food passes only when empty', () => 
   assert.equal(s.all, false);
   assert.match(s.misses[0], /not food/);
 });
+
+test('gi is scored only when the case has bands, and a borderline meal accepts two', () => {
+  assert.equal(scoreFoodCase(meal, items([150, 12, 1, 10])).gi, undefined);
+  const banded: FoodCase = { ...meal, gi: ['low', 'medium'] };
+  assert.equal(scoreFoodCase(banded, { ...items([150, 12, 1, 10]), gi: 'medium' }).gi, true);
+  const s = scoreFoodCase(banded, { ...items([150, 12, 1, 10]), gi: 'high' });
+  assert.equal(s.gi, false);
+  assert.match(s.misses.at(-1)!, /gi: got high, want low or medium/);
+  assert.equal(scoreFoodCase(banded, null).gi, false);
+});

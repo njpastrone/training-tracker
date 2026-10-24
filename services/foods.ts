@@ -6,10 +6,11 @@ import { FOODS, MORE_FOODS, foodById } from '../data/foods';
 import { CATALOG, normalizeWords, singularWords } from '../data/catalog';
 import { catalogHits, editDistance } from '../server/src/identity';
 import type { RawFoodItem } from '../server/src/food';
-import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, Macros } from '../types/food';
+import type { Food, FoodDraft, FoodEntry, FoodItem, FoodUnit, GiBand, Macros } from '../types/food';
 import { macrosFor, parseAmount, toGrams, unitFromWord, convertQty, unitsFor, isMass, isVolume, own } from './foodUnits';
 import { englishFoodWords } from './foodWords';
-import { format, parseISO } from 'date-fns';
+import { addDays, format, parseISO } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 const MAX_CANDIDATES = 50;
 
@@ -372,6 +373,31 @@ export function sumMacros(items: { macros: Macros }[]): Macros {
   const fiber = items.some(i => i.macros.fiber !== undefined) ? { fiber: Math.round(t.fiber) } : {};
   return { kcal: Math.round(t.kcal), protein: Math.round(t.protein), carbs: Math.round(t.carbs), fat: Math.round(t.fat), ...fiber };
 }
+
+// One food entry per day the food draft covers, dated relative to baseDate (YYYY-MM-DD), each with that day's gi band
+export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate: string): FoodEntry[] {
+  const offsets = [...new Set(food.items.map((i) => i.dayOffset ?? 0))].sort((a, b) => a - b);
+  return offsets.map((offset) => ({
+    id: uuidv4(),
+    date: format(addDays(parseISO(baseDate), offset), 'yyyy-MM-dd'),
+    items: food.items.filter((i) => (i.dayOffset ?? 0) === offset).map(({ dayOffset, ...i }) => ({ ...i, id: uuidv4() })),
+    rawInput,
+    createdAt: new Date().toISOString(),
+    ...(food.gi?.[offset] ? { gi: food.gi[offset] } : {}),
+  }));
+}
+
+// The food draft moved to one day (offset from the logging date). Its band moves with it; bands from several days
+// that disagree have no one answer for the merged day, so they're dropped.
+export function moveFoodDraft(food: FoodDraft, offset: number): FoodDraft {
+  const { gi, ...rest } = food;
+  const bands = [...new Set(Object.values(gi ?? {}))];
+  return { ...rest, items: food.items.map((i) => ({ ...i, dayOffset: offset || undefined })), ...(bands.length === 1 ? { gi: { [offset]: bands[0] } } : {}) };
+}
+
+// How a meal's gi band reads on screen: how the meal fits a low-GI preference, never what it does to anyone's
+// blood sugar or health. Always an estimate, so "likely".
+export const GI_LABEL: Record<GiBand, string> = { low: 'likely steady', medium: 'in between', high: 'higher-carb' };
 
 // "42 g protein · 520 kcal": protein first, the number a lifter acts on
 export const macroLine = (m: Macros) => `${Math.round(m.protein)} g protein · ${Math.round(m.kcal).toLocaleString('en-US')} kcal`;

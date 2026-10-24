@@ -1,31 +1,17 @@
 import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { v4 as uuidv4 } from 'uuid';
-import { addDays, format, parseISO } from 'date-fns';
 import { useWorkoutStore } from '../stores/workoutStore';
 import { useChatStore } from '../stores/chatStore';
 import { parseWorkout, parseLog, correctWorkout, correctFood, workoutsFromParse, ApiError } from '../services/claude';
-import { mentionsFood } from '../services/foods';
+import { foodEntriesFromDraft, mentionsFood } from '../services/foods';
 import { routeComposer } from '../services/ask';
 import { entryLabel, noMoveText, readMove, resolveMove, type EntryRef } from '../services/moveLog';
 import { ParsedWorkoutResponse, Workout } from '../types/workout';
-import { FoodDraft, FoodEntry } from '../types/food';
+import { FoodDraft } from '../types/food';
 import { NOTHING_CHANGED, sameDraft } from '../services/draft';
 import type { FixReplyState } from '../components/ParsedCard';
 
 export type Draft = ParsedWorkoutResponse;
-
-// One food entry per day the food draft covers, dated relative to baseDate (YYYY-MM-DD)
-export function foodEntriesFromDraft(food: FoodDraft, rawInput: string, baseDate: string): FoodEntry[] {
-  const offsets = [...new Set(food.items.map((i) => i.dayOffset ?? 0))].sort((a, b) => a - b);
-  return offsets.map((offset) => ({
-    id: uuidv4(),
-    date: format(addDays(parseISO(baseDate), offset), 'yyyy-MM-dd'),
-    items: food.items.filter((i) => (i.dayOffset ?? 0) === offset).map(({ dayOffset, ...i }) => ({ ...i, id: uuidv4() })),
-    rawInput,
-    createdAt: new Date().toISOString(),
-  }));
-}
 
 const DAY_WORDS = /\b(yesterday|today|last night|this morning|days? ago|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/;
 
