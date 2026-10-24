@@ -182,7 +182,11 @@ export interface MealBubble {
 
 // Where the next meal usually lands, after the latest one
 const SLOTS: [name: string, hour: number][] = [['Morning', 8], ['Midday', 12.5], ['Afternoon', 15.5], ['Evening', 19]];
-export const nextSlot = (afterHour: number) => SLOTS.find(([, h]) => h > afterHour);
+// after today's logged meals (or from an hour and a half ago when none yet)
+export const nextMeal = (meals: { hour: number }[], now: Date) => {
+  const after = meals.length ? meals[meals.length - 1].hour : now.getHours() + now.getMinutes() / 60 - 1.5;
+  return SLOTS.find(([, h]) => h > after);
+};
 const hourOf = (iso: string) => {
   const d = parseISO(iso);
   return d.getHours() + d.getMinutes() / 60;
@@ -207,8 +211,7 @@ export function mealBubbles(todays: FoodEntry[], goal: FoodGoal | undefined, now
   }
   const protein = meals.reduce((s, m) => s + m.grams, 0);
   const left = goal?.kind === 'protein' ? goal.target - protein : 0;
-  const after = meals.length ? meals[meals.length - 1].hour : now.getHours() + now.getMinutes() / 60 - 1.5;
-  const next = left > 0 ? nextSlot(after) : undefined;
+  const next = left > 0 ? nextMeal(meals, now) : undefined;
   return next ? [...meals, { name: next[0], time: 'to go', hour: next[1], grams: left, toGo: true }] : meals;
 }
 
@@ -231,24 +234,30 @@ export interface NextUp {
 const MEAL_WORD: Record<string, string> = { Morning: 'breakfast', Midday: 'lunch', Afternoon: 'a snack', Evening: 'dinner' };
 
 // "Start Legs" while today's plan isn't done; else the next meal with what's left and what you usually
-// have then; after the last meal, "Plan tomorrow" when nothing is; else what's done
+// have then (any next meal without a protein goal); "Plan tomorrow" for those who train when nothing is; else what's done
 export function nextUp(input: {
   plannedToday?: PlannedDay;
   trainedToday: boolean;
+  trains: boolean; // has workouts or a plan
+  slot?: string; // nextMeal()'s name: the next meal's slot, none after the last
   goal?: FoodGoal;
   today?: FoodDayTotal;
   bubbles: MealBubble[]; // mealBubbles(): the dashed one is the next meal
   usual?: { items: string; around: string }; // what you usually log in that slot
   plannedAhead: boolean;
 }): NextUp {
-  const { plannedToday, trainedToday, goal, today, bubbles, usual, plannedAhead } = input;
+  const { plannedToday, trainedToday, trains, slot, goal, today, bubbles, usual, plannedAhead } = input;
   if (plannedToday && !trainedToday) return { title: `Start ${plannedToday.name}`, sub: `${plannedToday.exercises} exercise${plannedToday.exercises === 1 ? '' : 's'} · planned for today`, action: 'start' };
   const toGo = bubbles.find(b => b.toGo);
   if (toGo) {
     const meal = MEAL_WORD[toGo.name];
     return { title: `Log ${meal} · ${toGo.grams} g to go`, sub: usual ? `Usually ${usual.items}, around ${usual.around}` : `${today?.protein ?? 0} g of ${goal!.target} g so far`, action: 'log', meal };
   }
-  if (!plannedAhead) return { title: 'Plan tomorrow', sub: 'Nothing planned yet', action: 'plan' };
+  if (goal?.kind !== 'protein' && slot) {
+    const meal = MEAL_WORD[slot];
+    return { title: `Log ${meal}`, sub: usual ? `Usually ${usual.items}, around ${usual.around}` : 'In the bar', action: 'log', meal };
+  }
+  if (trains && !plannedAhead) return { title: 'Plan tomorrow', sub: 'Nothing planned yet', action: 'plan' };
   if (goal?.kind === 'protein' && today && today.protein >= goal.target) return { title: 'Protein goal met', sub: `${today.protein} g of ${goal.target} g` };
   return trainedToday ? { title: 'Done for today', sub: 'Rest up' } : { title: 'Log what you did', sub: 'A workout, a meal, or both, in the bar' };
 }

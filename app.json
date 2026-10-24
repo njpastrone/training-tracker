@@ -24,7 +24,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "RCTAsyncStorageExcludeFromBackup": false,
-        "NSHealthShareUsageDescription": "LiftText shows the workouts other apps saved and your body weight on Progress. They stay on this iPhone and are never sent to our server or the AI.",
+        "NSHealthShareUsageDescription": "LiftText shows the workouts other apps saved and your body weight on the Health screen. They stay on this iPhone and are never sent to our server or the AI.",
         "NSHealthUpdateUsageDescription": "LiftText saves the workouts you log to Apple Health, only if you turn that on in Settings."
       },
       "icon": {

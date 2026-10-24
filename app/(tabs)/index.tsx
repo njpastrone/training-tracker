@@ -28,7 +28,7 @@ import { calorieLeft, foodTarget, foodValue, muscleName } from '../../services/g
 import { digest, target } from '../../services/insights';
 import { resolveId } from '../../services/exerciseIdentity';
 import { gapMuscle, todayLine } from '../../services/coachLine';
-import { dayWord, mealBubbles, muscleWeek, nextUp, plannedDays } from '../../services/week';
+import { dayWord, mealBubbles, muscleWeek, nextMeal, nextUp, plannedDays } from '../../services/week';
 import type { FoodGoal, ParsedWorkoutResponse, Workout } from '../../types/workout';
 import LogoMark from '../../components/LogoMark';
 
@@ -78,14 +78,14 @@ export default function TodayScreen() {
 
   const bubbles = useMemo(() => mealBubbles(foodEntries.filter(e => e.date === today), foodGoal, now), [foodEntries, foodGoal, today]);
   const toGo = bubbles.find(b => b.toGo);
+  const slot = toGo?.name ?? nextMeal(bubbles, now)?.[0];
   const usual = useMemo(() => {
-    const slot = toGo && SLOT_WORD[toGo.name];
-    const u = slot && usualMeals(foodEntries, now).find(m => m.slot === slot);
+    const u = slot && SLOT_WORD[slot] && usualMeals(foodEntries, now).find(m => m.slot === SLOT_WORD[slot]);
     if (!u) return undefined;
     const names = u.entry.items.map(i => i.name.toLowerCase());
-    return { items: names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' and '), around: format(parseISO(u.entry.createdAt), 'h a').toLowerCase() };
-  }, [foodEntries, toGo?.name]);
-  const up = nextUp({ plannedToday, trainedToday: todays.length > 0, goal: foodGoal, today: food.get(today), bubbles, usual, plannedAhead: !!next });
+    return { items: names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' and '), around: format(parseISO(u.entry.createdAt), 'h a').toLowerCase(), said: u.entry.items.map(i => i.said ?? i.name).join(', ') };
+  }, [foodEntries, slot]);
+  const up = nextUp({ plannedToday, trainedToday: todays.length > 0, trains: lifts, slot, goal: foodGoal, today: food.get(today), bubbles, usual, plannedAhead: !!next });
 
   // The coach line: what's left of the protein goal, and the goal muscle furthest off that a plan covers
   const d = useMemo(() => digest(workouts, exerciseLibrary, settings.weightUnit), [workouts, exerciseLibrary, settings.weightUnit]);
@@ -173,9 +173,7 @@ export default function TodayScreen() {
   const act = () => {
     if (up.action === 'start') return startPlanned();
     if (up.action === 'plan') return plan('A workout tomorrow');
-    const slot = toGo && SLOT_WORD[toGo.name];
-    const u = slot && usualMeals(foodEntries, now).find(m => m.slot === slot);
-    log.setText(u ? u.entry.items.map(i => i.said ?? i.name).join(', ') : '');
+    if (usual) log.setText(usual.said);
   };
 
   const reviewing = !!log.sent || !!log.draft || !!log.food || !!example;
