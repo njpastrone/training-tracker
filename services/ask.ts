@@ -6,7 +6,7 @@ import { runTool } from './coachTools';
 import { priceMeals, resolveWorkout, type MealCard, type WorkoutCard } from './coachCards';
 import { checkReply, stripInvented } from './coachGuards';
 import { callWorker } from './claude';
-import { useWorkoutStore } from '../stores/workoutStore';
+import { readFoodPrefs, useWorkoutStore } from '../stores/workoutStore';
 
 // The coach (Phase 1, data/lifttext-agentic/report.md): a question about your own training or food,
 // answered by Claude from the context pack (services/coachPack.ts) and the read tools it asks for
@@ -76,7 +76,7 @@ export async function askCoach(question: string, thread: CoachMessage[] = [], no
   if (!stripped.answer.trim()) return { reply: CANT_HELP, raw: JSON.stringify(CANT_HELP), cards: {} };
   const cards: CoachCards = {
     ...(stripped.workout ? { workout: resolveWorkout(stripped.workout, exerciseLibrary, settings.weightUnit, given) } : {}),
-    ...(stripped.meals ? { meals: priceMeals(stripped.meals, foodEntries) } : {}),
+    ...(stripped.meals ? { meals: priceMeals(stripped.meals, foodEntries, readFoodPrefs()) } : {}),
     ...(stripped.remember ? { remember: stripped.remember } : {}),
   };
   if (cards.meals && !cards.meals.length) delete cards.meals;

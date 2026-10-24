@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 import { useColors } from '../contexts/ThemeContext';
 import { fonts, foodCategoryColors, spacing } from '../constants/theme';
-import { useWorkoutStore } from '../stores/workoutStore';
+import { useFoodPrefs, useWorkoutStore } from '../stores/workoutStore';
 import { foodById } from '../data/foods';
 import { mealsOf, sumMacros } from '../services/foods';
 import { amountLabel } from '../services/foodUnits';
 import { calorieLeft, foodTarget } from '../services/goals';
+import { mealCheck, scoreMeal, swapQuestion } from '../services/foodPrefs';
 import type { FoodEntry, FoodItem } from '../types/food';
-import type { FoodGoal } from '../types/workout';
+import type { FoodGoal, FoodPrefs } from '../types/workout';
 import { SectionLabel, SkyCard } from './Sky';
 import FoodRows from './FoodRows';
 import GoalBar from './GoalBar';
+import { Pill } from './Glass';
 
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
 
@@ -23,6 +26,7 @@ export default function FoodDay({ entries, goal, onMove }: { entries: FoodEntry[
   const colors = useColors();
   const removeFoodItem = useWorkoutStore(s => s.removeFoodItem);
   const updateFoodItem = useWorkoutStore(s => s.updateFoodItem);
+  const prefs = useFoodPrefs();
   const [open, setOpen] = useState<string | null>(null);
   if (!entries.length) return null;
 
@@ -84,11 +88,38 @@ export default function FoodDay({ entries, goal, onMove }: { entries: FoodEntry[
                 <FoodLine key={item.id} item={item} onPress={() => setOpen(item.id)} />
               )
             )}
+            {prefs && <MealCheck items={entry.items} meal={name} prefs={prefs} />}
           </View>
         ))}
 
         <Text style={[styles.faint, styles.footer, { color: colors.textTertiary }]}>Tap a food to change the amount</Text>
       </SkyCard>
+    </View>
+  );
+}
+
+// A logged meal against your preferences (data/lt-ui-g/report.md §3.6): one quiet line, "Hit 4 of 5 ·
+// spike likely · rice", never a grade; when it missed one, Make the swap version asks the coach on Chat
+function MealCheck({ items, meal, prefs }: { items: FoodItem[]; meal: string; prefs: FoodPrefs }) {
+  const colors = useColors();
+  const router = useRouter();
+  const card = scoreMeal({ items, eaten: true }, prefs);
+  if (!card.of) return null;
+  const { line, swap } = mealCheck(card);
+  return (
+    <View style={styles.check}>
+      <Text style={[styles.faint, { color: colors.textSecondary }]}>{line}</Text>
+      {swap && (
+        <View style={styles.swap}>
+          <Pill
+            size="small"
+            variant="glass"
+            icon="fork.knife"
+            label="Make the swap version"
+            onPress={() => router.navigate({ pathname: '/(tabs)/chat', params: { question: swapQuestion(meal, items.map(i => i.said ?? i.name)) } })}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -194,5 +225,12 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: 'center',
     paddingTop: spacing.sm,
+  },
+  check: {
+    paddingTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  swap: {
+    flexDirection: 'row',
   },
 });

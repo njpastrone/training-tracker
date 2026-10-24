@@ -5,12 +5,15 @@ import Animated, { FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useTheme } from '../contexts/ThemeContext';
 import { muscleGroupColors, spacing } from '../constants/theme';
 import { macroLine } from '../services/foods';
+import { scoreMeal } from '../services/foodPrefs';
+import { useFoodPrefs } from '../stores/workoutStore';
 import type { CoachCards, CoachReply } from '../services/ask';
 import type { MealCard, WorkoutCard } from '../services/coachCards';
 import type { CoachTurnState } from '../stores/chatStore';
 import { SkyCard, SectionLabel } from './Sky';
 import { Pill } from './Glass';
 import FoodRows from './FoodRows';
+import Scorecard from './Scorecard';
 import LogoMark from './LogoMark';
 
 interface Props {
@@ -100,19 +103,34 @@ function Workout({ workout, planned, onPlan }: { workout: WorkoutCard; planned?:
   );
 }
 
-// One suggested meal: its foods with USDA numbers; Log it saves it into today's food
+// One suggested meal: its foods with USDA numbers; Log it saves it into today's food. With food
+// preferences set, the scorecard says which it hits and which it misses; price and time are estimates.
 function Meal({ meal, logged, onLog }: { meal: MealCard; logged: boolean; onLog?: () => void }) {
   const { colors } = useTheme();
+  const prefs = useFoodPrefs();
+  const card = prefs && scoreMeal({ items: meal.items, price: meal.price, minutes: meal.minutes, unknown: meal.unknown }, prefs);
+  const estimates = [meal.minutes ? `${meal.minutes} min` : '', meal.price ? `~$${meal.price} a serving` : ''].filter(Boolean).join(' · ');
   return (
     <View style={styles.card}>
       <View style={styles.mealHeader}>
         <SectionLabel style={styles.fill}>{meal.label}</SectionLabel>
         <Text variant="labelMedium" style={{ color: colors.textSecondary }}>{macroLine(meal.total)}</Text>
       </View>
+      {estimates ? <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{estimates}</Text> : null}
       {meal.note ? <Text variant="bodySmall" style={{ color: colors.textSecondary }}>{meal.note}</Text> : null}
+      {card && card.of > 0 && (
+        <View style={styles.score}>
+          <Scorecard card={card} />
+        </View>
+      )}
       <FoodRows items={meal.items} />
       {meal.unknown.length > 0 && (
         <Text variant="bodySmall" style={{ color: colors.textTertiary }}>No numbers for {meal.unknown.join(', ')}: not counted.</Text>
+      )}
+      {card && card.of > 0 && (
+        <Text variant="bodySmall" style={{ color: colors.textTertiary }}>
+          Food numbers from the USDA table; price and time are estimates.{prefs.matters.includes('lowSpike') ? ' "Spike" is a judgment from carbs and fiber, not a medical measure.' : ''}
+        </Text>
       )}
       {onLog && (
         <View style={styles.actions}>
@@ -188,6 +206,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  score: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
   actions: {
     flexDirection: 'row',

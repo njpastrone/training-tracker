@@ -5,8 +5,9 @@ import { knownIdFor, displayName } from './exerciseIdentity';
 import { inventedNumbers } from './insights';
 import { estimateMeal } from './coachTools';
 import { sumMacros } from './foods';
+import { neverSuggested } from './foodPrefs';
 import type { Remember, SuggestedMeal, SuggestedWorkout } from '../server/src/coach';
-import type { ExerciseLibrary, Fact, MuscleGroup, UserSettings, WeightUnit } from '../types/workout';
+import type { ExerciseLibrary, Fact, FoodPrefs, MuscleGroup, UserSettings, WeightUnit } from '../types/workout';
 import type { FoodEntry, FoodItem, Macros } from '../types/food';
 import type { TemplateExercise } from '../types/template';
 
@@ -53,14 +54,26 @@ export interface MealCard {
   items: FoodItem[]; // USDA items, ready to log
   unknown: string[]; // foods the table doesn't have
   total: Macros;
+  price?: number; // dollars a serving, the model's estimate; shown as "~$9"
+  minutes?: number; // time to make it, the model's estimate
 }
 
-// Each meal priced from the USDA table on the phone; a meal with nothing the table knows is dropped
-export function priceMeals(meals: SuggestedMeal[], foodEntries: FoodEntry[]): MealCard[] {
+// Each meal priced from the USDA table on the phone; a meal with nothing the table knows is dropped, and
+// so is one that holds a food on the never-suggest list (services/foodPrefs.ts): a filter, not a score
+export function priceMeals(meals: SuggestedMeal[], foodEntries: FoodEntry[], prefs?: FoodPrefs): MealCard[] {
   return meals.flatMap(m => {
+    if (neverSuggested(m.items.map(name => ({ name })), prefs)) return [];
     const { result, parsed: items } = estimateMeal(m.items, foodEntries);
-    if (!items.length) return [];
-    return [{ label: m.label.slice(0, 40), ...(m.note ? { note: m.note.slice(0, 120) } : {}), items, unknown: (result.unknown as string[] | undefined) ?? [], total: sumMacros(items) }];
+    if (!items.length || neverSuggested(items, prefs)) return [];
+    return [{
+      label: m.label.slice(0, 40),
+      ...(m.note ? { note: m.note.slice(0, 120) } : {}),
+      items,
+      unknown: (result.unknown as string[] | undefined) ?? [],
+      total: sumMacros(items),
+      ...(m.price ? { price: m.price } : {}),
+      ...(m.minutes ? { minutes: m.minutes } : {}),
+    }];
   });
 }
 

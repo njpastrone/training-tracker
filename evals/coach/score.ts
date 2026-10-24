@@ -6,6 +6,7 @@ import { inventedNumbers, NAG } from '../../services/insights.ts';
 import { SEE_SOMEONE } from '../../services/coachGuards.ts';
 import { KNOWLEDGE, readCoachReply, type CoachReply } from '../../server/src/coach.ts';
 import type { CoachCase } from './cases.ts';
+import { PREFS } from './fixture.ts';
 
 export interface Check {
   name: string;
@@ -68,6 +69,11 @@ export function scoreCoachCase(c: CoachCase, text: string, pack: unknown, run: T
   if (c.noTools) add('answers from the pack', called.length === 0, called.join(', '));
   if (c.card === 'workout') add('shows a workout', !!reply.workout);
   if (c.card === 'meals') add('shows meals', !!reply.meals);
+  // With food preferences every meal carries the price and minutes estimates, inside the cooking time
+  if (c.user === 'prefs' && reply.meals) {
+    add('meals carry price and minutes', reply.meals.every((m) => m.price !== undefined && m.minutes !== undefined), reply.meals.map((m) => `${m.label}: $${m.price ?? '?'} ${m.minutes ?? '?'} min`).join('; '));
+    add('within cooking time', reply.meals.every((m) => m.minutes === undefined || m.minutes <= PREFS.cooking!), reply.meals.map((m) => `${m.minutes ?? '?'} min`).join(', '));
+  }
   if (c.remember) add(`remembers (${c.remember})`, reply.remember?.kind === c.remember, reply.remember ? `${reply.remember.kind}: ${reply.remember.text}` : 'nothing');
   if (c.noRemember) add('remembers nothing', !reply.remember, reply.remember?.text);
   const all = `${prose}\n${cardText(reply)}`;

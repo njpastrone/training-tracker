@@ -67,11 +67,11 @@ test('readCoachReply reads a suggested workout, meals and a thing to remember, a
   const full = readCoachReply(JSON.stringify({
     headline: 'Start lower, a bit lighter', answer: 'Six days off.', fromLog: '', chips: ['a', 'b', 'c'],
     workout: { name: 'Lower A, lighter', when: 'tomorrow', why: 'legs rested longest', exercises: [{ name: 'Squat', sets: 3, reps: 5, weight: 165, note: 'was 185x5 on Oct 6' }, { name: 'Leg Press', sets: 3, reps: '8-12' }, { name: '', sets: 3, reps: 5 }] },
-    meals: [{ label: 'Lunch', items: ['200 g chicken breast', '1.5 cups white rice'], note: 'your usual' }, { label: 'Empty', items: [] }],
+    meals: [{ label: 'Lunch', items: ['200 g chicken breast', '1.5 cups white rice'], note: 'your usual', price: 8.6, minutes: 15 }, { label: 'Empty', items: [] }, { label: 'Odd', items: ['2 eggs'], price: 'cheap', minutes: -5 }],
     remember: { kind: 'food', text: 'no dairy', quote: 'I do not eat dairy' },
   }))!;
   assert.deepEqual(full.workout, { name: 'Lower A, lighter', when: 'tomorrow', why: 'legs rested longest', exercises: [{ name: 'Squat', sets: 3, reps: 5, weight: 165, note: 'was 185x5 on Oct 6' }, { name: 'Leg Press', sets: 3, reps: '8-12' }] });
-  assert.deepEqual(full.meals, [{ label: 'Lunch', items: ['200 g chicken breast', '1.5 cups white rice'], note: 'your usual' }]);
+  assert.deepEqual(full.meals, [{ label: 'Lunch', items: ['200 g chicken breast', '1.5 cups white rice'], note: 'your usual', price: 9, minutes: 15 }, { label: 'Odd', items: ['2 eggs'] }]);
   assert.deepEqual(full.remember, { kind: 'food', text: 'no dairy', quote: 'I do not eat dairy' });
   const bad = readCoachReply('{"headline":"h","answer":"a","fromLog":"","chips":[],"workout":{"exercises":"squat"},"meals":"chicken","remember":{"kind":"mood","text":"tired"}}')!;
   assert.equal('workout' in bad, false);

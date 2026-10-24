@@ -18,6 +18,7 @@ import { BACKUP_FOLDER, lastWeeklyBackupDate, pickBackup, restoreBackup, shareBa
 import { forgetFact } from '../services/coachCards';
 import { importSummary, pickExport, plural, readExport } from '../services/importHistory';
 import { healthAvailable, requestHealthAccess } from '../services/health';
+import { prefsSummary } from '../services/foodPrefs';
 import type { WeightUnit } from '../types/workout';
 
 export default function SettingsScreen() {
@@ -202,6 +203,12 @@ export default function SettingsScreen() {
             onPress={pickGoal}
           />
           <Row
+            icon="fork.knife"
+            title="Food preferences"
+            subtitle={settings.foodPrefs ? prefsSummary(settings.foodPrefs) : 'High protein, low spike, no seed oils, a budget'}
+            onPress={() => router.push('/food-prefs')}
+          />
+          <Row
             icon="logo"
             title="AI reading"
             subtitle={
@@ -339,7 +346,7 @@ export default function SettingsScreen() {
         <SectionLabel style={styles.label}>About</SectionLabel>
         <SkyCard style={styles.card}>
           <Row first icon="info.circle" title="LiftText" subtitle={`Version ${Constants.expoConfig?.version}`} />
-          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts, chat history and progress photos are saved only on this phone, and nothing from Apple Health is ever sent. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
+          <Row icon="lock.shield" title="Privacy policy" subtitle="Workouts, chat history and progress photos are saved only on this phone, and nothing from Apple Health is ever sent. With AI reading on, what you type goes to Anthropic through our server; a question to the coach also sends a summary of your last 4 weeks, the things you told it to remember, your food preferences and what the question needs, never the whole log. Our server never stores what you type." onPress={() => Linking.openURL(legalUrl('privacy'))} />
           <Row icon="doc.text" title="Terms of use" subtitle="Not medical advice; AI can be wrong, so review before saving" onPress={() => Linking.openURL(legalUrl('terms'))} />
         </SkyCard>
         </SkySheet>

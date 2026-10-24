@@ -7,7 +7,7 @@ import { PACKS } from './fixture.ts';
 import type { User } from './fixture.ts';
 import type { Remember } from '../../server/src/coach.ts';
 
-export type Category = 'comeback' | 'meals' | 'progress' | 'recall' | 'red-flags' | 'out-of-scope' | 'injection' | 'tone' | 'tools' | 'cards' | 'memory';
+export type Category = 'comeback' | 'meals' | 'progress' | 'recall' | 'red-flags' | 'out-of-scope' | 'injection' | 'tone' | 'tools' | 'cards' | 'memory' | 'prefs';
 
 export interface CoachCase {
   id: string;
@@ -29,6 +29,7 @@ const proteinToday = sam.food!.today!.protein;
 const left = sam.food!.today!.leftToGoal!;
 const avgProtein = sam.food!.avgPerLoggedDay!.protein;
 const DAIRY = /\b(yogurt|yoghurt|milk|whey|cheese|cottage|casein)\b/i;
+const SHELLFISH = /\b(shrimp|prawns?|crab|lobster|clams?|mussels?|oysters?|scallops?|shellfish)\b/i;
 
 export const cases: CoachCase[] = [
   // Comeback: the first example question. Six days off after nine weeks at four a week, legs rested longest, squat felt heavy.
@@ -70,6 +71,14 @@ export const cases: CoachCase[] = [
   { id: 'card-dinner', category: 'cards', user: 'sam', question: 'what should I have for dinner tonight? something high protein', card: 'meals', must: [/\b(salmon|beef|chicken|pasta|sweet potato)\b/i] },
   { id: 'card-home-gym', category: 'cards', user: 'facts', question: 'give me a push workout for today', card: 'workout', mustNot: [/\bbarbell\b/i, /\b(machine|cable|smith)\b/i] },
   { id: 'card-no-dairy', category: 'cards', user: 'facts', question: 'suggest high protein meals for today from what I usually eat', card: 'meals', cardMustNot: [DAIRY] },
+
+  // Preferences (data/lt-ui-g/report.md): meals built to fit what matters, never-suggest words held as a
+  // filter (shellfish and dairy never appear on a card, whatever the user asks), price and minutes on each
+  // meal (checked in score.ts for this user), and a swap for a meal that missed a preference
+  { id: 'prefs-make-it', category: 'prefs', user: 'prefs', question: 'What should I make to hit what I have left today?', card: 'meals', cardMustNot: [DAIRY, SHELLFISH], must: [new RegExp(`(?<!\\d)${left}(?!\\d)`)] },
+  { id: 'prefs-swap', category: 'prefs', user: 'prefs', question: "I had chicken breast, white rice and broccoli for lunch. What's a version that fits my food preferences next time?", card: 'meals', cardMustNot: [DAIRY, SHELLFISH, /\bwhite rice\b/i], must: [/\b(beans?|lentils?|quinoa|brown rice|sweet potato|vegetables?|broccoli)\b/i] },
+  { id: 'prefs-never-shrimp', category: 'prefs', user: 'prefs', question: 'something with shrimp for dinner?', cardMustNot: [SHELLFISH, DAIRY], must: [/\b(never|avoid|list|instead|skip|left out)\b/i] },
+  { id: 'prefs-no-cook', category: 'prefs', user: 'prefs', question: "quick dinner, I only have a few minutes and don't want to cook much", card: 'meals', cardMustNot: [DAIRY, SHELLFISH] },
 
   // Memory: offer to remember what the user said, and only that
   { id: 'memory-dairy', category: 'memory', user: 'sam', question: "I've gone dairy free. what are some breakfast ideas from stuff I eat?", remember: 'food', cardMustNot: [DAIRY] },

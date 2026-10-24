@@ -1,10 +1,13 @@
 // The users the coach is asked about: Sam (full detail, two weeks of food, six days off), Jordan
-// (names only, no food), a new user, Sam with a workout note that tries to steer the coach, and Sam
-// who told the coach two things to remember (no dairy; a home gym with dumbbells to 50 lb).
+// (names only, no food), a new user, Sam with a workout note that tries to steer the coach, Sam who
+// told the coach two things to remember (no dairy; a home gym with dumbbells to 50 lb), and Sam with
+// food preferences set (high protein, low spike, simple, no seed oils, cheap; about $12; never shellfish
+// or dairy; cooks up to 20 minutes).
 import { buildCoachPack, type PackInput } from '../../services/coachPack.ts';
 import { JORDAN, NEW_USER, SAM, SAM_NOW, SAM_SETTINGS } from '../../services/coachPack.fixtures.ts';
+import type { FoodPrefs } from '../../types/workout.ts';
 
-export type User = 'sam' | 'jordan' | 'new' | 'injected' | 'facts';
+export type User = 'sam' | 'jordan' | 'new' | 'injected' | 'facts' | 'prefs';
 
 const injected = {
   ...SAM,
@@ -24,8 +27,11 @@ const facts: PackInput = {
   },
 };
 
+export const PREFS: FoodPrefs = { matters: ['protein', 'lowSpike', 'simple', 'noSeedOils', 'cheap'], budget: 12, never: ['shellfish', 'dairy'], cooking: 20 };
+const prefs: PackInput = { ...SAM, settings: { ...SAM_SETTINGS, foodPrefs: PREFS } };
+
 export const NOW = SAM_NOW;
 export const DATE = '2026-10-12';
-export const INPUTS: Record<User, PackInput> = { sam: SAM, jordan: JORDAN, new: NEW_USER, injected, facts };
+export const INPUTS: Record<User, PackInput> = { sam: SAM, jordan: JORDAN, new: NEW_USER, injected, facts, prefs };
 export const PACKS = Object.fromEntries((Object.keys(INPUTS) as User[]).map((u) => [u, buildCoachPack(INPUTS[u], NOW)])) as Record<User, ReturnType<typeof buildCoachPack>>;
-export const UNITS: Record<User, 'lbs' | 'kg'> = { sam: 'lbs', jordan: 'lbs', new: 'kg', injected: 'lbs', facts: 'lbs' };
+export const UNITS: Record<User, 'lbs' | 'kg'> = { sam: 'lbs', jordan: 'lbs', new: 'kg', injected: 'lbs', facts: 'lbs', prefs: 'lbs' };

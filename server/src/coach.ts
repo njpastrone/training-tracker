@@ -82,6 +82,10 @@ After days off: nothing is lost in a week and strength holds about four weeks. T
 Build meals from the foods the user actually logs: the usual meals for each slot, the top protein sources and usual portions in the pack, or food_patterns for more. Quote protein and calories only from the pack or from estimate_meal; never estimate macros yourself. Respect anything in the pack's facts the user avoids or cannot eat.
 </meals>
 
+<preferences>
+When the pack's profile has foodPrefs, every meal you suggest is built to fit them. "matters" is what to aim for: high protein means a full serving of protein in the meal (the per-meal range in <knowledge>); low glucose spike means carbs from beans, lentils, vegetables, dairy or whole grains rather than white rice, white bread, sugar or sweet drinks; simple ingredients means five foods or fewer; no seed oils means olive oil, avocado oil, butter or ghee, nothing fried, no mayonnaise or bottled dressing, and none of canola, soybean, corn, cottonseed, sunflower, safflower, grapeseed or rice bran oil (peanut oil is the user's call: name it when you use it); cheap means a serving at or under the budget; low calorie a light meal; high fiber beans, lentils, vegetables or whole grains. "never" is a hard filter: a meal that holds one of those foods in any form is never suggested, whatever the user asks for; say in a few words that it is on their never list and suggest something else. "cooking" is the most minutes a meal may take; "doesn't cook" means no stove, only food that is assembled. Give every meal a "price" (your estimate of one serving in US dollars, a number) and "minutes" (the time to make it, a number); they are estimates and belong only in those fields, never in the answer text or a note. The app checks each meal against the preferences from the food table and shows which it hits and which it misses, so the answer does not repeat that; it may say in words what a meal is built around.
+</preferences>
+
 <memory>
 When the user states something lasting about themselves that the log cannot show (a food they avoid, equipment they have, a schedule, an injury to work around, a preference), offer to remember it: put it in "remember" with their own words as the quote. Only for what the user said, never for what you inferred. The app asks them before saving. The answer and any card respect what they just said right away.
 </memory>
@@ -91,7 +95,7 @@ Reply with only a compact JSON object, no markdown, also after tool results:
 {"headline": string, "answer": string, "fromLog": string, "chips": [string, string, string], "workout"?: {...}, "meals"?: [...], "remember"?: {...}}
 headline: at most 8 words. answer: the answer, plain text, line breaks allowed; when you include a workout or meals, the answer says why in a sentence or two and the card carries the details, not the text. fromLog: one line naming the facts from the pack or tools the answer rests on ("6 days since your last workout; squat 185x5 felt heavy on Oct 6"), or an empty string when the answer used none. chips: exactly three follow-ups the user might ask next, each under 6 words.
 workout, when you suggest a session: {"name": string, "when": "today" | "tomorrow", "why": string, "exercises": [{"name": string, "sets": number, "reps": number | string, "weight"?: number, "note"?: string}]}. Use exercise names from the pack or the catalog; weights only from the pack or exercise_history (the "lighter" numbers for a comeback); a note like "was 185x5 on Oct 6" where a weight changed.
-meals, when you suggest food: [{"label": string, "items": [string], "note"?: string}], each item a food with an amount as estimate_meal takes it ("200 g chicken breast"). The app shows the USDA numbers for each meal and lets the user log it.
+meals, when you suggest food: [{"label": string, "items": [string], "note"?: string, "price"?: number, "minutes"?: number}], each item a food with an amount as estimate_meal takes it ("200 g chicken breast"); price and minutes as <preferences> says, when the user has food preferences. The app shows the USDA numbers for each meal and lets the user log it.
 remember, when the user told you something to keep: {"kind": "constraint" | "preference" | "equipment" | "food" | "injury", "text": string, "quote": string}.
 </output>
 
@@ -155,6 +159,8 @@ export interface SuggestedMeal {
   label: string;
   items: string[]; // "200 g chicken breast"
   note?: string;
+  price?: number; // dollars a serving, the model's estimate (only with food preferences)
+  minutes?: number; // time to make it, the model's estimate
 }
 
 export interface Remember {
@@ -184,7 +190,11 @@ function readMeals(raw: unknown): SuggestedMeal[] | undefined {
   const meals = raw.flatMap((m): SuggestedMeal[] => {
     if (!isObj(m) || !Array.isArray(m.items)) return [];
     const items = m.items.map(str).filter(Boolean);
-    return items.length ? [{ label: str(m.label) || 'Meal', items: items.slice(0, 10), ...(str(m.note) ? { note: str(m.note) } : {}) }] : [];
+    const price = num(m.price);
+    const minutes = num(m.minutes);
+    return items.length
+      ? [{ label: str(m.label) || 'Meal', items: items.slice(0, 10), ...(str(m.note) ? { note: str(m.note) } : {}), ...(price ? { price: Math.min(200, Math.round(price)) } : {}), ...(minutes ? { minutes: Math.min(240, Math.round(minutes)) } : {}) }]
+      : [];
   });
   return meals.length ? meals.slice(0, 6) : undefined;
 }
