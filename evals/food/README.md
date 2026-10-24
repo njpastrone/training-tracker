@@ -88,6 +88,11 @@ log, $0.003 on Haiku 4.5. See FEATURES.md, "Food logging", for categories, cost 
 The prompt now also asks for a `fiber` estimate on each estimated item and one `gi` band (low, medium, high) for
 the meal, in the same call. Nine dev cases carry reference bands (white rice, pasta, a big plate of pasta and a can
 of coke high; 2 eggs and a chicken caesar low; eggs and toast, eggs and a banana, a cup of lentils low or medium):
-9 of 9 right. On the dev set every one of the 112 estimated items came back with fiber and 307 of 309 meals with
-food got a band (96 low, 160 medium, 51 high). Macros and cost didn't move: dev 92% / 90% / 79% (kcal, protein
-within 20%, kcal within 10%) at $0.0022 per log with 14% escalated; held-out 84% / 85% / 68%.
+9 of 9 right. On the dev set all 115 estimated items came back with fiber and all 309 meals with food got a band
+(102 low, 159 medium, 48 high). Macros held: dev 91% / 90% (kcal, protein within 20%) at $0.0020 per log with 11%
+escalated; held-out 85% / 84% / 67% (kcal within 10%), 15% escalated, $0.0026 per log, p50 5.3 s.
+
+The first draft of the prompt doubled escalation on the held-out set (11% → 24%, $0.0018 → $0.0033 per log): Haiku
+folded its doubt about the fiber and gi guesses into `confidence`. One sentence saying confidence is about what was
+eaten and how much, never about the estimates, brought it back to 15%. The remaining gap to the old prompt, measured
+in the same session (11% escalated, $0.0018, p50 4.5 s), is the extra output tokens and a few more escalations.

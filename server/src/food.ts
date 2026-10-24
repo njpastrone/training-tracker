@@ -21,6 +21,7 @@ const SYSTEM_PROMPT = `You turn someone's free-text food log into structured dat
 Reply with only a compact JSON object on one line, no markdown or other text: items (array), gi, confidence (0 to 1).
 Each item has: said, food, name, qty, unit, grams, dayOffset, kcal, protein, carbs, fat, fiber. Anything that doesn't apply is null (dayOffset is 0 unless another day is meant).
 gi is your estimate of the whole meal's glycemic load as one word, "low", "medium" or "high", judged from how much carbohydrate it has, how refined it is, and how much protein, fat and fiber come with it: eggs, meat, fish, cheese, nuts, salads and non-starchy vegetables, lentils and beans are low; refined starch or sugar as the bulk of the meal (white rice, pasta, white bread, potatoes, sugary drinks, juice, sweets, pastries) is high; whole grains, oats, fruit, dairy, or a starch eaten with plenty of protein, fat or fiber are medium. null when no food was eaten.
+confidence is how sure you are of what was eaten and how much. Estimated numbers, fiber and gi are rough by nature and never lower it.
 A food named with no amount ("toast", "some rice") is a complete log: it's one typical serving. Give the item with qty and unit null (except additions, see amounts), and grams (and an estimate's numbers) for that serving. Never leave an item without numbers because no amount was given.
 </output>
 
