@@ -56,7 +56,7 @@ export default function FoodGoalsScreen() {
             const goal = byFamily(f);
             const kcal = f === 'calories';
             const name = f === 'calories' ? 'Calories' : FOOD_GOAL_NAMES[DEFAULTS[f].kind];
-            const note = f === 'fiber' && !known.fiber ? 'Shows on Food once your food log carries fiber numbers' : f === 'lowgi' && !known.lowgi ? 'Shows on Food once your food log carries glycemic index estimates' : undefined;
+            const note = f === 'fiber' && !known.fiber ? 'Shows on Food once your food log carries fiber numbers' : f === 'lowgi' && !known.lowgi ? 'Shows on Food once your food log carries glycemic-load estimates' : undefined;
             return (
               <View key={f} style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.dim }]}>
                 <View style={styles.head}>
