@@ -140,25 +140,24 @@ export function exerciseOverview(workouts: Workout[], library: ExerciseLibrary, 
 }
 
 // Each day's food: protein, calories and fiber summed (rounded once, for the day), how many foods and meals
-// (logged messages), and of those meals how many carry a gi band and how many of them are low. Fiber counts only
-// the foods that have a number (USDA foods and estimates since fiber was asked for); it's unset when none do.
+// (logged messages), and how many meals the model read as low-GI. Fiber counts only the foods that have a number
+// (USDA foods and estimates since fiber was asked for) and lowGiMeals only the meals with a gi band; each is unset
+// when the day has none, so the fiber and low-GI goal rows can tell "none" from "no data yet".
 export interface FoodDayTotal {
   protein: number;
   kcal: number;
   fiber?: number;
   foods: number;
   meals: number;
-  giMeals: number; // meals with a gi band (entries before the band existed have none)
-  lowGi: number; // of those, meals the model read as low
+  lowGiMeals?: number; // of the meals with a gi band, how many are low; unset when none has a band
 }
 
 export function foodByDay(entries: FoodEntry[]): Map<string, FoodDayTotal> {
   const raw = new Map<string, FoodDayTotal>();
   for (const e of entries) {
-    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0, meals: 0, giMeals: 0, lowGi: 0 };
+    const t = raw.get(e.date) ?? { protein: 0, kcal: 0, foods: 0, meals: 0 };
     t.meals++;
-    if (e.gi) t.giMeals++;
-    if (e.gi === 'low') t.lowGi++;
+    if (e.gi) t.lowGiMeals = (t.lowGiMeals ?? 0) + (e.gi === 'low' ? 1 : 0);
     for (const i of e.items) {
       t.protein += i.macros.protein;
       t.kcal += i.macros.kcal;

@@ -114,19 +114,21 @@ const FOOD = [
 test('food over the last 7 days: per day, averaged over the days with food only', () => {
   const week = foodWeek(FOOD, NOW);
   assert.deepEqual(week.days.map(d => d.date), ['2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06']);
-  assert.deepEqual(week.days[0].total, { protein: 141, kcal: 1406, foods: 3, meals: 2, giMeals: 0, lowGi: 0 });
+  assert.deepEqual(week.days[0].total, { protein: 141, kcal: 1406, foods: 3, meals: 2 });
   assert.equal(week.days[1].total, undefined);
   assert.equal(week.logged, 3);
   assert.equal(week.protein, Math.round((141 + 100 + 150) / 3));
   assert.deepEqual(foodWeek([], NOW), { days: week.days.map(d => ({ date: d.date, total: undefined })), logged: 0, protein: 0, kcal: 0, carbs: 0, fat: 0, top: [] });
 });
 
-test('food by day: fiber summed over the foods that have it, meals with a gi band and the low ones counted', () => {
+test('food by day: fiber summed over the foods that have it, low-GI meals counted among the banded ones, both unset without data', () => {
   const item = (name: string, fiber?: number) => ({ id: name, name, source: 'estimate' as const, macros: { kcal: 100, protein: 5, carbs: 10, fat: 2, ...(fiber !== undefined ? { fiber } : {}) } });
   const entry = (id: string, gi: FoodEntry['gi'], ...items: ReturnType<typeof item>[]): FoodEntry => ({ id, date: '2026-10-05', rawInput: '', createdAt: id, items, ...(gi ? { gi } : {}) });
   const day = foodByDay([entry('a', 'low', item('Eggs', 0), item('Toast', 2.4)), entry('b', 'high', item('Rice', 1.2)), entry('c', undefined, item('Pizza'))]).get('2026-10-05')!;
-  assert.deepEqual(day, { protein: 20, kcal: 400, fiber: 4, foods: 4, meals: 3, giMeals: 2, lowGi: 1 });
-  assert.equal('fiber' in foodByDay([entry('d', undefined, item('Pizza'))]).get('2026-10-05')!, false); // no food with a number: unknown, not 0
+  assert.deepEqual(day, { protein: 20, kcal: 400, fiber: 4, foods: 4, meals: 3, lowGiMeals: 1 });
+  assert.deepEqual(foodByDay([entry('b', 'high', item('Rice', 1.2))]).get('2026-10-05')!.lowGiMeals, 0); // banded meals, none low: 0
+  const none = foodByDay([entry('d', undefined, item('Pizza'))]).get('2026-10-05')!;
+  assert.deepEqual(['fiber' in none, 'lowGiMeals' in none], [false, false]); // no data: unknown, not 0
 });
 
 test('food week: carbs and fat a day, and the top 3 protein sources by short name', () => {
