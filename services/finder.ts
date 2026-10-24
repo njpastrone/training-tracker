@@ -161,6 +161,6 @@ export const pickEntry = (pick: FinderPick, now: Date = new Date()): FoodEntry =
 // request with a food word and a nearby phrase; anything that reports eating stays a log
 export const asksNearby = (text: string) =>
   !/\b(had|ate|eaten|was|were|got|grabbed|picked up|(breakfast|lunch|dinner) at)\b|:/i.test(text) &&
-  /\b(find|get me|where|what'?s good|what should i eat|any|suggest|recommend|looking for|hungry)\b/i.test(text) &&
+  /\b(find|get me|where|what['’]?s good|what should i eat|any|suggest|recommend|looking for|hungry)\b/i.test(text) &&
   /\b(food|eat|meal|lunch|dinner|breakfast|snack|hungry)\b/i.test(text) &&
   /\b(near ?by|near me|around me|around here|close by)\b/i.test(text);
