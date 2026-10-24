@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import Places, { type NearbyPlace, type Point } from '../modules/places';
 import { buildFinderRequest, MAX_PLACES, readFinderReply, type Category, type Distance, type FinderInput, type FinderPick, type FinderPlace, type Preference } from '../server/src/finder';
+import { fitsPrompt } from '../server/src/identity';
 import { readFoodPrefs } from './foodPrefs';
 import { callWorker } from './claude';
 import { sumMacros } from './foods';
@@ -44,7 +45,7 @@ const CATEGORY: Record<string, Category> = { MKPOICategoryRestaurant: 'restauran
 export const distanceBucket = (m: number): Distance => (m < 200 ? 'under_200m' : m < 500 ? 'under_500m' : m < 1000 ? 'under_1km' : m < 2000 ? 'under_2km' : 'further');
 
 // What the Worker gets about the places: name, kind and bucket, nearest first, at most MAX_PLACES, one
-// per name (a chain with two branches is one entry, the nearer one)
+// per name (a chain with two branches is one entry, the nearer one), and only names the Worker accepts
 const placeName = (name: string) => name.trim().slice(0, 60);
 const placeKey = (name: string) => placeName(name).toLowerCase();
 
@@ -54,7 +55,7 @@ export function reducePlaces(places: NearbyPlace[]): FinderPlace[] {
     .sort((a, b) => a.distanceM - b.distanceM)
     .filter((p) => {
       const key = placeKey(p.name);
-      if (!key || seen.has(key)) return false;
+      if (!fitsPrompt(placeName(p.name)) || seen.has(key)) return false;
       seen.add(key);
       return true;
     })

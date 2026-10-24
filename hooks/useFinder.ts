@@ -15,7 +15,8 @@ const nearbyById = (id: string) => useChatStore.getState().items.find((i): i is 
 
 // Find food near you, from the Chat tab: one tap runs the search and the result lands in the thread
 // as a card (components/FinderCard.tsx). The first tap with nowhere set up opens Where to look.
-// A where chip on the card or a follow-up chip runs it again and replaces that card's result;
+// A where chip on the card runs it again and replaces that card's result until its pick is logged;
+// a follow-up chip adds a new card;
 // Log it writes the best pick into today's food, and tapping again takes it out.
 export function useFinder() {
   const router = useRouter();

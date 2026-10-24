@@ -15,7 +15,7 @@ interface Props {
   result: FinderResult;
   logged?: boolean;
   busy?: boolean;
-  onWhere: (where: WhereKey) => void; // runs it again from another place
+  onWhere: (where: WhereKey) => void; // runs it again from another place, until the pick is logged
   onDirections: (place: string) => void;
   onLog: () => void;
 }
@@ -47,11 +47,11 @@ export default function FinderCard({ result, logged, busy, onWhere, onDirections
             return (
               <Pressable
                 key={c.key}
-                onPress={() => !on && !busy && onWhere(c.key)}
+                onPress={() => !on && !busy && !logged && onWhere(c.key)}
                 accessibilityRole="button"
-                accessibilityState={{ selected: on, disabled: !!busy }}
+                accessibilityState={{ selected: on, disabled: !!busy || !!logged }}
                 accessibilityLabel={`Look near ${c.label}`}
-                style={[styles.chip, on ? { backgroundColor: colors.text } : { backgroundColor: colors.dim }]}
+                style={[styles.chip, on ? { backgroundColor: colors.text } : { backgroundColor: colors.dim }, logged && !on && { opacity: 0.4 }]}
               >
                 {on && <SymbolView name="checkmark" size={11} weight="bold" tintColor={colors.surface} />}
                 <Text style={[styles.chipLabel, { color: on ? colors.surface : colors.text }]}>{c.label}</Text>

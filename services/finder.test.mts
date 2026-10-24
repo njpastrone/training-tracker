@@ -134,3 +134,25 @@ test('a long or padded place name keeps its distance and pin; the saved card has
   assert.match(saved, /Harvest bowl/);
   assert.doesNotMatch(saved, /distanceM|minutes|whereLabel|East Village/);
 });
+
+test('a place name the Worker would refuse is left out, not the whole search', () => {
+  const odd = [{ name: 'Bar <Grill>', category: 'MKPOICategoryRestaurant', distanceM: 50, lat: 0, lon: 0 }, { name: 'Two\nLines', category: 'MKPOICategoryCafe', distanceM: 70, lat: 0, lon: 0 }, ...found];
+  assert.deepEqual(reducePlaces(odd as any).map((p) => p.name), ['Corner Deli', 'Chipotle', "Joe's Pizza"]);
+});
+
+test('once its pick is logged, a card keeps it: a where-chip re-run does not swap the result or allow a second log', () => {
+  const result = { where: 'live', walkMinutes: 10, preferences: [], picks: [{ place: 'Chipotle', item: 'Bowl', kcal: 500, protein: 40, carbs: 40, fat: 15, price: 11, verdicts: [], why: '', confidence: 0.8 }], skipped: [], searched: 1, guessed: false } as any;
+  useChatStore.getState().add({ kind: 'nearby', result });
+  const id = useChatStore.getState().items.at(-1)!.id;
+  const before = useWorkoutStore.getState().foodEntries.length;
+  const entry = pickEntry(result.picks[0]);
+  useWorkoutStore.getState().addFoodEntry(entry);
+  useChatStore.getState().patchNearby(id, { logged: entry.id });
+  useChatStore.getState().patchNearby(id, { result: { ...result, where: 'Home', picks: [{ ...result.picks[0], place: 'Sweetgreen' }] }, logged: undefined });
+  const card = useChatStore.getState().items.find((i) => i.id === id) as any;
+  assert.equal(card.logged, entry.id);
+  assert.equal(card.result.picks[0].place, 'Chipotle');
+  assert.equal(useWorkoutStore.getState().foodEntries.length, before + 1);
+  useChatStore.getState().patchNearby(id, { logged: undefined }); // undo still works
+  assert.equal((useChatStore.getState().items.find((i) => i.id === id) as any).logged, undefined);
+});

@@ -36,7 +36,7 @@ interface ChatState {
   skippedOpener?: string; // the day "Not today" was tapped
   add: (...items: NewChatItem[]) => void;
   patch: (id: string, change: Partial<CoachTurnState>) => void;
-  patchNearby: (id: string, change: { result?: FinderResult; logged?: string }) => void;
+  patchNearby: (id: string, change: { result?: FinderResult; logged?: string }) => void; // a logged card keeps its result
   skipOpener: (day: string) => void;
   clear: () => void;
 }
@@ -60,7 +60,7 @@ export const useChatStore = create<ChatState>()(
       },
       patch: (id, change) =>
         set((s) => ({ items: s.items.map((i) => (i.id === id && i.kind === 'answer' ? { ...i, turn: { ...i.turn, ...change } } : i)) })),
-      patchNearby: (id, change) => set((s) => ({ items: s.items.map((i) => (i.id === id && i.kind === 'nearby' ? { ...i, ...change } : i)) })),
+      patchNearby: (id, change) => set((s) => ({ items: s.items.map((i) => (i.id === id && i.kind === 'nearby' && !(change.result && i.logged) ? { ...i, ...change } : i)) })),
       skipOpener: (day) => set({ skippedOpener: day }),
       clear: () => set({ items: [], skippedOpener: undefined }),
     }),
